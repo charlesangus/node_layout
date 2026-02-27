@@ -1,7 +1,5 @@
 import nuke
 
-HORIZ_GAP = 150
-
 _TOOLBAR_FOLDER_MAP = None
 
 
@@ -40,7 +38,7 @@ def same_toolbar_folder(node_a, node_b):
     return folder_a == folder_b
 
 
-SUBTREE_GAP = 300  # vertical clearance between adjacent subtrees (bottom of one to top of next)
+SUBTREE_MARGIN = 300  # vertical clearance between adjacent subtrees, and between a dot and the node above it
 
 
 def get_dag_snap_threshold():
@@ -161,16 +159,20 @@ def compute_dims(node, memo, snap_threshold):
         if n == 1:
             W = max(node.screenWidth(), child_dims[0][0])
         elif n == 2:
-            # input[0] sits at x (same column as node); input[1] sits at x + node_w + HORIZ_GAP
-            W = max(child_dims[0][0], node.screenWidth() + HORIZ_GAP + child_dims[1][0])
+            # input[0] sits at x (same column as node); input[1] sits at x + node_w + SUBTREE_MARGIN
+            W = max(child_dims[0][0], node.screenWidth() + SUBTREE_MARGIN + child_dims[1][0])
         else:
             # n >= 3: input[0] above node (at x); inputs[1..n-1] rightward from node's right edge
-            W = max(child_dims[0][0], node.screenWidth() + (n - 1) * HORIZ_GAP + sum(w for w, h in child_dims[1:]))
+            W = max(child_dims[0][0], node.screenWidth() + (n - 1) * SUBTREE_MARGIN + sum(w for w, h in child_dims[1:]))
         # Staircase formula for all n: each input gets its own vertical band.
         # Total height is sum of all child subtree heights plus per-gap values that
         # depend on the tile colors of adjacent nodes.
         gap_to_consumer = vertical_gap_between(inputs[n - 1], node, snap_threshold)
-        inter_band_gaps = (n - 1) * SUBTREE_GAP
+        # When there are side inputs (n > 1), a dot will be inserted for inputs[n-1].
+        # Reserve at least SUBTREE_MARGIN so the dot fits without overlapping.
+        if n > 1:
+            gap_to_consumer = max(gap_to_consumer, SUBTREE_MARGIN)
+        inter_band_gaps = (n - 1) * SUBTREE_MARGIN
         H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_to_consumer + inter_band_gaps
         result = (W, H)
 
@@ -200,12 +202,12 @@ def place_subtree(node, x, y, memo, snap_threshold):
     - node-to-consumer gap: `vertical_gap_between(inputs[n-1], node, snap_threshold)` —
       color-aware; tight when the input and consumer share an explicit tile color, larger
       otherwise.
-    - inter-subtree gap: `SUBTREE_GAP` (fixed 300 units) — keeps adjacent subtrees well
-      separated regardless of color.
+    - inter-subtree gap: `SUBTREE_MARGIN` (fixed 300 units) — keeps adjacent subtrees
+      separated, and also sets the gap between a side-input dot and the node above it.
 
         bottom_y[n-1] = y - vertical_gap_between(inputs[n-1], node, snap_threshold)
         for i in range(n-2, -1, -1):
-            bottom_y[i] = bottom_y[i+1] - child_dims[i+1][1] - SUBTREE_GAP
+            bottom_y[i] = bottom_y[i+1] - child_dims[i+1][1] - SUBTREE_MARGIN
 
     Within its band each input node is positioned at the band's bottom
     (closest to its consumer):
@@ -213,7 +215,7 @@ def place_subtree(node, x, y, memo, snap_threshold):
         y_for_input[i] = bottom_y[i] - inputs[i].screenHeight()
 
     Because each band's height equals the subtree's full compute_dims height,
-    and consecutive bands are separated by SUBTREE_GAP, no two subtrees can
+    and consecutive bands are separated by SUBTREE_MARGIN, no two subtrees can
     ever overlap in Y.
 
     X placement
@@ -227,18 +229,34 @@ def place_subtree(node, x, y, memo, snap_threshold):
     node.setXpos(x)
     node.setYpos(y)
 
-    inputs = get_inputs(node)
-    if not inputs:
+    # Build a list of (actual_slot_index, input_node) pairs so that later
+    # setInput calls use the correct slot even when some slots are None.
+    if _hides_inputs(node):
+        input_slot_pairs = []
+    else:
+        input_slot_pairs = [
+            (slot, node.input(slot))
+            for slot in range(node.inputs())
+            if node.input(slot) is not None
+        ]
+    if not input_slot_pairs:
         return
 
+    actual_slots = [slot for slot, _ in input_slot_pairs]
+    inputs = [inp for _, inp in input_slot_pairs]
     n = len(inputs)
     child_dims = [compute_dims(inp, memo, snap_threshold) for inp in inputs]
 
     # --- Y staircase: backward walk so input[n-1] is closest to root ---
+    # Mirror the gap enlargement from compute_dims: when n > 1 a dot will be
+    # inserted for inputs[n-1], so the gap must be at least SUBTREE_MARGIN.
+    gap_closest = vertical_gap_between(inputs[n - 1], node, snap_threshold)
+    if n > 1:
+        gap_closest = max(gap_closest, SUBTREE_MARGIN)
     bottom_y = [0] * n
-    bottom_y[n - 1] = y - vertical_gap_between(inputs[n - 1], node, snap_threshold)
+    bottom_y[n - 1] = y - gap_closest
     for i in range(n - 2, -1, -1):
-        bottom_y[i] = bottom_y[i + 1] - child_dims[i + 1][1] - SUBTREE_GAP
+        bottom_y[i] = bottom_y[i + 1] - child_dims[i + 1][1] - SUBTREE_MARGIN
 
     y_positions = [bottom_y[i] - inputs[i].screenHeight() for i in range(n)]
 
@@ -247,18 +265,50 @@ def place_subtree(node, x, y, memo, snap_threshold):
         x_positions = [x]
     elif n == 2:
         # input[0] directly above root; input[1] one step right of root's right edge.
-        x_positions = [x, x + node.screenWidth() + HORIZ_GAP]
+        x_positions = [x, x + node.screenWidth() + SUBTREE_MARGIN]
     else:
         # n >= 3: input[0] directly above root; inputs[1..n-1] step right from root's right edge.
         x_positions = [x]
-        current_x = x + node.screenWidth() + HORIZ_GAP
+        current_x = x + node.screenWidth() + SUBTREE_MARGIN
         for i in range(1, n):
             x_positions.append(current_x)
-            current_x += child_dims[i][0] + HORIZ_GAP
+            current_x += child_dims[i][0] + SUBTREE_MARGIN
+
+    # --- Insert Dots for non-primary inputs that are not already Dots ---
+    # Deselect all nodes before creating any dot so Nuke cannot auto-connect it.
+    for selected_node in nuke.selectedNodes():
+        selected_node['selected'].setValue(False)
+    for i in range(1, n):
+        if inputs[i].Class() != 'Dot':
+            dot = nuke.nodes.Dot()
+            # Disconnect any auto-connection Nuke may have made, then wire inline.
+            for auto_slot in range(dot.inputs()):
+                dot.setInput(auto_slot, None)
+            dot.setInput(0, inputs[i])
+            node.setInput(actual_slots[i], dot)
+            inputs[i] = dot
 
     # --- Recurse ---
     for i, inp in enumerate(inputs):
-        place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold)
+        if i > 0 and inp.Class() == 'Dot' and not _hides_inputs(inp):
+            # Newly inserted side-input dot (hide_input is False).
+            # Place the upstream subtree at the staircase position, then
+            # position the dot itself separately.
+            actual_upstream = inp.input(0)
+            place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold)
+            dot_center_x = x_positions[i] + actual_upstream.screenWidth() // 2
+            if i == n - 1:
+                # Bottom-most dot: centre it vertically beside the root node.
+                dot_y = y + (node.screenHeight() - inp.screenHeight()) // 2
+            else:
+                # Staggered dot: SUBTREE_MARGIN below its input node.
+                dot_y = y_positions[i] + actual_upstream.screenHeight() + SUBTREE_MARGIN
+            inp.setXpos(dot_center_x - inp.screenWidth() // 2)
+            inp.setYpos(dot_y)
+        else:
+            # Regular node, or a dot with hide_input=True (diamond-resolution dot).
+            # Use standard placement so diamond dots keep their existing behaviour.
+            place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold)
 
 
 def layout_upstream():
