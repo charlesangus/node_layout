@@ -6,24 +6,18 @@ A plugin for [The Foundry's Nuke](https://www.foundry.com/products/nuke-family/n
 
 ## Installation
 
-1. Place the four Python files together in a folder of your choice:
+1. Download the zip of the repo and unpack into your `.nuke` as `node_layout` or clone the repo in your `.nuke`.
 
-   ```
-   node_layout.py
-   menu.py
-   make_room.py
-   util.py
-   ```
-
-2. Add that folder to your Nuke plugin path. The most common way is to add a line like this to your `~/.nuke/init.py` (create it if it doesn't exist):
+2. Add that folder to your Nuke plugin path. The most common way is to add a line like this to your `~/.nuke/menu.py` (create it if it doesn't exist):
 
    ```python
+   import nuke
    nuke.pluginAddPath('/path/to/your/folder')
    ```
 
-   If you are at a studio, place the folder somewhere on your shared plugin path and add the `pluginAddPath` call to the appropriate `init.py`.
+   If you are at a studio, place the folder somewhere on your shared plugin path and add the `pluginAddPath` call to the appropriate `menu.py`.
 
-3. If you already have a `menu.py` in your Nuke path, copy the contents of this repo's `menu.py` into yours rather than replacing the file.
+As this is a UI-only module, it shouldn't be needed on the farm, and so `menu.py` makes more sense than init.py.
 
 4. Restart Nuke. The commands will appear under **Edit → Node Layout**.
 
