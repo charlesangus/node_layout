@@ -311,10 +311,94 @@ def place_subtree(node, x, y, memo, snap_threshold):
             place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold)
 
 
+def collect_subtree_nodes(root):
+    visited_ids = set()
+    nodes = []
+    def _traverse(node):
+        if node is None or id(node) in visited_ids:
+            return
+        visited_ids.add(id(node))
+        nodes.append(node)
+        for inp in get_inputs(node):
+            _traverse(inp)
+    _traverse(root)
+    return nodes
+
+
+def compute_node_bounding_box(nodes):
+    if not nodes:
+        return None
+    min_x = min(n.xpos() for n in nodes)
+    min_y = min(n.ypos() for n in nodes)
+    max_x = max(n.xpos() + n.screenWidth() for n in nodes)
+    max_y = max(n.ypos() + n.screenHeight() for n in nodes)
+    return (min_x, min_y, max_x, max_y)
+
+
+def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after):
+    before_min_x, before_min_y, before_max_x, before_max_y = bbox_before
+    after_min_x, after_min_y, after_max_x, after_max_y = bbox_after
+
+    grew_up = after_min_y < before_min_y
+    grew_right = after_max_x > before_max_x
+
+    if not grew_up and not grew_right:
+        return
+
+    push_up_amount = before_min_y - after_min_y if grew_up else 0
+    push_right_amount = after_max_x - before_max_x if grew_right else 0
+
+    for node in nuke.allNodes():
+        if id(node) in subtree_node_ids:
+            continue
+
+        node_left = node.xpos()
+        node_right = node.xpos() + node.screenWidth()
+        node_top = node.ypos()
+        node_bottom = node.ypos() + node.screenHeight()
+
+        # Skip nodes whose bounding box overlaps with the original footprint.
+        # Overlap means neither rect is fully to the side/above/below the other.
+        overlaps_before = (
+            node_left < before_max_x and
+            node_right > before_min_x and
+            node_top < before_max_y and
+            node_bottom > before_min_y
+        )
+        if overlaps_before:
+            continue
+
+        delta_x = 0
+        delta_y = 0
+
+        if grew_up and node_bottom <= before_min_y:
+            delta_y = -push_up_amount
+
+        if grew_right and node_left >= before_max_x:
+            delta_x = push_right_amount
+
+        if delta_x != 0 or delta_y != 0:
+            node.setXpos(node.xpos() + delta_x)
+            node.setYpos(node.ypos() + delta_y)
+
+
 def layout_upstream():
     root = nuke.selectedNode()
+
+    # Capture starting state before any changes
+    original_subtree_nodes = collect_subtree_nodes(root)
+    bbox_before = compute_node_bounding_box(original_subtree_nodes)
+
     insert_dot_nodes(root)
     memo = {}
     snap_threshold = get_dag_snap_threshold()
     compute_dims(root, memo, snap_threshold)
     place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold)
+
+    # Capture final state (includes any newly inserted Dot nodes)
+    final_subtree_nodes = collect_subtree_nodes(root)
+    final_subtree_node_ids = {id(n) for n in final_subtree_nodes}
+    bbox_after = compute_node_bounding_box(final_subtree_nodes)
+
+    if bbox_before is not None and bbox_after is not None:
+        push_nodes_to_make_room(final_subtree_node_ids, bbox_before, bbox_after)
