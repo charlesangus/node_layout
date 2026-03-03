@@ -1,4 +1,4 @@
-# C_NodeLayout
+# Node Layout
 
 A plugin for [The Foundry's Nuke](https://www.foundry.com/products/nuke-family/nuke) that automatically arranges node graphs into clean, readable hierarchies. Instead of manually dragging nodes around your DAG, you select a node and let the plugin lay out its entire upstream tree — with intelligent spacing, color-aware grouping, automatic Dot node insertion, and collision avoidance for surrounding nodes.
 
