@@ -39,6 +39,7 @@ def same_toolbar_folder(node_a, node_b):
 
 
 SUBTREE_MARGIN = 300  # vertical clearance between adjacent subtrees, and between a dot and the node above it
+MASK_INPUT_MARGIN = SUBTREE_MARGIN // 3  # smaller gap for mask/matte inputs (≈100 px)
 
 
 def get_dag_snap_threshold():
@@ -81,7 +82,12 @@ def _hides_inputs(node):
     return knob is not None and knob.getValue()
 
 
+_MERGE_LIKE_CLASSES = frozenset({'Merge2', 'Dissolve'})
+
+
 def _is_mask_input(node, i):
+    if node.Class() in _MERGE_LIKE_CLASSES:
+        return i == 2  # input 0=B, 1=A, 2=M (mask), 3+=A1/A2...
     try:
         label = node.inputLabel(i).lower()
         if 'mask' in label or 'matte' in label:
@@ -94,29 +100,110 @@ def _is_mask_input(node, i):
     return False
 
 
+def _subtree_margin(node, slot):
+    return MASK_INPUT_MARGIN if _is_mask_input(node, slot) else SUBTREE_MARGIN
+
+
+def _reorder_inputs_mask_last(input_slot_pairs, node, all_side):
+    """Move mask side inputs to the end so they appear rightmost when n > 2.
+
+    In normal mode (not all_side), input[0] is the primary (above), so only the
+    side inputs (index 1+) are reordered.  In all_side mode, every input is a
+    side input, so the whole list is reordered.  When n <= 2 there is at most one
+    side input so ordering is moot.
+    """
+    if len(input_slot_pairs) <= 2:
+        return input_slot_pairs
+    if all_side:
+        non_mask = [(slot, inp) for slot, inp in input_slot_pairs if not _is_mask_input(node, slot)]
+        mask_inputs = [(slot, inp) for slot, inp in input_slot_pairs if _is_mask_input(node, slot)]
+        return non_mask + mask_inputs
+    primary = input_slot_pairs[:1]
+    side = input_slot_pairs[1:]
+    side_non_mask = [(slot, inp) for slot, inp in side if not _is_mask_input(node, slot)]
+    side_mask = [(slot, inp) for slot, inp in side if _is_mask_input(node, slot)]
+    return primary + side_non_mask + side_mask
+
+
+def _get_input_slot_pairs(node, node_filter=None):
+    """Return (slot, input_node) pairs for connected, non-hidden inputs.
+
+    Applies node_filter when provided. Slot indices are preserved so callers
+    can query per-slot properties (e.g. mask vs primary) via the slot number.
+    """
+    if _hides_inputs(node):
+        return []
+    pairs = [(i, node.input(i)) for i in range(node.inputs()) if node.input(i) is not None]
+    if node_filter is not None:
+        pairs = [(slot, inp) for slot, inp in pairs if _passes_node_filter(inp, node_filter)]
+    return pairs
+
+
 def get_inputs(node):
     if _hides_inputs(node):
         return []
     return [node.input(i) for i in range(node.inputs()) if node.input(i) is not None]
 
 
-def insert_dot_nodes(root):
+def _passes_node_filter(node, node_filter):
+    """Return True if node should be included given node_filter.
+
+    Always returns True when node_filter is None.
+    Returns True for nodes explicitly in the filter.
+    Also returns True for diamond-resolution Dot nodes (hide_input=True) whose
+    wrapped input is in the filter — these are created by insert_dot_nodes and
+    must be traversed even though they are not in the original filter set.
+    """
+    if node_filter is None:
+        return True
+    if id(node) in node_filter:
+        return True
+    if (node.Class() == 'Dot'
+            and node.knob('hide_input') is not None
+            and node.knob('hide_input').getValue()
+            and node.input(0) is not None
+            and id(node.input(0)) in node_filter):
+        return True
+    return False
+
+
+def _primary_slot_externally_occupied(node, node_filter):
+    """Return True when slot 0 is connected to a node outside node_filter.
+
+    When True, the 'directly above' position for this node is already taken by
+    an external connection, so all in-filter inputs must be placed as side inputs.
+    """
+    if node_filter is None:
+        return False
+    primary_input = node.input(0)
+    if primary_input is None:
+        return False
+    return not _passes_node_filter(primary_input, node_filter)
+
+
+def insert_dot_nodes(root, node_filter=None):
     # Strategy: claim all nodes reachable via non-mask edges first (DFS),
     # deferring every mask edge into a queue. Once the non-mask DFS is fully
     # settled, drain the queue. Any mask edge whose target is already claimed
     # gets a Dot; unclaimed targets are explored the same way (non-mask DFS
     # first, mask edges deferred again). This guarantees non-mask paths always
     # win over mask paths when both reach the same node.
+    #
+    # When node_filter is provided, traversal stops at nodes outside the filter.
     visited = set()
     deferred = []  # (parent_node, input_slot) for mask connections
 
     def _claim(node):
         if node is None or _hides_inputs(node) or id(node) in visited:
             return
+        if node_filter is not None and id(node) not in node_filter:
+            return
         visited.add(id(node))
         for slot in range(node.inputs()):
             inp = node.input(slot)
             if inp is None:
+                continue
+            if node_filter is not None and id(inp) not in node_filter:
                 continue
             if _is_mask_input(node, slot):
                 deferred.append((node, slot))
@@ -137,6 +224,8 @@ def insert_dot_nodes(root):
         inp = parent.input(slot)
         if inp is None:
             continue
+        if node_filter is not None and id(inp) not in node_filter:
+            continue
         if id(inp) in visited:
             dot = nuke.nodes.Dot()
             dot.setInput(0, inp)
@@ -146,33 +235,47 @@ def insert_dot_nodes(root):
             _claim(inp)
 
 
-def compute_dims(node, memo, snap_threshold):
+def compute_dims(node, memo, snap_threshold, node_filter=None):
     if id(node) in memo:
         return memo[id(node)]
 
-    inputs = get_inputs(node)
+    input_slot_pairs = _get_input_slot_pairs(node, node_filter)
+    all_side = _primary_slot_externally_occupied(node, node_filter)
+    input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side)
+    inputs = [inp for _, inp in input_slot_pairs]
+    side_margins = [_subtree_margin(node, slot) for slot, _ in input_slot_pairs]
+
     if not inputs:
         result = (node.screenWidth(), node.screenHeight())
+    elif all_side:
+        # All in-filter inputs are side inputs; none goes directly above.
+        child_dims = [compute_dims(inp, memo, snap_threshold, node_filter) for inp in inputs]
+        n = len(inputs)
+        W = node.screenWidth() + sum(side_margins) + sum(w for w, h in child_dims)
+        gap_closest = max(vertical_gap_between(inputs[n - 1], node, snap_threshold), side_margins[n - 1])
+        inter_band_gaps = sum(side_margins[1:n])
+        H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_closest + inter_band_gaps
+        result = (W, H)
     else:
-        child_dims = [compute_dims(inp, memo, snap_threshold) for inp in inputs]
+        child_dims = [compute_dims(inp, memo, snap_threshold, node_filter) for inp in inputs]
         n = len(inputs)
         if n == 1:
             W = max(node.screenWidth(), child_dims[0][0])
         elif n == 2:
-            # input[0] sits at x (same column as node); input[1] sits at x + node_w + SUBTREE_MARGIN
-            W = max(child_dims[0][0], node.screenWidth() + SUBTREE_MARGIN + child_dims[1][0])
+            # input[0] sits at x (same column as node); input[1] sits at x + node_w + side_margins[1]
+            W = max(child_dims[0][0], node.screenWidth() + side_margins[1] + child_dims[1][0])
         else:
             # n >= 3: input[0] above node (at x); inputs[1..n-1] rightward from node's right edge
-            W = max(child_dims[0][0], node.screenWidth() + (n - 1) * SUBTREE_MARGIN + sum(w for w, h in child_dims[1:]))
+            W = max(child_dims[0][0], node.screenWidth() + sum(side_margins[1:]) + sum(w for w, h in child_dims[1:]))
         # Staircase formula for all n: each input gets its own vertical band.
         # Total height is sum of all child subtree heights plus per-gap values that
         # depend on the tile colors of adjacent nodes.
         gap_to_consumer = vertical_gap_between(inputs[n - 1], node, snap_threshold)
         # When there are side inputs (n > 1), a dot will be inserted for inputs[n-1].
-        # Reserve at least SUBTREE_MARGIN so the dot fits without overlapping.
+        # Reserve at least side_margins[n-1] so the dot fits without overlapping.
         if n > 1:
-            gap_to_consumer = max(gap_to_consumer, SUBTREE_MARGIN)
-        inter_band_gaps = (n - 1) * SUBTREE_MARGIN
+            gap_to_consumer = max(gap_to_consumer, side_margins[n - 1])
+        inter_band_gaps = sum(side_margins[1:n])
         H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_to_consumer + inter_band_gaps
         result = (W, H)
 
@@ -180,7 +283,7 @@ def compute_dims(node, memo, snap_threshold):
     return result
 
 
-def place_subtree(node, x, y, memo, snap_threshold):
+def place_subtree(node, x, y, memo, snap_threshold, node_filter=None):
     """
     Place `node` with its top-left corner at (x, y) and recursively position
     every upstream input above it.
@@ -202,12 +305,12 @@ def place_subtree(node, x, y, memo, snap_threshold):
     - node-to-consumer gap: `vertical_gap_between(inputs[n-1], node, snap_threshold)` —
       color-aware; tight when the input and consumer share an explicit tile color, larger
       otherwise.
-    - inter-subtree gap: `SUBTREE_MARGIN` (fixed 300 units) — keeps adjacent subtrees
-      separated, and also sets the gap between a side-input dot and the node above it.
+    - inter-subtree gap: `side_margins[i]` — per-slot margin (SUBTREE_MARGIN for normal
+      inputs, MASK_INPUT_MARGIN for mask/matte slots); keeps adjacent subtrees separated.
 
         bottom_y[n-1] = y - vertical_gap_between(inputs[n-1], node, snap_threshold)
         for i in range(n-2, -1, -1):
-            bottom_y[i] = bottom_y[i+1] - child_dims[i+1][1] - SUBTREE_MARGIN
+            bottom_y[i] = bottom_y[i+1] - child_dims[i+1][1] - side_margins[i+1]
 
     Within its band each input node is positioned at the band's bottom
     (closest to its consumer):
@@ -215,8 +318,8 @@ def place_subtree(node, x, y, memo, snap_threshold):
         y_for_input[i] = bottom_y[i] - inputs[i].screenHeight()
 
     Because each band's height equals the subtree's full compute_dims height,
-    and consecutive bands are separated by SUBTREE_MARGIN, no two subtrees can
-    ever overlap in Y.
+    and consecutive bands are separated by their respective side_margins, no
+    two subtrees can ever overlap in Y.
 
     X placement
     -----------
@@ -234,68 +337,99 @@ def place_subtree(node, x, y, memo, snap_threshold):
     if _hides_inputs(node):
         input_slot_pairs = []
     else:
-        input_slot_pairs = [
+        raw_pairs = [
             (slot, node.input(slot))
             for slot in range(node.inputs())
             if node.input(slot) is not None
         ]
+        if node_filter is not None:
+            input_slot_pairs = [
+                (slot, inp) for slot, inp in raw_pairs
+                if _passes_node_filter(inp, node_filter)
+            ]
+        else:
+            input_slot_pairs = raw_pairs
     if not input_slot_pairs:
         return
 
+    all_side = _primary_slot_externally_occupied(node, node_filter)
+    input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side)
     actual_slots = [slot for slot, _ in input_slot_pairs]
     inputs = [inp for _, inp in input_slot_pairs]
     n = len(inputs)
-    child_dims = [compute_dims(inp, memo, snap_threshold) for inp in inputs]
+    child_dims = [compute_dims(inp, memo, snap_threshold, node_filter) for inp in inputs]
+    side_margins = [_subtree_margin(node, slot) for slot in actual_slots]
 
     # --- Y staircase: backward walk so input[n-1] is closest to root ---
-    # Mirror the gap enlargement from compute_dims: when n > 1 a dot will be
-    # inserted for inputs[n-1], so the gap must be at least SUBTREE_MARGIN.
+    # Mirror the gap enlargement from compute_dims: when n > 1 (or all_side,
+    # which always inserts a dot), the gap must be at least side_margins[n-1].
     gap_closest = vertical_gap_between(inputs[n - 1], node, snap_threshold)
-    if n > 1:
-        gap_closest = max(gap_closest, SUBTREE_MARGIN)
+    if n > 1 or all_side:
+        gap_closest = max(gap_closest, side_margins[n - 1])
     bottom_y = [0] * n
     bottom_y[n - 1] = y - gap_closest
     for i in range(n - 2, -1, -1):
-        bottom_y[i] = bottom_y[i + 1] - child_dims[i + 1][1] - SUBTREE_MARGIN
+        bottom_y[i] = bottom_y[i + 1] - child_dims[i + 1][1] - side_margins[i + 1]
 
     y_positions = [bottom_y[i] - inputs[i].screenHeight() for i in range(n)]
 
     # --- X positions ---
-    if n == 1:
+    if all_side:
+        # All inputs are side inputs; step them rightward from node's right edge.
+        current_x = x + node.screenWidth() + side_margins[0]
+        x_positions = []
+        for i in range(n):
+            x_positions.append(current_x)
+            current_x += child_dims[i][0] + (side_margins[i + 1] if i + 1 < n else 0)
+    elif n == 1:
         x_positions = [x]
     elif n == 2:
         # input[0] directly above root; input[1] one step right of root's right edge.
-        x_positions = [x, x + node.screenWidth() + SUBTREE_MARGIN]
+        x_positions = [x, x + node.screenWidth() + side_margins[1]]
     else:
         # n >= 3: input[0] directly above root; inputs[1..n-1] step right from root's right edge.
         x_positions = [x]
-        current_x = x + node.screenWidth() + SUBTREE_MARGIN
+        current_x = x + node.screenWidth() + side_margins[1]
         for i in range(1, n):
             x_positions.append(current_x)
-            current_x += child_dims[i][0] + SUBTREE_MARGIN
+            if i + 1 < n:
+                current_x += child_dims[i][0] + side_margins[i + 1]
 
-    # --- Insert Dots for non-primary inputs that are not already Dots ---
+    # --- Insert Dots for side inputs that are not already Dots ---
     # Deselect all nodes before creating any dot so Nuke cannot auto-connect it.
     for selected_node in nuke.selectedNodes():
         selected_node['selected'].setValue(False)
-    for i in range(1, n):
-        if inputs[i].Class() != 'Dot':
-            dot = nuke.nodes.Dot()
-            # Disconnect any auto-connection Nuke may have made, then wire inline.
-            for auto_slot in range(dot.inputs()):
-                dot.setInput(auto_slot, None)
-            dot.setInput(0, inputs[i])
-            node.setInput(actual_slots[i], dot)
-            inputs[i] = dot
+    if all_side:
+        # Every in-filter input is a side input; insert dots for all of them.
+        for i in range(n):
+            if inputs[i].Class() != 'Dot':
+                dot = nuke.nodes.Dot()
+                for auto_slot in range(dot.inputs()):
+                    dot.setInput(auto_slot, None)
+                dot.setInput(0, inputs[i])
+                node.setInput(actual_slots[i], dot)
+                inputs[i] = dot
+    else:
+        # Only non-primary inputs (i > 0) need dots.
+        for i in range(1, n):
+            if inputs[i].Class() != 'Dot':
+                dot = nuke.nodes.Dot()
+                # Disconnect any auto-connection Nuke may have made, then wire inline.
+                for auto_slot in range(dot.inputs()):
+                    dot.setInput(auto_slot, None)
+                dot.setInput(0, inputs[i])
+                node.setInput(actual_slots[i], dot)
+                inputs[i] = dot
 
     # --- Recurse ---
     for i, inp in enumerate(inputs):
-        if i > 0 and inp.Class() == 'Dot' and not _hides_inputs(inp):
+        is_side_dot = (all_side or i > 0) and inp.Class() == 'Dot' and not _hides_inputs(inp)
+        if is_side_dot:
             # Newly inserted side-input dot (hide_input is False).
             # Place the upstream subtree at the staircase position, then
             # position the dot itself separately.
             actual_upstream = inp.input(0)
-            place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold)
+            place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold, node_filter)
             dot_center_x = x_positions[i] + actual_upstream.screenWidth() // 2
             if i == n - 1:
                 # Bottom-most dot: centre it vertically beside the root node.
@@ -308,14 +442,16 @@ def place_subtree(node, x, y, memo, snap_threshold):
         else:
             # Regular node, or a dot with hide_input=True (diamond-resolution dot).
             # Use standard placement so diamond dots keep their existing behaviour.
-            place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold)
+            place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold, node_filter)
 
 
-def collect_subtree_nodes(root):
+def collect_subtree_nodes(root, node_filter=None):
     visited_ids = set()
     nodes = []
     def _traverse(node):
         if node is None or id(node) in visited_ids:
+            return
+        if node_filter is not None and id(node) not in node_filter:
             return
         visited_ids.add(id(node))
         nodes.append(node)
@@ -402,3 +538,54 @@ def layout_upstream():
 
     if bbox_before is not None and bbox_after is not None:
         push_nodes_to_make_room(final_subtree_node_ids, bbox_before, bbox_after)
+
+
+def find_selection_roots(selected_nodes):
+    """Return the most-downstream selected nodes — those that no other selected node takes as an input."""
+    selected_set = set(id(n) for n in selected_nodes)
+    nodes_used_as_input = set()
+    for node in selected_nodes:
+        for inp in get_inputs(node):
+            if id(inp) in selected_set:
+                nodes_used_as_input.add(id(inp))
+    return [n for n in selected_nodes if id(n) not in nodes_used_as_input]
+
+
+def layout_selected():
+    selected_nodes = nuke.selectedNodes()
+    if len(selected_nodes) < 2:
+        return  # nothing to lay out relative to each other
+
+    node_filter = set(id(n) for n in selected_nodes)
+    roots = find_selection_roots(selected_nodes)
+    roots.sort(key=lambda n: n.xpos())
+
+    bbox_before = compute_node_bounding_box(selected_nodes)
+
+    snap_threshold = get_dag_snap_threshold()
+    memo = {}
+    placed_bboxes = []  # list of (left, top, right, bottom) for already-placed trees
+    for root in roots:
+        insert_dot_nodes(root, node_filter=node_filter)
+        tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_filter=node_filter)
+
+        tree_bottom = root.ypos() + root.screenHeight()
+        tree_top = tree_bottom - tree_height
+
+        # Resolve start_x: push right if Y ranges overlap with any already-placed tree.
+        start_x = root.xpos()
+        for placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
+            if tree_top < placed_bottom and tree_bottom > placed_top:  # Y overlap
+                start_x = max(start_x, placed_right + SUBTREE_MARGIN)
+
+        place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_filter=node_filter)
+        placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
+
+    # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
+    # returns [] here. Use the original selected_nodes list — the Python objects are
+    # the same, but their positions have been updated by place_subtree.
+    final_selected_ids = node_filter
+    bbox_after = compute_node_bounding_box(selected_nodes)
+
+    if bbox_before and bbox_after:
+        push_nodes_to_make_room(final_selected_ids, bbox_before, bbox_after)

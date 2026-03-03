@@ -14,6 +14,7 @@ layout_menu.addCommand(
     'shift+e',
     shortcutContext=2,
 )
+layout_menu.addCommand('Layout Selected', node_layout.layout_selected)
 
 layout_menu.addSeparator()
 
