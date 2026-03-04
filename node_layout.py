@@ -118,6 +118,11 @@ def _subtree_margin(node, slot):
     return MASK_INPUT_MARGIN if _is_mask_input(node, slot) else SUBTREE_MARGIN
 
 
+def _center_x(child_width, parent_x, parent_width):
+    """Return the xpos that centers a child tile over a parent tile."""
+    return parent_x + (parent_width - child_width) // 2
+
+
 def _reorder_inputs_mask_last(input_slot_pairs, node, all_side):
     """Move mask side inputs to the end so they appear rightmost when n > 2.
 
@@ -278,14 +283,20 @@ def compute_dims(node, memo, snap_threshold, node_filter=None):
     else:
         child_dims = [compute_dims(inp, memo, snap_threshold, node_filter) for inp in inputs]
         n = len(inputs)
+        # When input[0] is wider than the consumer node, centering it causes it to
+        # extend left of x by input0_overhang pixels.  The bounding width must include
+        # this leftward extension so callers can allocate enough horizontal space.
+        input0_overhang = max(0, (child_dims[0][0] - node.screenWidth()) // 2)
         if n == 1:
-            W = max(node.screenWidth(), child_dims[0][0])
+            W = max(node.screenWidth(), child_dims[0][0]) + input0_overhang
         elif n == 2:
-            # input[0] sits at x (same column as node); input[1] sits at x + node_w + side_margins[1]
-            W = max(child_dims[0][0], node.screenWidth() + side_margins[1] + child_dims[1][0])
+            # input[0] centered above node; input[1] sits at x + node_w + side_margins[1]
+            W = max(child_dims[0][0] + input0_overhang,
+                    node.screenWidth() + side_margins[1] + child_dims[1][0])
         else:
-            # n >= 3: input[0] above node (at x); inputs[1..n-1] rightward from node's right edge
-            W = max(child_dims[0][0], node.screenWidth() + sum(side_margins[1:]) + sum(w for w, h in child_dims[1:]))
+            # n >= 3: input[0] centered above node; inputs[1..n-1] rightward from node's right edge
+            W = max(child_dims[0][0] + input0_overhang,
+                    node.screenWidth() + sum(side_margins[1:]) + sum(w for w, h in child_dims[1:]))
         # Staircase formula for all n: each input gets its own vertical band.
         # Total height is sum of all child subtree heights plus per-gap values that
         # depend on the tile colors of adjacent nodes.
@@ -401,13 +412,14 @@ def place_subtree(node, x, y, memo, snap_threshold, node_filter=None):
             x_positions.append(current_x)
             current_x += child_dims[i][0] + (side_margins[i + 1] if i + 1 < n else 0)
     elif n == 1:
-        x_positions = [x]
+        x_positions = [_center_x(child_dims[0][0], x, node.screenWidth())]
     elif n == 2:
-        # input[0] directly above root; input[1] one step right of root's right edge.
-        x_positions = [x, x + node.screenWidth() + side_margins[1]]
+        # input[0] centered above root; input[1] one step right of root's right edge.
+        x_positions = [_center_x(child_dims[0][0], x, node.screenWidth()),
+                       x + node.screenWidth() + side_margins[1]]
     else:
-        # n >= 3: input[0] directly above root; inputs[1..n-1] step right from root's right edge.
-        x_positions = [x]
+        # n >= 3: input[0] centered above root; inputs[1..n-1] step right from root's right edge.
+        x_positions = [_center_x(child_dims[0][0], x, node.screenWidth())]
         current_x = x + node.screenWidth() + side_margins[1]
         for i in range(1, n):
             x_positions.append(current_x)
