@@ -93,7 +93,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Code Quality | 2/2 | Complete   | 2026-03-04 |
-| 2. Bug Fixes | 0/? | Not started | - |
+| 2. Bug Fixes | 1/3 | In Progress|  |
 | 3. Undo & Reliability | 0/? | Not started | - |
 | 4. Preferences System | 0/? | Not started | - |
 | 5. New Commands & Scheme | 0/? | Not started | - |

@@ -15,8 +15,8 @@
 
 ### Bug Fixes
 
-- [ ] **BUG-01**: `make_room()` initializes `x_amount = 0` and `y_amount = 0` before conditional branches so variables are always defined
-- [ ] **BUG-02**: `layout_selected()` node filter stores node objects directly rather than node IDs to avoid stale references
+- [x] **BUG-01**: `make_room()` initializes `x_amount = 0` and `y_amount = 0` before conditional branches so variables are always defined
+- [x] **BUG-02**: `layout_selected()` node filter stores node objects directly rather than node IDs to avoid stale references
 - [ ] **BUG-03**: Inline Dot nodes are positioned centered under their output node, accounting for the Dot's smaller screen size
 - [ ] **BUG-04**: In standard layout, input 0 (main/B input) always goes directly above the consumer node — never offset to a side
 - [ ] **BUG-05**: A/B/mask input slot spacing is consistent; right-side input placement follows the same rules as left-side
@@ -83,8 +83,8 @@
 | DEBT-05 | Phase 1 | Complete |
 | FRAG-01 | Phase 1 | Complete |
 | PERF-01 | Phase 1 | Complete |
-| BUG-01 | Phase 2 | Pending |
-| BUG-02 | Phase 2 | Pending |
+| BUG-01 | Phase 2 | Complete |
+| BUG-02 | Phase 2 | Complete |
 | BUG-03 | Phase 2 | Pending |
 | BUG-04 | Phase 2 | Pending |
 | BUG-05 | Phase 2 | Pending |

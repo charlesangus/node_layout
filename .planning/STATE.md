@@ -1,3 +1,16 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: in_progress
+last_updated: "2026-03-04T03:38:00Z"
+progress:
+  total_phases: 5
+  completed_phases: 1
+  total_plans: 4
+  completed_plans: 3
+---
+
 # Project State
 
 ## Project Reference
@@ -5,32 +18,33 @@
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave and need to be able to undo when the result isn't what they wanted.
-**Current focus:** Phase 1 — Code Quality
+**Current focus:** Phase 2 — Bug Fixes
 
 ## Current Position
 
-Phase: 1 of 5 (Code Quality)
-Plan: 2 of 2 completed in current phase
-Status: Phase 1 complete
-Last activity: 2026-03-04 — Completed plan 01-02 (per-operation cache management and custom diamond Dot marker)
+Phase: 2 of 5 (Bug Fixes)
+Plan: 1 of 2 completed in current phase
+Status: Phase 2 in progress
+Last activity: 2026-03-04 — Completed plan 02-01 (defensive variable init in make_room(), node-object-based node_filter in layout_selected())
 
-Progress: [██░░░░░░░░] 10%
+Progress: [████░░░░░░] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 1 min
-- Total execution time: 0.03 hours
+- Total plans completed: 3
+- Average duration: 2 min
+- Total execution time: 0.08 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-code-quality | 2 | 2 min | 1 min |
+| 02-bug-fixes | 1 | 5 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (1 min), 01-02 (1 min)
+- Last 5 plans: 01-01 (1 min), 01-02 (1 min), 02-01 (5 min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -57,6 +71,11 @@ From plan 01-02:
 - Use custom knob ('node_layout_diamond_dot') as diamond Dot marker rather than hide_input value — hide_input can be set by users manually on any Dot
 - Side-input Dots in place_subtree() deliberately do NOT receive the marker knob — only insert_dot_nodes() diamonds are tagged
 
+From plan 02-01:
+- Use AST-based structural tests for Nuke plugin code — nuke module unavailable outside Nuke; ast.parse + ast.get_source_segment verifies structural properties precisely
+- x_amount=0 and y_amount=0 initialized before conditionals in make_room() — no-op for unknown directions, existing if/elif chain structure unchanged
+- node_filter holds node objects (not id() integers) so membership tests survive Nuke script modifications; final_selected_ids still derived as {id(n) for n in node_filter} for push_nodes_to_make_room()
+
 ### Pending Todos
 
 None yet.
@@ -68,5 +87,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed 01-02-PLAN.md — per-operation cache reset, color lookup cache, custom knob on diamond Dots
+Stopped at: Completed 02-01-PLAN.md — make_room() variable init fix (BUG-01), node_filter object membership fix (BUG-02)
 Resume file: None
