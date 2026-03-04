@@ -471,9 +471,14 @@ def place_subtree(node, x, y, memo, snap_threshold, node_filter=None):
             inp.setXpos(dot_center_x - inp.screenWidth() // 2)
             inp.setYpos(dot_y)
         else:
-            # Regular node, or a dot with hide_input=True (diamond-resolution dot).
-            # Use standard placement so diamond dots keep their existing behaviour.
+            # Regular node, or a diamond-resolution Dot (hide_input=True, node_layout_diamond_dot knob).
             place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold, node_filter)
+            # After recursion, reposition diamond Dots to be centered under the consumer tile.
+            # The upstream subtree above the Dot is unaffected — only the Dot tile moves.
+            if (inp.Class() == 'Dot'
+                    and inp.knob('node_layout_diamond_dot') is not None):
+                diamond_centered_x = _center_x(inp.screenWidth(), x, node.screenWidth())
+                inp.setXpos(diamond_centered_x)
 
 
 def collect_subtree_nodes(root, node_filter=None):
