@@ -480,5 +480,73 @@ class TestGeometricScalingCommands(unittest.TestCase):
             )
 
 
+class TestSchemeDifferentiation(unittest.TestCase):
+    """Behavioral tests verifying scheme_multiplier produces measurably different spacing."""
+
+    def setUp(self):
+        # Reset prefs to defaults before each test
+        _node_layout_prefs_module.prefs_singleton._prefs = dict(_node_layout_prefs_module.DEFAULTS)
+
+    def test_vertical_gap_compact_smaller_than_normal(self):
+        """Compact scheme (0.6) produces smaller gap than Normal (1.0)."""
+        node_a = _StubNode(node_class="Grade", knobs={"tile_color": _StubKnob(0x00ff0000)})
+        node_b = _StubNode(node_class="Blur", knobs={"tile_color": _StubKnob(0x0000ff00)})
+        snap_threshold = 8
+        normal_gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=1.0)
+        compact_gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=0.6)
+        self.assertLess(compact_gap, normal_gap)
+        self.assertEqual(compact_gap, int(12.0 * 0.6 * snap_threshold))
+
+    def test_vertical_gap_loose_larger_than_normal(self):
+        """Loose scheme (1.5) produces larger gap than Normal (1.0)."""
+        node_a = _StubNode(node_class="Grade", knobs={"tile_color": _StubKnob(0x00ff0000)})
+        node_b = _StubNode(node_class="Blur", knobs={"tile_color": _StubKnob(0x0000ff00)})
+        snap_threshold = 8
+        normal_gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=1.0)
+        loose_gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=1.5)
+        self.assertGreater(loose_gap, normal_gap)
+        self.assertEqual(loose_gap, int(12.0 * 1.5 * snap_threshold))
+
+    def test_scheme_multiplier_constants_in_source(self):
+        """SHRINK_FACTOR=0.8 and EXPAND_FACTOR=1.25 are module-level constants."""
+        with open(NODE_LAYOUT_PATH) as source_file:
+            source = source_file.read()
+        tree = ast.parse(source)
+        assignments = {
+            node.targets[0].id: node.value.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and isinstance(node.value, ast.Constant)
+        }
+        self.assertAlmostEqual(assignments.get("SHRINK_FACTOR"), 0.8)
+        self.assertAlmostEqual(assignments.get("EXPAND_FACTOR"), 1.25)
+
+    def test_layout_upstream_signature_has_scheme_multiplier(self):
+        """layout_upstream() signature includes scheme_multiplier parameter."""
+        with open(NODE_LAYOUT_PATH) as source_file:
+            source = source_file.read()
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "layout_upstream":
+                arg_names = [arg.arg for arg in node.args.args + node.args.kwonlyargs]
+                self.assertIn("scheme_multiplier", arg_names)
+                return
+        self.fail("layout_upstream not found in source")
+
+    def test_layout_selected_signature_has_scheme_multiplier(self):
+        """layout_selected() signature includes scheme_multiplier parameter."""
+        with open(NODE_LAYOUT_PATH) as source_file:
+            source = source_file.read()
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "layout_selected":
+                arg_names = [arg.arg for arg in node.args.args + node.args.kwonlyargs]
+                self.assertIn("scheme_multiplier", arg_names)
+                return
+        self.fail("layout_selected not found in source")
+
+
 if __name__ == "__main__":
     unittest.main()
