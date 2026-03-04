@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-03-04T12:19:04Z"
+status: unknown
+last_updated: "2026-03-04T12:23:22.894Z"
 progress:
-  total_phases: 5
+  total_phases: 4
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 9
+  completed_plans: 8
 ---
 
 # Project State
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 4 of 5 (Preferences System)
-Plan: 1 of 3 completed in current phase
-Status: Plan 04-01 complete
-Last activity: 2026-03-04 — Completed plan 04-01 (NodeLayoutPrefs JSON-backed prefs singleton with 7 layout keys)
+Plan: 2 of 3 completed in current phase
+Status: Plan 04-02 complete
+Last activity: 2026-03-04 — Completed plan 04-02 (PySide6 preferences dialog with 7 QLineEdit fields and Nuke menu wiring)
 
 Progress: [█████████████░░░░░░░] 52%
 
@@ -43,10 +43,10 @@ Progress: [█████████████░░░░░░░] 52%
 | 01-code-quality | 2 | 2 min | 1 min |
 | 02-bug-fixes | 3 | 20 min | 7 min |
 | 03-undo-reliability | 1 | 2 min | 2 min |
-| 04-preferences-system | 1 | 2 min | 2 min |
+| 04-preferences-system | 2 | 3 min | 1.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (10 min), 02-03 (5 min), 03-01 (2 min), 04-01 (2 min)
+- Last 5 plans: 02-03 (5 min), 03-01 (2 min), 04-01 (2 min), 04-02 (1 min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -92,6 +92,9 @@ From plan 04-01:
 - Treat empty files as absent in _load(): NamedTemporaryFile creates an empty file, so os.path.exists() returns True but json.load() raises JSONDecodeError; fix reads raw content and only calls json.loads() if non-empty
 - {**DEFAULTS, **loaded} merge pattern ensures partial prefs files fall back to defaults without KeyError
 - mask_input_ratio stored as 0.333 float literal — matches plan spec, adequate precision for UI purposes
+- [Phase 04-02]: Use QLineEdit (not QSpinBox) for preferences dialog — matches Labelmaker pattern for sibling plugin consistency
+- [Phase 04-02]: Validate base_subtree_margin > 0 and scaling_reference_count >= 1 in _on_accept() to prevent downstream ZeroDivisionError
+- [Phase 04-02]: menu.py imports only node_layout_prefs_dialog; dialog handles prefs singleton internally — menu has no direct prefs dependency
 
 ### Pending Todos
 
@@ -104,5 +107,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed 04-01-PLAN.md — NodeLayoutPrefs JSON-backed prefs singleton with 7 layout preference keys
+Stopped at: Completed 04-02-PLAN.md — PySide6 preferences dialog with 7 QLineEdit fields and Nuke menu wiring
 Resume file: None
