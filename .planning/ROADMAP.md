@@ -46,7 +46,12 @@ Plans:
   3. A/B/mask inputs on the right side of a node are placed using the same spacing rules as inputs on the left side — no asymmetric gaps
   4. `make_room()` does not reference undefined variables; displacement works correctly in all branch combinations
   5. `layout_selected()` correctly excludes deselected nodes even after the Nuke script has been modified between selection and layout execution
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Defensive fixes: make_room() variable init (BUG-01) and node_filter object refs (BUG-02)
+- [ ] 02-02-PLAN.md — X-positioning fixes: input 0 centering with _center_x() helper (BUG-04) and secondary input margin symmetry (BUG-05)
+- [ ] 02-03-PLAN.md — Diamond Dot centering: post-placement repositioning under consumer tile (BUG-03)
 
 ### Phase 3: Undo & Reliability
 **Goal**: Both layout commands are fully undoable — a single Ctrl+Z after any layout operation restores every node to its pre-layout position
