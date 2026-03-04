@@ -173,8 +173,7 @@ def _passes_node_filter(node, node_filter):
     if id(node) in node_filter:
         return True
     if (node.Class() == 'Dot'
-            and node.knob('hide_input') is not None
-            and node.knob('hide_input').getValue()
+            and node.knob('node_layout_diamond_dot') is not None
             and node.input(0) is not None
             and id(node.input(0)) in node_filter):
         return True
@@ -223,6 +222,9 @@ def insert_dot_nodes(root, node_filter=None):
                 deferred.append((node, slot))
             elif id(inp) in visited:
                 dot = nuke.nodes.Dot()
+                dot.addKnob(nuke.Tab_Knob('node_layout_tab', 'Node Layout'))
+                dot.addKnob(nuke.Int_Knob('node_layout_diamond_dot', 'Diamond Dot Marker'))
+                dot['node_layout_diamond_dot'].setValue(1)
                 dot.setInput(0, inp)
                 dot['hide_input'].setValue(True)
                 node.setInput(slot, dot)
@@ -242,6 +244,9 @@ def insert_dot_nodes(root, node_filter=None):
             continue
         if id(inp) in visited:
             dot = nuke.nodes.Dot()
+            dot.addKnob(nuke.Tab_Knob('node_layout_tab', 'Node Layout'))
+            dot.addKnob(nuke.Int_Knob('node_layout_diamond_dot', 'Diamond Dot Marker'))
+            dot['node_layout_diamond_dot'].setValue(1)
             dot.setInput(0, inp)
             dot['hide_input'].setValue(True)
             parent.setInput(slot, dot)
