@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 
 ## Current Position
 
-Phase: 4 of 5 (Preferences System)
-Plan: 3 of 3 completed in current phase
-Status: Plan 04-03 complete — Phase 04 fully complete
-Last activity: 2026-03-04 — Completed plan 04-03 (node_layout.py spacing constants replaced with prefs reads using sqrt scaling)
+Phase: 5 of 5 (New Commands Scheme)
+Plan: 1 of 1 completed in current phase
+Status: Plan 05-01 complete — Phase 05 plan 1 complete
+Last activity: 2026-03-04 — Completed plan 05-01 (scheme_multiplier threading, compact/loose entry-points, shrink/expand geometric scaling)
 
-Progress: [████████████████░░░░] 64%
+Progress: [████████████████████] 80%
 
 ## Performance Metrics
 
@@ -102,6 +102,12 @@ From plan 04-03:
 - _subtree_margin(node, slot, node_count) replaces bare SUBTREE_MARGIN/MASK_INPUT_MARGIN constants at all 5 call sites
 - Existing tests updated to pass node_count=150 (reference count) plus node_layout_prefs stub loading — required-parameter discipline maintained
 
+From plan 05-01:
+- scheme_multiplier defaults to None throughout call chain; each function resolves to normal_multiplier on first None check, not at every level — avoids redundant prefs reads in recursive calls
+- layout_selected resolves scheme_multiplier once into resolved_scheme_multiplier for horizontal_clearance; passes original None/value downstream to compute_dims/place_subtree
+- SHRINK_FACTOR=0.8, EXPAND_FACTOR=1.25 as module-level constants (not in prefs)
+- _scale_upstream_nodes uses nuke.selectedNode() directly; guard in public wrappers via try/except ValueError before undo group opens
+
 ### Pending Todos
 
 None yet.
@@ -113,5 +119,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed 04-03-PLAN.md — node_layout.py spacing fully driven by prefs with sqrt-scaled dynamic margins
+Stopped at: Completed 05-01-PLAN.md — scheme_multiplier threaded through layout pipeline; compact/loose entry-points and shrink/expand geometric scaling commands added
 Resume file: None

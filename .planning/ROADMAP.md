@@ -108,4 +108,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Bug Fixes | 3/3 | Complete   | 2026-03-04 |
 | 3. Undo & Reliability | 1/1 | Complete   | 2026-03-04 |
 | 4. Preferences System | 3/3 | Complete   | 2026-03-04 |
-| 5. New Commands & Scheme | 0/? | Not started | - |
+| 5. New Commands & Scheme | 1/2 | In Progress|  |

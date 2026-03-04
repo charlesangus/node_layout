@@ -46,12 +46,12 @@
 
 ### New Commands
 
-- [ ] **CMD-01**: Shrink/expand selected nodes command scales the spacing between selected nodes up or down, centered on the root node
-- [ ] **CMD-02**: Scale upstream command applies the same shrink/expand scaling to all upstream nodes from the selected node
+- [x] **CMD-01**: Shrink/expand selected nodes command scales the spacing between selected nodes up or down, centered on the root node
+- [x] **CMD-02**: Scale upstream command applies the same shrink/expand scaling to all upstream nodes from the selected node
 
 ### Layout Schemes
 
-- [ ] **SCHEME-01**: Compact layout scheme produces the same structure as standard layout but applies tight spacing throughout regardless of node color or category
+- [x] **SCHEME-01**: Compact layout scheme produces the same structure as standard layout but applies tight spacing throughout regardless of node color or category
 
 ## v2 Requirements
 
@@ -97,9 +97,9 @@
 | PREFS-05 | Phase 4 | Complete |
 | PREFS-06 | Phase 4 | Complete |
 | PREFS-07 | Phase 4 | Complete |
-| CMD-01 | Phase 5 | Pending |
-| CMD-02 | Phase 5 | Pending |
-| SCHEME-01 | Phase 5 | Pending |
+| CMD-01 | Phase 5 | Complete |
+| CMD-02 | Phase 5 | Complete |
+| SCHEME-01 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 24 total
