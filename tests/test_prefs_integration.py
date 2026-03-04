@@ -413,5 +413,72 @@ class TestSchemeMultiplierPipeline(unittest.TestCase):
             )
 
 
+class TestGeometricScalingCommands(unittest.TestCase):
+    """Verify geometric scaling commands exist and are correctly defined in source."""
+
+    # --- AST: public scaling functions ---
+
+    def test_public_scaling_functions_exist(self):
+        """shrink_selected, expand_selected, shrink_upstream, expand_upstream must be defined."""
+        with open(NODE_LAYOUT_PATH) as source_file:
+            source = source_file.read()
+        tree = ast.parse(source)
+        defined_functions = {
+            ast_node.name
+            for ast_node in ast.walk(tree)
+            if isinstance(ast_node, ast.FunctionDef)
+        }
+        for expected_function_name in (
+            "shrink_selected",
+            "expand_selected",
+            "shrink_upstream",
+            "expand_upstream",
+        ):
+            self.assertIn(
+                expected_function_name,
+                defined_functions,
+                f"Function {expected_function_name!r} not found in node_layout.py",
+            )
+
+    # --- AST: private helper functions ---
+
+    def test_scale_helper_functions_exist(self):
+        """_scale_selected_nodes and _scale_upstream_nodes must be defined."""
+        with open(NODE_LAYOUT_PATH) as source_file:
+            source = source_file.read()
+        tree = ast.parse(source)
+        defined_functions = {
+            ast_node.name
+            for ast_node in ast.walk(tree)
+            if isinstance(ast_node, ast.FunctionDef)
+        }
+        for expected_function_name in ("_scale_selected_nodes", "_scale_upstream_nodes"):
+            self.assertIn(
+                expected_function_name,
+                defined_functions,
+                f"Function {expected_function_name!r} not found in node_layout.py",
+            )
+
+    # --- AST: SHRINK_FACTOR and EXPAND_FACTOR module-level constants ---
+
+    def test_shrink_and_expand_factor_constants_exist(self):
+        """SHRINK_FACTOR and EXPAND_FACTOR must be assigned at module level in source."""
+        with open(NODE_LAYOUT_PATH) as source_file:
+            source = source_file.read()
+        tree = ast.parse(source)
+        module_level_assigned_names = set()
+        for ast_node in tree.body:
+            if isinstance(ast_node, ast.Assign):
+                for target in ast_node.targets:
+                    if isinstance(target, ast.Name):
+                        module_level_assigned_names.add(target.id)
+        for expected_constant_name in ("SHRINK_FACTOR", "EXPAND_FACTOR"):
+            self.assertIn(
+                expected_constant_name,
+                module_level_assigned_names,
+                f"Module-level constant {expected_constant_name!r} not found in node_layout.py",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

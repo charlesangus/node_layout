@@ -691,3 +691,93 @@ def layout_upstream_loose():
 
 def layout_selected_loose():
     layout_selected(scheme_multiplier=node_layout_prefs.prefs_singleton.get("loose_multiplier"))
+
+
+def _scale_selected_nodes(scale_factor):
+    selected_nodes = nuke.selectedNodes()
+    if len(selected_nodes) < 2:
+        return
+    anchor_node = max(selected_nodes, key=lambda n: n.ypos())
+    anchor_x = anchor_node.xpos()
+    anchor_y = anchor_node.ypos()
+    for node in selected_nodes:
+        if node is anchor_node:
+            continue
+        dx = node.xpos() - anchor_x
+        dy = node.ypos() - anchor_y
+        node.setXpos(anchor_x + int(dx * scale_factor))
+        node.setYpos(anchor_y + int(dy * scale_factor))
+
+
+def _scale_upstream_nodes(scale_factor):
+    anchor_node = nuke.selectedNode()
+    anchor_x = anchor_node.xpos()
+    anchor_y = anchor_node.ypos()
+    upstream_nodes = collect_subtree_nodes(anchor_node)
+    for node in upstream_nodes:
+        if node is anchor_node:
+            continue
+        dx = node.xpos() - anchor_x
+        dy = node.ypos() - anchor_y
+        node.setXpos(anchor_x + int(dx * scale_factor))
+        node.setYpos(anchor_y + int(dy * scale_factor))
+
+
+def shrink_selected():
+    if len(nuke.selectedNodes()) < 2:
+        return
+    nuke.Undo.name("Shrink Selected")
+    nuke.Undo.begin()
+    try:
+        _scale_selected_nodes(SHRINK_FACTOR)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def expand_selected():
+    if len(nuke.selectedNodes()) < 2:
+        return
+    nuke.Undo.name("Expand Selected")
+    nuke.Undo.begin()
+    try:
+        _scale_selected_nodes(EXPAND_FACTOR)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def shrink_upstream():
+    try:
+        nuke.selectedNode()
+    except ValueError:
+        return
+    nuke.Undo.name("Shrink Upstream")
+    nuke.Undo.begin()
+    try:
+        _scale_upstream_nodes(SHRINK_FACTOR)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def expand_upstream():
+    try:
+        nuke.selectedNode()
+    except ValueError:
+        return
+    nuke.Undo.name("Expand Upstream")
+    nuke.Undo.begin()
+    try:
+        _scale_upstream_nodes(EXPAND_FACTOR)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
