@@ -115,9 +115,28 @@ else:
 if "node_layout_prefs" not in sys.modules:
     _prefs_path = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
     _prefs_spec = importlib.util.spec_from_file_location("node_layout_prefs", _prefs_path)
-    _node_layout_prefs_module = importlib.util.module_from_spec(_prefs_spec)
-    _prefs_spec.loader.exec_module(_node_layout_prefs_module)
-    sys.modules["node_layout_prefs"] = _node_layout_prefs_module
+    _prefs_module = importlib.util.module_from_spec(_prefs_spec)
+    _prefs_spec.loader.exec_module(_prefs_module)
+    sys.modules["node_layout_prefs"] = _prefs_module
+
+_node_layout_prefs_module = sys.modules["node_layout_prefs"]
+
+_PREFS_DEFAULTS = {
+    "base_subtree_margin": 300,
+    "scaling_reference_count": 150,
+    "compact_multiplier": 0.6,
+    "normal_multiplier": 1.0,
+    "loose_multiplier": 1.5,
+    "loose_gap_multiplier": 12.0,
+    "mask_input_ratio": 0.333,
+}
+
+
+def _reset_prefs():
+    """Restore prefs_singleton to canonical defaults so tests are isolated from disk state."""
+    singleton = _node_layout_prefs_module.prefs_singleton
+    for key, val in _PREFS_DEFAULTS.items():
+        singleton.set(key, val)
 
 # Load module under test.
 _module_path = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
@@ -156,6 +175,9 @@ def _wire(parent, children_by_slot):
 class TestMarginSymmetryN2(unittest.TestCase):
     """n==2: verify that side input uses side_margins[1] consistently."""
 
+    def setUp(self):
+        _reset_prefs()
+
     def test_side_input_x_uses_slot1_margin(self):
         """n==2 non-all_side: side input placed at x + node_w + margin[slot1]."""
         # Use a standard non-mask slot 1 input -> SUBTREE_MARGIN (300)
@@ -191,6 +213,9 @@ class TestMarginSymmetryN2(unittest.TestCase):
 
 class TestMarginSymmetryN3(unittest.TestCase):
     """n==3: verify that gap before each side input uses that input's own slot margin."""
+
+    def setUp(self):
+        _reset_prefs()
 
     def test_side_inputs_placed_with_correct_margins(self):
         """n==3: child[1] at x+node_w+margin[1]; child[2] at x+node_w+margin[1]+child1_w+margin[2]."""
