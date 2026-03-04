@@ -61,7 +61,10 @@ Plans:
   1. After running "Layout Upstream" (Shift+E), pressing Ctrl+Z once moves all repositioned nodes back to exactly where they were before the command ran
   2. After running "Layout Selected", pressing Ctrl+Z once restores all repositioned nodes to their pre-layout positions in a single step
   3. Ctrl+Z does not leave nodes in a partially-restored intermediate state
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 03-01-PLAN.md — Undo group wrapping for layout_upstream() and layout_selected() (UNDO-01, UNDO-02)
 
 ### Phase 4: Preferences System
 **Goal**: Users can configure spacing values via a persistent preferences file and a dedicated dialog, and layout operations read those values at runtime
