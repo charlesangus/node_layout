@@ -163,10 +163,19 @@ class TestComputeDimsOverhang(unittest.TestCase):
         # With no overhang, W should be node width (80)
         self.assertEqual(w, 80)
 
-    def test_n1_overhang_when_child_wider(self):
-        """n==1, child wider: W includes left overhang."""
-        # node 80 wide, child 200 wide: overhang = (200-80)//2 = 60
-        # W = max(80, 200) + 60 = 200 + 60 = 260
+    def test_n1_child_wider_than_parent(self):
+        """n==1, child wider than parent: W == child_width (no overhang added).
+
+        When a wider input[0] is centered over its consumer, it extends equally
+        left and right.  The total bounding width of the subtree is exactly
+        child_width — the same as max(parent_width, child_width).  Adding an
+        extra overhang term inflates W and causes stairstepping at higher depths.
+        """
+        # parent 80 wide, child 200 wide:
+        # child centered at x + (80 - 200)//2 = x - 60
+        # child right edge at x - 60 + 200 = x + 140
+        # Total bounding width from left edge (x - 60): 200  (== child_width)
+        # W must be max(80, 200) = 200, NOT 200 + 60 = 260
         node = _StubNode(width=80)
         child = _StubNode(width=200)
         node.inputs = lambda: 1
@@ -177,8 +186,7 @@ class TestComputeDimsOverhang(unittest.TestCase):
         memo = {}
         dims = _nl.compute_dims(node, memo, snap_threshold=8)
         w, h = dims
-        expected = max(80, 200) + max(0, (200 - 80) // 2)  # 200 + 60 = 260
-        self.assertEqual(w, expected)
+        self.assertEqual(w, 200)
 
     def test_n1_equal_width_no_overhang(self):
         """n==1, equal widths: overhang == 0, W == node_width."""
@@ -249,6 +257,74 @@ class TestPlaceSubtreeInputZeroCentering(unittest.TestCase):
 
         expected_x = 200 + (80 - 200) // 2  # = 200 - 60 = 140
         self.assertEqual(child.xpos(), expected_x)
+
+
+class TestPlaceSubtreeInputZeroCenteringMultiLevel(unittest.TestCase):
+    """Verify that centering input[0] over a consumer uses the INPUT NODE'S tile width,
+    not its subtree width.  Using subtree width accumulates drift across levels.
+
+    Chain: D(w=80) -> C(w=80) -> B(w=80) -> A(w=200, leaf)
+
+    compute_dims results (after the input0_overhang fix):
+      compute_dims(A) = (200, _)
+      compute_dims(B) = (max(80, 200), _) = (200, _)
+      compute_dims(C) = (max(80, 200), _) = (200, _)
+      compute_dims(D) = (max(80, 200), _) = (200, _)
+
+    With the WRONG approach (using child_dims[i][0] = subtree width for centering):
+      place_subtree(D, x=0): D@0, C_x = _center_x(200, 0, 80) = -60
+      place_subtree(C, x=-60): C@-60, B_x = _center_x(200, -60, 80) = -120
+      place_subtree(B, x=-120): B@-120, A_x = _center_x(200, -120, 80) = -180
+      -> stairstepping: -60 per level
+
+    With the CORRECT approach (using inputs[0].screenWidth() = tile width for centering):
+      place_subtree(D, x=0): D@0, C_x = _center_x(80, 0, 80) = 0
+      place_subtree(C, x=0): C@0, B_x = _center_x(80, 0, 80) = 0
+      place_subtree(B, x=0): B@0, A_x = _center_x(200, 0, 80) = -60
+      -> no drift; D, C, B all at x=0; A centered under B
+    """
+
+    def _make_chain_node(self, width, child=None):
+        node = _StubNode(width=width)
+        if child is None:
+            node.inputs = lambda: 0
+            node.input = lambda i: None
+        else:
+            node.inputs = lambda: 1
+            node.input = lambda i: child if i == 0 else None
+        return node
+
+    def test_four_level_chain_no_stairstepping(self):
+        """D->C->B->A (widths 80,80,80,200): D, C, B placed at same x; no drift per level."""
+        a = self._make_chain_node(width=200)
+        b = self._make_chain_node(width=80, child=a)
+        c = self._make_chain_node(width=80, child=b)
+        d = self._make_chain_node(width=80, child=c)
+
+        memo = {}
+        _nl.compute_dims(d, memo, snap_threshold=8)
+        _nl.place_subtree(d, 0, 400, memo, snap_threshold=8)
+
+        # D, C, B all have the same tile width as D; centering over each other should
+        # produce no horizontal drift.  They must all be placed at the same x (0).
+        self.assertEqual(c.xpos(), 0, "C must be at x=0 (same column as D, no drift)")
+        self.assertEqual(b.xpos(), 0, "B must be at x=0 (same column as D and C, no drift)")
+
+    def test_four_level_chain_leaf_centered_correctly(self):
+        """D->C->B->A: leaf A (width 200) must be centered under B (width 80) at x=0."""
+        a = self._make_chain_node(width=200)
+        b = self._make_chain_node(width=80, child=a)
+        c = self._make_chain_node(width=80, child=b)
+        d = self._make_chain_node(width=80, child=c)
+
+        memo = {}
+        _nl.compute_dims(d, memo, snap_threshold=8)
+        _nl.place_subtree(d, 0, 400, memo, snap_threshold=8)
+
+        # A (width 200) should be centered under B (width 80, xpos=0):
+        # A_x = 0 + (80 - 200) // 2 = -60
+        expected_a_x = 0 + (80 - 200) // 2  # = -60
+        self.assertEqual(a.xpos(), expected_a_x, "A must be centered under B, not further left")
 
 
 if __name__ == "__main__":
