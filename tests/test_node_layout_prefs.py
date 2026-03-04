@@ -1,0 +1,259 @@
+"""Tests for NodeLayoutPrefs — JSON-backed preferences singleton.
+
+Verifies:
+- Default values returned when no prefs file exists
+- Round-trip persistence: set() -> save() -> reload new instance -> get() returns saved value
+- Partial file fallback: missing keys in saved file fall back to DEFAULTS
+- File-not-found at init: no FileNotFoundError, returns DEFAULTS
+- set() + save() writes valid JSON readable by json.load()
+- reload() picks up changes written to the prefs file since last load
+
+All tests use temporary files and never touch ~/.nuke/node_layout_prefs.json.
+"""
+import json
+import os
+import tempfile
+import unittest
+
+
+NODE_LAYOUT_PREFS_PATH = "/home/latuser/git/nuke_layout_project/node_layout/node_layout_prefs.py"
+
+
+def _import_prefs_module():
+    """Import node_layout_prefs from its absolute path without going through sys.path."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("node_layout_prefs", NODE_LAYOUT_PREFS_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class TestNodeLayoutPrefsDefaults(unittest.TestCase):
+    """Default values returned when no prefs file exists."""
+
+    def setUp(self):
+        self.prefs_module = _import_prefs_module()
+        # Use a path that does not exist so _load() falls back to DEFAULTS
+        self.nonexistent_path = "/tmp/node_layout_prefs_test_nonexistent_DONOTCREATE.json"
+        self.instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.nonexistent_path)
+
+    def tearDown(self):
+        # Ensure the test never created the file
+        if os.path.exists(self.nonexistent_path):
+            os.remove(self.nonexistent_path)
+
+    def test_default_base_subtree_margin(self):
+        """get('base_subtree_margin') returns 300 when no prefs file exists."""
+        self.assertEqual(self.instance.get("base_subtree_margin"), 300)
+
+    def test_default_compact_multiplier(self):
+        """get('compact_multiplier') returns 0.6 when no prefs file exists."""
+        self.assertAlmostEqual(self.instance.get("compact_multiplier"), 0.6)
+
+    def test_default_normal_multiplier(self):
+        """get('normal_multiplier') returns 1.0 when no prefs file exists."""
+        self.assertAlmostEqual(self.instance.get("normal_multiplier"), 1.0)
+
+    def test_default_loose_multiplier(self):
+        """get('loose_multiplier') returns 1.5 when no prefs file exists."""
+        self.assertAlmostEqual(self.instance.get("loose_multiplier"), 1.5)
+
+    def test_default_loose_gap_multiplier(self):
+        """get('loose_gap_multiplier') returns 12.0 when no prefs file exists."""
+        self.assertAlmostEqual(self.instance.get("loose_gap_multiplier"), 12.0)
+
+    def test_default_mask_input_ratio(self):
+        """get('mask_input_ratio') is approximately 0.333 when no prefs file exists."""
+        self.assertAlmostEqual(self.instance.get("mask_input_ratio"), 0.333, places=3)
+
+    def test_default_scaling_reference_count(self):
+        """get('scaling_reference_count') returns 150 when no prefs file exists."""
+        self.assertEqual(self.instance.get("scaling_reference_count"), 150)
+
+    def test_no_file_not_found_error_on_init(self):
+        """Creating NodeLayoutPrefs with a nonexistent file raises no exception."""
+        # setUp already created it; if we get here, no exception was raised
+        self.assertIsNotNone(self.instance)
+
+
+class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
+    """DEFAULTS dict must contain all 7 expected keys."""
+
+    def setUp(self):
+        self.prefs_module = _import_prefs_module()
+
+    def test_defaults_contains_all_seven_keys(self):
+        """DEFAULTS must contain exactly the 7 required preference keys."""
+        required_keys = {
+            "base_subtree_margin",
+            "compact_multiplier",
+            "normal_multiplier",
+            "loose_multiplier",
+            "loose_gap_multiplier",
+            "mask_input_ratio",
+            "scaling_reference_count",
+        }
+        actual_keys = set(self.prefs_module.DEFAULTS.keys())
+        missing_keys = required_keys - actual_keys
+        self.assertEqual(
+            missing_keys,
+            set(),
+            f"DEFAULTS is missing required keys: {missing_keys}",
+        )
+
+
+class TestNodeLayoutPrefsRoundTrip(unittest.TestCase):
+    """Round-trip persistence: set -> save -> reload from same file -> get."""
+
+    def setUp(self):
+        self.prefs_module = _import_prefs_module()
+        self.temp_file = tempfile.NamedTemporaryFile(
+            suffix=".json", delete=False, prefix="test_node_layout_prefs_"
+        )
+        self.temp_file.close()
+        self.temp_path = self.temp_file.name
+
+    def tearDown(self):
+        if os.path.exists(self.temp_path):
+            os.remove(self.temp_path)
+
+    def test_round_trip_base_subtree_margin(self):
+        """set('base_subtree_margin', 200) -> save() -> new instance -> get() returns 200."""
+        first_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        first_instance.set("base_subtree_margin", 200)
+        first_instance.save()
+
+        second_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        self.assertEqual(second_instance.get("base_subtree_margin"), 200)
+
+    def test_round_trip_compact_multiplier(self):
+        """set('compact_multiplier', 0.8) -> save() -> new instance -> get() returns 0.8."""
+        first_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        first_instance.set("compact_multiplier", 0.8)
+        first_instance.save()
+
+        second_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        self.assertAlmostEqual(second_instance.get("compact_multiplier"), 0.8)
+
+    def test_save_writes_valid_json(self):
+        """save() writes a file that json.load() can read without error."""
+        instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        instance.set("base_subtree_margin", 500)
+        instance.save()
+
+        with open(self.temp_path, "r") as saved_file:
+            loaded_data = json.load(saved_file)
+
+        self.assertEqual(loaded_data.get("base_subtree_margin"), 500)
+
+    def test_reload_picks_up_external_changes(self):
+        """reload() picks up changes written to the prefs file since last load."""
+        instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        # Externally write a new value to the file
+        external_data = {"base_subtree_margin": 999}
+        with open(self.temp_path, "w") as prefs_file:
+            json.dump(external_data, prefs_file)
+
+        instance.reload()
+        self.assertEqual(instance.get("base_subtree_margin"), 999)
+
+
+class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
+    """Missing keys in a saved file fall back to DEFAULTS values, not KeyError."""
+
+    def setUp(self):
+        self.prefs_module = _import_prefs_module()
+        self.temp_file = tempfile.NamedTemporaryFile(
+            suffix=".json", delete=False, prefix="test_node_layout_prefs_partial_"
+        )
+        self.temp_file.close()
+        self.temp_path = self.temp_file.name
+
+    def tearDown(self):
+        if os.path.exists(self.temp_path):
+            os.remove(self.temp_path)
+
+    def test_missing_keys_fall_back_to_defaults(self):
+        """A file with only one key still returns DEFAULTS for all other keys."""
+        # Write a partial file with only one key
+        partial_data = {"base_subtree_margin": 400}
+        with open(self.temp_path, "w") as prefs_file:
+            json.dump(partial_data, prefs_file)
+
+        instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+
+        # The saved key is loaded correctly
+        self.assertEqual(instance.get("base_subtree_margin"), 400)
+
+        # All other keys fall back to DEFAULTS (no KeyError)
+        self.assertAlmostEqual(instance.get("compact_multiplier"), 0.6)
+        self.assertAlmostEqual(instance.get("normal_multiplier"), 1.0)
+        self.assertAlmostEqual(instance.get("loose_multiplier"), 1.5)
+        self.assertAlmostEqual(instance.get("loose_gap_multiplier"), 12.0)
+        self.assertAlmostEqual(instance.get("mask_input_ratio"), 0.333, places=3)
+        self.assertEqual(instance.get("scaling_reference_count"), 150)
+
+
+class TestNodeLayoutPrefsExports(unittest.TestCase):
+    """Module-level exports: NodeLayoutPrefs, DEFAULTS, PREFS_FILE, prefs_singleton."""
+
+    def setUp(self):
+        self.prefs_module = _import_prefs_module()
+
+    def test_module_exports_node_layout_prefs_class(self):
+        """node_layout_prefs module must export NodeLayoutPrefs class."""
+        self.assertTrue(
+            hasattr(self.prefs_module, "NodeLayoutPrefs"),
+            "node_layout_prefs must export NodeLayoutPrefs",
+        )
+
+    def test_module_exports_defaults(self):
+        """node_layout_prefs module must export DEFAULTS dict."""
+        self.assertTrue(
+            hasattr(self.prefs_module, "DEFAULTS"),
+            "node_layout_prefs must export DEFAULTS",
+        )
+        self.assertIsInstance(self.prefs_module.DEFAULTS, dict)
+
+    def test_module_exports_prefs_file(self):
+        """node_layout_prefs module must export PREFS_FILE path string."""
+        self.assertTrue(
+            hasattr(self.prefs_module, "PREFS_FILE"),
+            "node_layout_prefs must export PREFS_FILE",
+        )
+        self.assertIsInstance(self.prefs_module.PREFS_FILE, str)
+
+    def test_module_exports_prefs_singleton(self):
+        """node_layout_prefs module must export prefs_singleton instance."""
+        self.assertTrue(
+            hasattr(self.prefs_module, "prefs_singleton"),
+            "node_layout_prefs must export prefs_singleton",
+        )
+        self.assertIsInstance(
+            self.prefs_module.prefs_singleton,
+            self.prefs_module.NodeLayoutPrefs,
+        )
+
+    def test_prefs_file_points_to_nuke_dir(self):
+        """PREFS_FILE must point into the user's ~/.nuke directory."""
+        expected_dir = os.path.join(os.path.expanduser("~"), ".nuke")
+        self.assertTrue(
+            self.prefs_module.PREFS_FILE.startswith(expected_dir),
+            f"PREFS_FILE should be inside {expected_dir}, got: {self.prefs_module.PREFS_FILE}",
+        )
+
+    def test_prefs_singleton_returns_default_base_subtree_margin(self):
+        """prefs_singleton.get('base_subtree_margin') returns 300 (default)."""
+        # prefs_singleton may have loaded from ~/.nuke/node_layout_prefs.json if it exists.
+        # We test the default fallback only if the file is absent.
+        nuke_prefs_path = os.path.join(
+            os.path.expanduser("~"), ".nuke", "node_layout_prefs.json"
+        )
+        if not os.path.exists(nuke_prefs_path):
+            self.assertEqual(
+                self.prefs_module.prefs_singleton.get("base_subtree_margin"), 300
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()
