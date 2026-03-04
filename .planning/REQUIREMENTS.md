@@ -18,8 +18,8 @@
 - [x] **BUG-01**: `make_room()` initializes `x_amount = 0` and `y_amount = 0` before conditional branches so variables are always defined
 - [x] **BUG-02**: `layout_selected()` node filter stores node objects directly rather than node IDs to avoid stale references
 - [ ] **BUG-03**: Inline Dot nodes are positioned centered under their output node, accounting for the Dot's smaller screen size
-- [ ] **BUG-04**: In standard layout, input 0 (main/B input) always goes directly above the consumer node — never offset to a side
-- [ ] **BUG-05**: A/B/mask input slot spacing is consistent; right-side input placement follows the same rules as left-side
+- [x] **BUG-04**: In standard layout, input 0 (main/B input) always goes directly above the consumer node — never offset to a side
+- [x] **BUG-05**: A/B/mask input slot spacing is consistent; right-side input placement follows the same rules as left-side
 
 ### Undo Support
 
@@ -86,8 +86,8 @@
 | BUG-01 | Phase 2 | Complete |
 | BUG-02 | Phase 2 | Complete |
 | BUG-03 | Phase 2 | Pending |
-| BUG-04 | Phase 2 | Pending |
-| BUG-05 | Phase 2 | Pending |
+| BUG-04 | Phase 2 | Complete |
+| BUG-05 | Phase 2 | Complete |
 | UNDO-01 | Phase 3 | Pending |
 | UNDO-02 | Phase 3 | Pending |
 | PREFS-01 | Phase 4 | Pending |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-04T03:38:00Z"
+last_updated: "2026-03-04T03:46:00Z"
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -23,28 +23,28 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 2 of 5 (Bug Fixes)
-Plan: 1 of 2 completed in current phase
-Status: Phase 2 in progress
-Last activity: 2026-03-04 — Completed plan 02-01 (defensive variable init in make_room(), node-object-based node_filter in layout_selected())
+Plan: 2 of 2 completed in current phase
+Status: Phase 2 complete
+Last activity: 2026-03-04 — Completed plan 02-02 (_center_x() helper, input[0] centering, BUG-04 and BUG-05 fixes)
 
-Progress: [████░░░░░░] 20%
+Progress: [████████░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 2 min
-- Total execution time: 0.08 hours
+- Total plans completed: 4
+- Average duration: 4 min
+- Total execution time: 0.25 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-code-quality | 2 | 2 min | 1 min |
-| 02-bug-fixes | 1 | 5 min | 5 min |
+| 02-bug-fixes | 2 | 15 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (1 min), 01-02 (1 min), 02-01 (5 min)
+- Last 5 plans: 01-01 (1 min), 01-02 (1 min), 02-01 (5 min), 02-02 (10 min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -76,6 +76,11 @@ From plan 02-01:
 - x_amount=0 and y_amount=0 initialized before conditionals in make_room() — no-op for unknown directions, existing if/elif chain structure unchanged
 - node_filter holds node objects (not id() integers) so membership tests survive Nuke script modifications; final_selected_ids still derived as {id(n) for n in node_filter} for push_nodes_to_make_room()
 
+From plan 02-02:
+- _center_x takes plain integers (child_width, parent_x, parent_width) not node objects — testable without Nuke runtime and more composable
+- input0_overhang = max(0, (child_width - parent_width) // 2) computed once and added to W for all non-all_side n values — handles wider-than-consumer input[0] bounding box
+- BUG-05 margin application was already symmetric: gap before side child[i] is side_margins[i] in both compute_dims and place_subtree; apparent visual asymmetry was caused by BUG-04 left-edge alignment
+
 ### Pending Todos
 
 None yet.
@@ -87,5 +92,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed 02-01-PLAN.md — make_room() variable init fix (BUG-01), node_filter object membership fix (BUG-02)
+Stopped at: Completed 02-02-PLAN.md — _center_x() helper, input[0] centering fix (BUG-04), margin symmetry confirmed (BUG-05)
 Resume file: None
