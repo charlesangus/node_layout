@@ -10,8 +10,6 @@ def sort_by_filename():
 
     start_location = (min([n.xpos() for n in ns]), min([n.ypos() for n in ns]))
 
-    print(start_location)
-
     interval = 300
 
     for i, n in enumerate(ns):
@@ -23,7 +21,7 @@ def upstream_ignoring_hidden(node, nodes_so_far=None):
     if len(inputs) == 0:
         return nodes_so_far
     else:
-        if nodes_so_far == None:
+        if nodes_so_far is None:
             nodes_so_far = set(inputs)
         else:
             nodes_so_far.update(set(inputs))
