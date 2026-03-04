@@ -345,5 +345,73 @@ class TestPrefsIntegration(unittest.TestCase):
         )
 
 
+class TestSchemeMultiplierPipeline(unittest.TestCase):
+    """Verify scheme_multiplier parameter threading and scheme entry-point functions."""
+
+    def setUp(self):
+        _reset_prefs()
+
+    # --- AST: vertical_gap_between signature ---
+
+    def test_vertical_gap_between_has_scheme_multiplier_param(self):
+        """vertical_gap_between() must have 4 parameters including scheme_multiplier."""
+        arg_names = _get_arg_names("vertical_gap_between")
+        self.assertIn(
+            "scheme_multiplier",
+            arg_names,
+            f"vertical_gap_between() missing scheme_multiplier parameter; got: {arg_names}",
+        )
+
+    # --- AST: compute_dims signature ---
+
+    def test_compute_dims_has_scheme_multiplier_param(self):
+        """compute_dims() signature must include scheme_multiplier parameter."""
+        arg_names = _get_arg_names("compute_dims")
+        self.assertIn(
+            "scheme_multiplier",
+            arg_names,
+            f"compute_dims() missing scheme_multiplier parameter; got: {arg_names}",
+        )
+
+    # --- Behavioral: compact gap is scaled by scheme_multiplier ---
+
+    def test_vertical_gap_between_compact_scheme(self):
+        """vertical_gap_between with scheme_multiplier=0.6 returns int(12.0 * 0.6 * snap)."""
+        node_a = _StubNode(node_class="Grade", knobs={"tile_color": _StubKnob(0x00ff0000)})
+        node_b = _StubNode(node_class="Blur", knobs={"tile_color": _StubKnob(0x0000ff00)})
+        snap_threshold = 8
+        gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=0.6)
+        expected = int(12.0 * 0.6 * snap_threshold)
+        self.assertEqual(
+            gap,
+            expected,
+            f"Expected compact gap {expected}, got {gap}",
+        )
+
+    # --- AST: scheme entry-point functions exist ---
+
+    def test_scheme_entry_point_functions_exist(self):
+        """layout_upstream_compact, layout_selected_compact, layout_upstream_loose, layout_selected_loose must be defined."""
+        with open(NODE_LAYOUT_PATH) as source_file:
+            source = source_file.read()
+        tree = ast.parse(source)
+        defined_functions = {
+            ast_node.name
+            for ast_node in ast.walk(tree)
+            if isinstance(ast_node, ast.FunctionDef)
+        }
+        for expected_function_name in (
+            "layout_upstream_compact",
+            "layout_selected_compact",
+            "layout_upstream_loose",
+            "layout_selected_loose",
+        ):
+            self.assertIn(
+                expected_function_name,
+                defined_functions,
+                f"Function {expected_function_name!r} not found in node_layout.py",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
