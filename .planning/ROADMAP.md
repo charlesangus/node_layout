@@ -76,7 +76,12 @@ Plans:
   3. Selecting the Compact preset produces noticeably tighter node spacing; selecting Loose produces noticeably wider spacing compared to Normal
   4. The preferences dialog is reachable from the node_layout menu and exposes numeric fields for SUBTREE_MARGIN, tight gap multiplier, loose gap multiplier, and mask input ratio
   5. Subtree margin scales with the number of nodes in the subtree, so a single-node subtree does not receive the same large clearance as a twenty-node subtree
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Prefs module: NodeLayoutPrefs class, JSON persistence, prefs_singleton (PREFS-01, PREFS-02, PREFS-04)
+- [ ] 04-02-PLAN.md — PySide6 dialog and menu integration (PREFS-05, PREFS-06)
+- [ ] 04-03-PLAN.md — Replace hardcoded constants in node_layout.py with prefs reads + sqrt scaling (PREFS-03, PREFS-07)
 
 ### Phase 5: New Commands & Scheme
 **Goal**: Users have two new scaling commands and a compact-scheme layout option that apply the existing layout engine with different spacing policies
@@ -98,5 +103,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Code Quality | 2/2 | Complete   | 2026-03-04 |
 | 2. Bug Fixes | 3/3 | Complete   | 2026-03-04 |
 | 3. Undo & Reliability | 1/1 | Complete   | 2026-03-04 |
-| 4. Preferences System | 0/? | Not started | - |
+| 4. Preferences System | 0/3 | Not started | - |
 | 5. New Commands & Scheme | 0/? | Not started | - |
