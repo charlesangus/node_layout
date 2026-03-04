@@ -13,7 +13,7 @@ This milestone transforms node_layout from a working-but-fragile tool into a rel
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Code Quality** - Clean up tech debt, fragile areas, and performance inefficiencies in the existing codebase (completed 2026-03-04)
-- [ ] **Phase 2: Bug Fixes** - Correct user-visible layout positioning errors
+- [x] **Phase 2: Bug Fixes** - Correct user-visible layout positioning errors (completed 2026-03-04)
 - [ ] **Phase 3: Undo & Reliability** - Wrap layout operations in undo groups so Ctrl+Z restores prior state
 - [ ] **Phase 4: Preferences System** - Add a JSON-backed prefs module and PySide6 dialog for spacing configuration
 - [ ] **Phase 5: New Commands & Scheme** - Deliver shrink/expand scaling commands and a compact layout scheme
@@ -93,7 +93,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Code Quality | 2/2 | Complete   | 2026-03-04 |
-| 2. Bug Fixes | 2/3 | In Progress|  |
+| 2. Bug Fixes | 3/3 | Complete   | 2026-03-04 |
 | 3. Undo & Reliability | 0/? | Not started | - |
 | 4. Preferences System | 0/? | Not started | - |
 | 5. New Commands & Scheme | 0/? | Not started | - |
