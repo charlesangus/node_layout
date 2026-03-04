@@ -8,7 +8,7 @@ progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 4 of 5 (Preferences System)
-Plan: 2 of 3 completed in current phase
-Status: Plan 04-02 complete
-Last activity: 2026-03-04 — Completed plan 04-02 (PySide6 preferences dialog with 7 QLineEdit fields and Nuke menu wiring)
+Plan: 3 of 3 completed in current phase
+Status: Plan 04-03 complete — Phase 04 fully complete
+Last activity: 2026-03-04 — Completed plan 04-03 (node_layout.py spacing constants replaced with prefs reads using sqrt scaling)
 
-Progress: [█████████████░░░░░░░] 52%
+Progress: [████████████████░░░░] 64%
 
 ## Performance Metrics
 
@@ -43,7 +43,7 @@ Progress: [█████████████░░░░░░░] 52%
 | 01-code-quality | 2 | 2 min | 1 min |
 | 02-bug-fixes | 3 | 20 min | 7 min |
 | 03-undo-reliability | 1 | 2 min | 2 min |
-| 04-preferences-system | 2 | 3 min | 1.5 min |
+| 04-preferences-system | 3 | 9 min | 3 min |
 
 **Recent Trend:**
 - Last 5 plans: 02-03 (5 min), 03-01 (2 min), 04-01 (2 min), 04-02 (1 min)
@@ -96,6 +96,12 @@ From plan 04-01:
 - [Phase 04-02]: Validate base_subtree_margin > 0 and scaling_reference_count >= 1 in _on_accept() to prevent downstream ZeroDivisionError
 - [Phase 04-02]: menu.py imports only node_layout_prefs_dialog; dialog handles prefs singleton internally — menu has no direct prefs dependency
 
+From plan 04-03:
+- node_count counted once at entry point (layout_upstream/layout_selected) and propagated through compute_dims/place_subtree — avoids recounting per recursion
+- sqrt formula: int(base * multiplier * sqrt(node_count) / sqrt(reference_count)) — at reference_count=150, produces same value (300) as old constant, backward-compatible
+- _subtree_margin(node, slot, node_count) replaces bare SUBTREE_MARGIN/MASK_INPUT_MARGIN constants at all 5 call sites
+- Existing tests updated to pass node_count=150 (reference count) plus node_layout_prefs stub loading — required-parameter discipline maintained
+
 ### Pending Todos
 
 None yet.
@@ -107,5 +113,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed 04-02-PLAN.md — PySide6 preferences dialog with 7 QLineEdit fields and Nuke menu wiring
+Stopped at: Completed 04-03-PLAN.md — node_layout.py spacing fully driven by prefs with sqrt-scaled dynamic margins
 Resume file: None
