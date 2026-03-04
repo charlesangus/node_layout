@@ -4,6 +4,8 @@ import nukescripts
 
 def make_room(amount=1600, direction="up"):
     nodes_to_move = nuke.selectedNodes()
+    x_amount = 0
+    y_amount = 0
 
     if direction == "up":
         x_amount = 0
