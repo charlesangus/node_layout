@@ -91,7 +91,11 @@ Plans:
   1. Selecting nodes and invoking "Shrink/Expand Selected" scales the spacing between those nodes up or down, centered on the root node, without affecting unselected nodes
   2. Invoking "Scale Upstream" from a selected node applies the same shrink/expand scaling to all upstream nodes in the tree
   3. Invoking "Compact Layout" runs the full layout algorithm but applies tight spacing throughout regardless of node color or category — the result is visually denser than a Normal layout of the same graph
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Thread scheme_multiplier through layout pipeline; add compact/loose entry-points and geometric scaling commands
+- [ ] 05-02-PLAN.md — Wire 7 new menu commands; add behavioral integration tests for scheme differentiation
 
 ## Progress
 
