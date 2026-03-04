@@ -45,7 +45,7 @@ MASK_INPUT_MARGIN = SUBTREE_MARGIN // 3  # smaller gap for mask/matte inputs (â‰
 def get_dag_snap_threshold():
     try:
         return int(nuke.toNode("preferences")["dag_snap_threshold"].value())
-    except Exception:
+    except (KeyError, AttributeError):
         return 8
 
 
@@ -92,7 +92,7 @@ def _is_mask_input(node, i):
         label = node.inputLabel(i).lower()
         if 'mask' in label or 'matte' in label:
             return True
-    except Exception:
+    except (KeyError, AttributeError):
         pass
     # Fallback for nodes that have a mask channel knob but don't label the input
     if (node.knob('maskChannelInput') or node.knob('maskChannel')) and i == node.inputs() - 1:
