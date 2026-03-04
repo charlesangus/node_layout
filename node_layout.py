@@ -170,12 +170,12 @@ def _passes_node_filter(node, node_filter):
     """
     if node_filter is None:
         return True
-    if id(node) in node_filter:
+    if node in node_filter:
         return True
     if (node.Class() == 'Dot'
             and node.knob('node_layout_diamond_dot') is not None
             and node.input(0) is not None
-            and id(node.input(0)) in node_filter):
+            and node.input(0) in node_filter):
         return True
     return False
 
@@ -209,14 +209,14 @@ def insert_dot_nodes(root, node_filter=None):
     def _claim(node):
         if node is None or _hides_inputs(node) or id(node) in visited:
             return
-        if node_filter is not None and id(node) not in node_filter:
+        if node_filter is not None and node not in node_filter:
             return
         visited.add(id(node))
         for slot in range(node.inputs()):
             inp = node.input(slot)
             if inp is None:
                 continue
-            if node_filter is not None and id(inp) not in node_filter:
+            if node_filter is not None and inp not in node_filter:
                 continue
             if _is_mask_input(node, slot):
                 deferred.append((node, slot))
@@ -240,7 +240,7 @@ def insert_dot_nodes(root, node_filter=None):
         inp = parent.input(slot)
         if inp is None:
             continue
-        if node_filter is not None and id(inp) not in node_filter:
+        if node_filter is not None and inp not in node_filter:
             continue
         if id(inp) in visited:
             dot = nuke.nodes.Dot()
@@ -470,7 +470,7 @@ def collect_subtree_nodes(root, node_filter=None):
     def _traverse(node):
         if node is None or id(node) in visited_ids:
             return
-        if node_filter is not None and id(node) not in node_filter:
+        if node_filter is not None and node not in node_filter:
             return
         visited_ids.add(id(node))
         nodes.append(node)
@@ -581,7 +581,7 @@ def layout_selected():
     if len(selected_nodes) < 2:
         return  # nothing to lay out relative to each other
 
-    node_filter = set(id(n) for n in selected_nodes)
+    node_filter = set(selected_nodes)
     roots = find_selection_roots(selected_nodes)
     roots.sort(key=lambda n: n.xpos())
 
@@ -609,7 +609,7 @@ def layout_selected():
     # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
     # returns [] here. Use the original selected_nodes list — the Python objects are
     # the same, but their positions have been updated by place_subtree.
-    final_selected_ids = node_filter
+    final_selected_ids = {id(n) for n in node_filter}
     bbox_after = compute_node_bounding_box(selected_nodes)
 
     if bbox_before and bbox_after:
