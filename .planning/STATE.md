@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-03-03T00:05:00Z"
+status: unknown
+last_updated: "2026-03-04T11:21:26.961Z"
 progress:
-  total_phases: 5
-  completed_phases: 2
+  total_phases: 3
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave and need to be able to undo when the result isn't what they wanted.
-**Current focus:** Phase 2 — Bug Fixes
+**Current focus:** Phase 3 — Undo Reliability
 
 ## Current Position
 
-Phase: 2 of 5 (Bug Fixes)
-Plan: 3 of 3 completed in current phase
-Status: Phase 2 complete
-Last activity: 2026-03-03 — Completed plan 02-03 (diamond Dot post-placement centering, BUG-03 fix)
+Phase: 3 of 5 (Undo Reliability)
+Plan: 1 of 1 completed in current phase
+Status: Phase 3 complete
+Last activity: 2026-03-04 — Completed plan 03-01 (undo group wrapping for layout_upstream and layout_selected)
 
-Progress: [██████████░░░░░░░░░░] 40%
+Progress: [████████████░░░░░░░░] 48%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 6
 - Average duration: 4 min
-- Total execution time: 0.25 hours
+- Total execution time: 0.29 hours
 
 **By Phase:**
 
@@ -42,9 +42,10 @@ Progress: [██████████░░░░░░░░░░] 40%
 |-------|-------|-------|----------|
 | 01-code-quality | 2 | 2 min | 1 min |
 | 02-bug-fixes | 3 | 20 min | 7 min |
+| 03-undo-reliability | 1 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (1 min), 01-02 (1 min), 02-01 (5 min), 02-02 (10 min), 02-03 (5 min)
+- Last 5 plans: 01-02 (1 min), 02-01 (5 min), 02-02 (10 min), 02-03 (5 min), 03-01 (2 min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -83,6 +84,8 @@ From plan 02-02:
 
 From plan 02-03:
 - Diamond Dot centering: reposition only the Dot tile after recursion using _center_x(); upstream subtree position unaffected; only X corrected (Y already correct)
+- [Phase 03-undo-reliability]: Use try/except/else (not finally) for undo group — nuke.Undo.end() in else, nuke.Undo.cancel() in except
+- [Phase 03-undo-reliability]: Early-return guard for layout_selected() placed before undo group open — no empty undo entries when fewer than 2 nodes selected
 
 ### Pending Todos
 
@@ -95,5 +98,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed 02-03-PLAN.md — diamond Dot post-placement centering via _center_x() after place_subtree() recursion (BUG-03)
+Stopped at: Completed 03-01-PLAN.md — undo group wrapping in layout_upstream() and layout_selected() using try/except/else pattern
 Resume file: None

@@ -23,8 +23,8 @@
 
 ### Undo Support
 
-- [ ] **UNDO-01**: `layout_upstream()` wraps all node position changes in a single Nuke undo group so Ctrl+Z undoes the entire operation at once
-- [ ] **UNDO-02**: `layout_selected()` wraps all node position changes in a single Nuke undo group so Ctrl+Z undoes the entire operation at once
+- [x] **UNDO-01**: `layout_upstream()` wraps all node position changes in a single Nuke undo group so Ctrl+Z undoes the entire operation at once
+- [x] **UNDO-02**: `layout_selected()` wraps all node position changes in a single Nuke undo group so Ctrl+Z undoes the entire operation at once
 
 ### Fragile Area Fixes
 
@@ -88,8 +88,8 @@
 | BUG-03 | Phase 2 | Complete |
 | BUG-04 | Phase 2 | Complete |
 | BUG-05 | Phase 2 | Complete |
-| UNDO-01 | Phase 3 | Pending |
-| UNDO-02 | Phase 3 | Pending |
+| UNDO-01 | Phase 3 | Complete |
+| UNDO-02 | Phase 3 | Complete |
 | PREFS-01 | Phase 4 | Pending |
 | PREFS-02 | Phase 4 | Pending |
 | PREFS-03 | Phase 4 | Pending |
