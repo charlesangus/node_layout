@@ -2,6 +2,7 @@ import nuke
 import node_layout
 import make_room
 import util
+import node_layout_prefs_dialog
 
 
 m = nuke.menu("Nuke")
@@ -31,3 +32,9 @@ layout_menu.addCommand("Make Room Below (smaller)", "make_room.make_room(amount=
 
 layout_menu.addCommand("Make Room Left", "make_room.make_room(amount=800, direction='left')", "{", shortcutContext=2,)
 layout_menu.addCommand("Make Room Right", "make_room.make_room(amount=800, direction='right')", "}", shortcutContext=2,)
+
+layout_menu.addSeparator()
+layout_menu.addCommand(
+    "Preferences\u2026",
+    node_layout_prefs_dialog.show_prefs_dialog,
+)
