@@ -36,10 +36,10 @@
 
 ### Preferences & Spacing
 
-- [ ] **PREFS-01**: `node_layout_prefs.py` module provides a JSON-backed singleton storing prefs at `~/.nuke/node_layout_prefs.json`
-- [ ] **PREFS-02**: Default values reflect tighter spacing than current hardcoded constants (SUBTREE_MARGIN significantly reduced from 300)
+- [x] **PREFS-01**: `node_layout_prefs.py` module provides a JSON-backed singleton storing prefs at `~/.nuke/node_layout_prefs.json`
+- [x] **PREFS-02**: Default values reflect tighter spacing than current hardcoded constants (SUBTREE_MARGIN significantly reduced from 300)
 - [ ] **PREFS-03**: Spacing constants (`SUBTREE_MARGIN`, tight gap multiplier, loose gap multiplier, mask input ratio) are read from prefs at layout-operation time rather than hardcoded
-- [ ] **PREFS-04**: Three presets available: Compact, Normal (default), Loose — each sets all spacing values at once
+- [x] **PREFS-04**: Three presets available: Compact, Normal (default), Loose — each sets all spacing values at once
 - [ ] **PREFS-05**: PySide6 preferences dialog (`node_layout_prefs_dialog.py`) is accessible from the node_layout menu
 - [ ] **PREFS-06**: Dialog exposes a preset selector and numeric fields for SUBTREE_MARGIN, tight gap multiplier, loose gap multiplier, and mask input ratio
 - [ ] **PREFS-07**: Subtree margin scales proportionally to the number of nodes in the subtree (dynamic spacing) rather than using a single static value
@@ -90,10 +90,10 @@
 | BUG-05 | Phase 2 | Complete |
 | UNDO-01 | Phase 3 | Complete |
 | UNDO-02 | Phase 3 | Complete |
-| PREFS-01 | Phase 4 | Pending |
-| PREFS-02 | Phase 4 | Pending |
+| PREFS-01 | Phase 4 | Complete |
+| PREFS-02 | Phase 4 | Complete |
 | PREFS-03 | Phase 4 | Pending |
-| PREFS-04 | Phase 4 | Pending |
+| PREFS-04 | Phase 4 | Complete |
 | PREFS-05 | Phase 4 | Pending |
 | PREFS-06 | Phase 4 | Pending |
 | PREFS-07 | Phase 4 | Pending |

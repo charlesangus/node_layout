@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-04T11:24:20.271Z"
+status: in_progress
+last_updated: "2026-03-04T12:19:04Z"
 progress:
-  total_phases: 3
+  total_phases: 5
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 7
+  completed_plans: 7
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-03)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave and need to be able to undo when the result isn't what they wanted.
-**Current focus:** Phase 3 — Undo Reliability
+**Current focus:** Phase 4 — Preferences System
 
 ## Current Position
 
-Phase: 3 of 5 (Undo Reliability)
-Plan: 1 of 1 completed in current phase
-Status: Phase 3 complete
-Last activity: 2026-03-04 — Completed plan 03-01 (undo group wrapping for layout_upstream and layout_selected)
+Phase: 4 of 5 (Preferences System)
+Plan: 1 of 3 completed in current phase
+Status: Plan 04-01 complete
+Last activity: 2026-03-04 — Completed plan 04-01 (NodeLayoutPrefs JSON-backed prefs singleton with 7 layout keys)
 
-Progress: [████████████░░░░░░░░] 48%
+Progress: [█████████████░░░░░░░] 52%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: 4 min
-- Total execution time: 0.29 hours
+- Total execution time: 0.31 hours
 
 **By Phase:**
 
@@ -43,9 +43,10 @@ Progress: [████████████░░░░░░░░] 48%
 | 01-code-quality | 2 | 2 min | 1 min |
 | 02-bug-fixes | 3 | 20 min | 7 min |
 | 03-undo-reliability | 1 | 2 min | 2 min |
+| 04-preferences-system | 1 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (1 min), 02-01 (5 min), 02-02 (10 min), 02-03 (5 min), 03-01 (2 min)
+- Last 5 plans: 02-02 (10 min), 02-03 (5 min), 03-01 (2 min), 04-01 (2 min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -87,6 +88,11 @@ From plan 02-03:
 - [Phase 03-undo-reliability]: Use try/except/else (not finally) for undo group — nuke.Undo.end() in else, nuke.Undo.cancel() in except
 - [Phase 03-undo-reliability]: Early-return guard for layout_selected() placed before undo group open — no empty undo entries when fewer than 2 nodes selected
 
+From plan 04-01:
+- Treat empty files as absent in _load(): NamedTemporaryFile creates an empty file, so os.path.exists() returns True but json.load() raises JSONDecodeError; fix reads raw content and only calls json.loads() if non-empty
+- {**DEFAULTS, **loaded} merge pattern ensures partial prefs files fall back to defaults without KeyError
+- mask_input_ratio stored as 0.333 float literal — matches plan spec, adequate precision for UI purposes
+
 ### Pending Todos
 
 None yet.
@@ -98,5 +104,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed 03-01-PLAN.md — undo group wrapping in layout_upstream() and layout_selected() using try/except/else pattern
+Stopped at: Completed 04-01-PLAN.md — NodeLayoutPrefs JSON-backed prefs singleton with 7 layout preference keys
 Resume file: None
