@@ -19,6 +19,43 @@ layout_menu.addCommand('Layout Selected', node_layout.layout_selected)
 
 layout_menu.addSeparator()
 
+layout_menu.addCommand('Compact Layout Upstream', node_layout.layout_upstream_compact)
+layout_menu.addCommand('Compact Layout Selected', node_layout.layout_selected_compact)
+
+layout_menu.addSeparator()
+
+layout_menu.addCommand('Loose Layout Upstream', node_layout.layout_upstream_loose)
+layout_menu.addCommand('Loose Layout Selected', node_layout.layout_selected_loose)
+
+layout_menu.addSeparator()
+
+layout_menu.addCommand(
+    'Shrink Selected',
+    node_layout.shrink_selected,
+    'ctrl+,',
+    shortcutContext=2,
+)
+layout_menu.addCommand(
+    'Expand Selected',
+    node_layout.expand_selected,
+    'ctrl+.',
+    shortcutContext=2,
+)
+layout_menu.addCommand(
+    'Shrink Upstream',
+    node_layout.shrink_upstream,
+    'ctrl+shift+,',
+    shortcutContext=2,
+)
+layout_menu.addCommand(
+    'Expand Upstream',
+    node_layout.expand_upstream,
+    'ctrl+shift+.',
+    shortcutContext=2,
+)
+
+layout_menu.addSeparator()
+
 layout_menu.addCommand("Sort By Filename", "util.sort_by_filename()", shortcutContext=2,)
 layout_menu.addCommand("Select Upstream Ignoring Hidden", "util.select_upstream_ignoring_hidden()", "E", shortcutContext=2,)
 
