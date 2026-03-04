@@ -2,6 +2,13 @@ import nuke
 
 _TOOLBAR_FOLDER_MAP = None
 
+_COLOR_LOOKUP_CACHE = {}  # node.Class() -> color value; valid for one layout operation only
+
+
+def _clear_color_cache():
+    global _COLOR_LOOKUP_CACHE
+    _COLOR_LOOKUP_CACHE = {}
+
 
 def _collect_toolbar_items(menu, top_level_folder_name, folder_map):
     for item in menu.items():
@@ -50,14 +57,21 @@ def get_dag_snap_threshold():
 
 
 def find_node_default_color(node):
+    node_class = node.Class()
+    if node_class in _COLOR_LOOKUP_CACHE:
+        return _COLOR_LOOKUP_CACHE[node_class]
     prefs = nuke.toNode("preferences")
     node_colour_slots = [prefs[knob_name].value().split(' ') for knob_name in prefs.knobs() if knob_name.startswith("NodeColourSlot")]
     node_colour_slots = [[item.replace("'", "").lower() for item in parent_item] for parent_item in node_colour_slots]
     node_colour_choices = [prefs[knob_name].value() for knob_name in prefs.knobs() if knob_name.startswith("NodeColourChoice")]
     for i, slot in enumerate(node_colour_slots):
-        if node.Class().lower() in slot:
-            return node_colour_choices[i]
-    return prefs["NodeColor"].value()
+        if node_class.lower() in slot:
+            result = node_colour_choices[i]
+            _COLOR_LOOKUP_CACHE[node_class] = result
+            return result
+    result = prefs["NodeColor"].value()
+    _COLOR_LOOKUP_CACHE[node_class] = result
+    return result
 
 
 def find_node_color(node):
@@ -519,6 +533,9 @@ def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after):
 
 
 def layout_upstream():
+    global _TOOLBAR_FOLDER_MAP
+    _TOOLBAR_FOLDER_MAP = None
+    _clear_color_cache()
     root = nuke.selectedNode()
 
     # Capture starting state before any changes
@@ -552,6 +569,9 @@ def find_selection_roots(selected_nodes):
 
 
 def layout_selected():
+    global _TOOLBAR_FOLDER_MAP
+    _TOOLBAR_FOLDER_MAP = None
+    _clear_color_cache()
     selected_nodes = nuke.selectedNodes()
     if len(selected_nodes) < 2:
         return  # nothing to lay out relative to each other
