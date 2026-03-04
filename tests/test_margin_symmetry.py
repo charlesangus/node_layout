@@ -111,11 +111,24 @@ else:
     if not hasattr(_nuke_existing, "nodes"):
         _nuke_existing.nodes = _StubNodesModule()
 
+# Load node_layout_prefs (no Nuke dependency) so node_layout.py's import resolves.
+if "node_layout_prefs" not in sys.modules:
+    _prefs_path = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
+    _prefs_spec = importlib.util.spec_from_file_location("node_layout_prefs", _prefs_path)
+    _node_layout_prefs_module = importlib.util.module_from_spec(_prefs_spec)
+    _prefs_spec.loader.exec_module(_node_layout_prefs_module)
+    sys.modules["node_layout_prefs"] = _node_layout_prefs_module
+
 # Load module under test.
 _module_path = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 _spec = importlib.util.spec_from_file_location("node_layout_margins", _module_path)
 _nl = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_nl)
+
+# At node_count=150 (the scaling reference count) with default prefs
+# (normal_multiplier=1.0), _subtree_margin() returns 300 — the same value
+# as the old SUBTREE_MARGIN constant.  Tests use this value for assertions.
+_SUBTREE_MARGIN_AT_REFERENCE = 300
 
 
 def _make_node(width=80, height=28, xpos=0, ypos=0, node_class="Grade"):
@@ -152,10 +165,10 @@ class TestMarginSymmetryN2(unittest.TestCase):
         _wire(parent, {0: child_primary, 1: child_side})
 
         memo = {}
-        _nl.compute_dims(parent, memo, snap_threshold=8)
-        _nl.place_subtree(parent, 100, 400, memo, snap_threshold=8)
+        _nl.compute_dims(parent, memo, snap_threshold=8, node_count=150)
+        _nl.place_subtree(parent, 100, 400, memo, snap_threshold=8, node_count=150)
 
-        expected_side_x = 100 + 80 + _nl.SUBTREE_MARGIN  # x + node_w + margin[1]
+        expected_side_x = 100 + 80 + _SUBTREE_MARGIN_AT_REFERENCE  # x + node_w + margin[1]
         self.assertEqual(child_side.xpos(), expected_side_x)
 
     def test_compute_dims_n2_includes_slot1_margin_in_W(self):
@@ -166,13 +179,13 @@ class TestMarginSymmetryN2(unittest.TestCase):
         _wire(parent, {0: child_primary, 1: child_side})
 
         memo = {}
-        dims = _nl.compute_dims(parent, memo, snap_threshold=8)
+        dims = _nl.compute_dims(parent, memo, snap_threshold=8, node_count=150)
         w, h = dims
 
         # W = max(child0_w + overhang, node_w + margin[1] + child1_w)
         # child0 == node_w == 80, so overhang = 0
         # W = max(80, 80 + 300 + 60) = 440
-        expected_w = max(80, 80 + _nl.SUBTREE_MARGIN + 60)
+        expected_w = max(80, 80 + _SUBTREE_MARGIN_AT_REFERENCE + 60)
         self.assertEqual(w, expected_w)
 
 
@@ -189,16 +202,16 @@ class TestMarginSymmetryN3(unittest.TestCase):
         _wire(parent, {0: child0, 1: child1, 2: child2})
 
         memo = {}
-        _nl.compute_dims(parent, memo, snap_threshold=8)
-        _nl.place_subtree(parent, 0, 400, memo, snap_threshold=8)
+        _nl.compute_dims(parent, memo, snap_threshold=8, node_count=150)
+        _nl.place_subtree(parent, 0, 400, memo, snap_threshold=8, node_count=150)
 
         # child1 should be placed at x + node_w + side_margins[1] = 0 + 80 + 300 = 380
-        expected_child1_x = 0 + 80 + _nl.SUBTREE_MARGIN
+        expected_child1_x = 0 + 80 + _SUBTREE_MARGIN_AT_REFERENCE
         self.assertEqual(child1.xpos(), expected_child1_x)
 
         # child2 placed at: x + node_w + margin[1] + child1_w + margin[2]
         # = 0 + 80 + 300 + 60 + 300 = 740
-        expected_child2_x = 0 + 80 + _nl.SUBTREE_MARGIN + 60 + _nl.SUBTREE_MARGIN
+        expected_child2_x = 0 + 80 + _SUBTREE_MARGIN_AT_REFERENCE + 60 + _SUBTREE_MARGIN_AT_REFERENCE
         self.assertEqual(child2.xpos(), expected_child2_x)
 
     def test_compute_dims_n3_total_width_matches_placement(self):
@@ -210,13 +223,13 @@ class TestMarginSymmetryN3(unittest.TestCase):
         _wire(parent, {0: child0, 1: child1, 2: child2})
 
         memo = {}
-        dims = _nl.compute_dims(parent, memo, snap_threshold=8)
+        dims = _nl.compute_dims(parent, memo, snap_threshold=8, node_count=150)
         w, h = dims
 
         # W = max(child0_w + overhang, node_w + sum(margins[1:3]) + sum(side_child widths))
         # overhang = max(0, (80 - 80) // 2) = 0
         # W = max(80, 80 + 300 + 300 + 60 + 40) = max(80, 780) = 780
-        expected_w = max(80, 80 + 2 * _nl.SUBTREE_MARGIN + 60 + 40)
+        expected_w = max(80, 80 + 2 * _SUBTREE_MARGIN_AT_REFERENCE + 60 + 40)
         self.assertEqual(w, expected_w)
 
     def test_margin_consistent_between_dims_and_placement(self):
@@ -228,10 +241,10 @@ class TestMarginSymmetryN3(unittest.TestCase):
         _wire(parent, {0: child0, 1: child1, 2: child2})
 
         memo = {}
-        dims = _nl.compute_dims(parent, memo, snap_threshold=8)
+        dims = _nl.compute_dims(parent, memo, snap_threshold=8, node_count=150)
         tree_width = dims[0]
 
-        _nl.place_subtree(parent, 0, 400, memo, snap_threshold=8)
+        _nl.place_subtree(parent, 0, 400, memo, snap_threshold=8, node_count=150)
 
         # The rightmost side child's right edge: child2_x + child2_width
         rightmost_right = child2.xpos() + child2.screenWidth()

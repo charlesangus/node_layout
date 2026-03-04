@@ -104,6 +104,14 @@ _nuke_stub.toNode = lambda name: _make_preferences_node() if name == "preference
 _nuke_stub.menu = lambda name: None
 sys.modules["nuke"] = _nuke_stub
 
+# Load node_layout_prefs (no Nuke dependency) so node_layout.py's import resolves.
+if "node_layout_prefs" not in sys.modules:
+    _prefs_path = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
+    _prefs_spec = importlib.util.spec_from_file_location("node_layout_prefs", _prefs_path)
+    _node_layout_prefs_module = importlib.util.module_from_spec(_prefs_spec)
+    _prefs_spec.loader.exec_module(_node_layout_prefs_module)
+    sys.modules["node_layout_prefs"] = _node_layout_prefs_module
+
 _module_path = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 _spec = importlib.util.spec_from_file_location("node_layout", _module_path)
 _nl = importlib.util.module_from_spec(_spec)
@@ -181,8 +189,8 @@ class TestDiamondDotCenteringRuntime(unittest.TestCase):
         consumer._inputs = [diamond_dot]
         diamond_dot._inputs = []  # Dot has no further inputs for this test
         memo = {}
-        _nl.compute_dims(consumer, memo, snap_threshold=8)
-        _nl.place_subtree(consumer, consumer_x, consumer_y, memo, snap_threshold=8)
+        _nl.compute_dims(consumer, memo, snap_threshold=8, node_count=150)
+        _nl.place_subtree(consumer, consumer_x, consumer_y, memo, snap_threshold=8, node_count=150)
 
     def test_diamond_dot_xpos_centered_under_consumer(self):
         """Diamond Dot xpos == _center_x(12, consumer_x, consumer_width) after placement."""
@@ -221,8 +229,8 @@ class TestDiamondDotCenteringRuntime(unittest.TestCase):
         consumer._inputs = [regular_child]
         regular_child._inputs = []
         memo = {}
-        _nl.compute_dims(consumer, memo, snap_threshold=8)
-        _nl.place_subtree(consumer, 200, 400, memo, snap_threshold=8)
+        _nl.compute_dims(consumer, memo, snap_threshold=8, node_count=150)
+        _nl.place_subtree(consumer, 200, 400, memo, snap_threshold=8, node_count=150)
 
         # Regular child is positioned by the standard centering in place_subtree, not diamond path
         # _center_x(40, 200, 80) == 220 — this is the standard BUG-04 centering, not diamond

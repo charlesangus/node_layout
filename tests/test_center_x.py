@@ -97,6 +97,13 @@ _nuke_stub.toNode = lambda name: _make_preferences_node() if name == "preference
 _nuke_stub.menu = lambda name: None
 sys.modules["nuke"] = _nuke_stub
 
+# Load node_layout_prefs (no Nuke dependency) so node_layout.py's import resolves.
+_prefs_path = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
+_prefs_spec = importlib.util.spec_from_file_location("node_layout_prefs", _prefs_path)
+_node_layout_prefs_module = importlib.util.module_from_spec(_prefs_spec)
+_prefs_spec.loader.exec_module(_node_layout_prefs_module)
+sys.modules["node_layout_prefs"] = _node_layout_prefs_module
+
 # Now we can import the module under test.
 _module_path = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 _spec = importlib.util.spec_from_file_location("node_layout", _module_path)
@@ -158,7 +165,7 @@ class TestComputeDimsOverhang(unittest.TestCase):
         child.input = lambda i: None
 
         memo = {}
-        dims = _nl.compute_dims(node, memo, snap_threshold=8)
+        dims = _nl.compute_dims(node, memo, snap_threshold=8, node_count=150)
         w, h = dims
         # With no overhang, W should be node width (80)
         self.assertEqual(w, 80)
@@ -184,7 +191,7 @@ class TestComputeDimsOverhang(unittest.TestCase):
         child.input = lambda i: None
 
         memo = {}
-        dims = _nl.compute_dims(node, memo, snap_threshold=8)
+        dims = _nl.compute_dims(node, memo, snap_threshold=8, node_count=150)
         w, h = dims
         self.assertEqual(w, 200)
 
@@ -198,7 +205,7 @@ class TestComputeDimsOverhang(unittest.TestCase):
         child.input = lambda i: None
 
         memo = {}
-        dims = _nl.compute_dims(node, memo, snap_threshold=8)
+        dims = _nl.compute_dims(node, memo, snap_threshold=8, node_count=150)
         w, h = dims
         self.assertEqual(w, 80)
 
@@ -220,8 +227,8 @@ class TestPlaceSubtreeInputZeroCentering(unittest.TestCase):
         child.input = lambda i: None
 
         memo = {}
-        _nl.compute_dims(parent, memo, snap_threshold=8)
-        _nl.place_subtree(parent, 200, 400, memo, snap_threshold=8)
+        _nl.compute_dims(parent, memo, snap_threshold=8, node_count=150)
+        _nl.place_subtree(parent, 200, 400, memo, snap_threshold=8, node_count=150)
 
         # Expected: child_x = parent_x + (parent_width - child_width) // 2
         expected_x = 200 + (80 - 40) // 2  # = 220
@@ -237,8 +244,8 @@ class TestPlaceSubtreeInputZeroCentering(unittest.TestCase):
         child.input = lambda i: None
 
         memo = {}
-        _nl.compute_dims(parent, memo, snap_threshold=8)
-        _nl.place_subtree(parent, 100, 400, memo, snap_threshold=8)
+        _nl.compute_dims(parent, memo, snap_threshold=8, node_count=150)
+        _nl.place_subtree(parent, 100, 400, memo, snap_threshold=8, node_count=150)
 
         self.assertEqual(child.xpos(), 100)
 
@@ -252,8 +259,8 @@ class TestPlaceSubtreeInputZeroCentering(unittest.TestCase):
         child.input = lambda i: None
 
         memo = {}
-        _nl.compute_dims(parent, memo, snap_threshold=8)
-        _nl.place_subtree(parent, 200, 400, memo, snap_threshold=8)
+        _nl.compute_dims(parent, memo, snap_threshold=8, node_count=150)
+        _nl.place_subtree(parent, 200, 400, memo, snap_threshold=8, node_count=150)
 
         expected_x = 200 + (80 - 200) // 2  # = 200 - 60 = 140
         self.assertEqual(child.xpos(), expected_x)
@@ -302,8 +309,8 @@ class TestPlaceSubtreeInputZeroCenteringMultiLevel(unittest.TestCase):
         d = self._make_chain_node(width=80, child=c)
 
         memo = {}
-        _nl.compute_dims(d, memo, snap_threshold=8)
-        _nl.place_subtree(d, 0, 400, memo, snap_threshold=8)
+        _nl.compute_dims(d, memo, snap_threshold=8, node_count=150)
+        _nl.place_subtree(d, 0, 400, memo, snap_threshold=8, node_count=150)
 
         # D, C, B all have the same tile width as D; centering over each other should
         # produce no horizontal drift.  They must all be placed at the same x (0).
@@ -318,8 +325,8 @@ class TestPlaceSubtreeInputZeroCenteringMultiLevel(unittest.TestCase):
         d = self._make_chain_node(width=80, child=c)
 
         memo = {}
-        _nl.compute_dims(d, memo, snap_threshold=8)
-        _nl.place_subtree(d, 0, 400, memo, snap_threshold=8)
+        _nl.compute_dims(d, memo, snap_threshold=8, node_count=150)
+        _nl.place_subtree(d, 0, 400, memo, snap_threshold=8, node_count=150)
 
         # A (width 200) should be centered under B (width 80, xpos=0):
         # A_x = 0 + (80 - 200) // 2 = -60

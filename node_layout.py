@@ -1,4 +1,6 @@
+import math
 import nuke
+import node_layout_prefs
 
 _TOOLBAR_FOLDER_MAP = None
 
@@ -45,10 +47,6 @@ def same_toolbar_folder(node_a, node_b):
     return folder_a == folder_b
 
 
-SUBTREE_MARGIN = 300  # vertical clearance between adjacent subtrees, and between a dot and the node above it
-MASK_INPUT_MARGIN = SUBTREE_MARGIN // 3  # smaller gap for mask/matte inputs (≈100 px)
-
-
 def get_dag_snap_threshold():
     try:
         return int(nuke.toNode("preferences")["dag_snap_threshold"].value())
@@ -88,7 +86,8 @@ def same_tile_color(node_a, node_b):
 def vertical_gap_between(top_node, bottom_node, snap_threshold):
     if same_tile_color(top_node, bottom_node) and same_toolbar_folder(top_node, bottom_node):
         return snap_threshold - 1
-    return 12 * snap_threshold
+    loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
+    return int(loose_gap_multiplier * snap_threshold)
 
 
 def _hides_inputs(node):
@@ -114,8 +113,17 @@ def _is_mask_input(node, i):
     return False
 
 
-def _subtree_margin(node, slot):
-    return MASK_INPUT_MARGIN if _is_mask_input(node, slot) else SUBTREE_MARGIN
+def _subtree_margin(node, slot, node_count, mode_multiplier=None):
+    current_prefs = node_layout_prefs.prefs_singleton
+    base = current_prefs.get("base_subtree_margin")
+    if mode_multiplier is None:
+        mode_multiplier = current_prefs.get("normal_multiplier")
+    reference_count = current_prefs.get("scaling_reference_count")
+    effective_margin = int(base * mode_multiplier * math.sqrt(node_count) / math.sqrt(reference_count))
+    if _is_mask_input(node, slot):
+        ratio = current_prefs.get("mask_input_ratio")
+        return int(effective_margin * ratio)
+    return effective_margin
 
 
 def _center_x(child_width, parent_x, parent_width):
@@ -259,7 +267,7 @@ def insert_dot_nodes(root, node_filter=None):
             _claim(inp)
 
 
-def compute_dims(node, memo, snap_threshold, node_filter=None):
+def compute_dims(node, memo, snap_threshold, node_count, node_filter=None):
     if id(node) in memo:
         return memo[id(node)]
 
@@ -267,13 +275,13 @@ def compute_dims(node, memo, snap_threshold, node_filter=None):
     all_side = _primary_slot_externally_occupied(node, node_filter)
     input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side)
     inputs = [inp for _, inp in input_slot_pairs]
-    side_margins = [_subtree_margin(node, slot) for slot, _ in input_slot_pairs]
+    side_margins = [_subtree_margin(node, slot, node_count) for slot, _ in input_slot_pairs]
 
     if not inputs:
         result = (node.screenWidth(), node.screenHeight())
     elif all_side:
         # All in-filter inputs are side inputs; none goes directly above.
-        child_dims = [compute_dims(inp, memo, snap_threshold, node_filter) for inp in inputs]
+        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter) for inp in inputs]
         n = len(inputs)
         W = node.screenWidth() + sum(side_margins) + sum(w for w, h in child_dims)
         gap_closest = max(vertical_gap_between(inputs[n - 1], node, snap_threshold), side_margins[n - 1])
@@ -281,7 +289,7 @@ def compute_dims(node, memo, snap_threshold, node_filter=None):
         H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_closest + inter_band_gaps
         result = (W, H)
     else:
-        child_dims = [compute_dims(inp, memo, snap_threshold, node_filter) for inp in inputs]
+        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter) for inp in inputs]
         n = len(inputs)
         if n == 1:
             W = max(node.screenWidth(), child_dims[0][0])
@@ -309,7 +317,7 @@ def compute_dims(node, memo, snap_threshold, node_filter=None):
     return result
 
 
-def place_subtree(node, x, y, memo, snap_threshold, node_filter=None):
+def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None):
     """
     Place `node` with its top-left corner at (x, y) and recursively position
     every upstream input above it.
@@ -331,8 +339,9 @@ def place_subtree(node, x, y, memo, snap_threshold, node_filter=None):
     - node-to-consumer gap: `vertical_gap_between(inputs[n-1], node, snap_threshold)` —
       color-aware; tight when the input and consumer share an explicit tile color, larger
       otherwise.
-    - inter-subtree gap: `side_margins[i]` — per-slot margin (SUBTREE_MARGIN for normal
-      inputs, MASK_INPUT_MARGIN for mask/matte slots); keeps adjacent subtrees separated.
+    - inter-subtree gap: `side_margins[i]` — per-slot margin (base_subtree_margin scaled
+      by sqrt(node_count) for normal inputs, further reduced by mask_input_ratio for
+      mask/matte slots); keeps adjacent subtrees separated.
 
         bottom_y[n-1] = y - vertical_gap_between(inputs[n-1], node, snap_threshold)
         for i in range(n-2, -1, -1):
@@ -383,8 +392,8 @@ def place_subtree(node, x, y, memo, snap_threshold, node_filter=None):
     actual_slots = [slot for slot, _ in input_slot_pairs]
     inputs = [inp for _, inp in input_slot_pairs]
     n = len(inputs)
-    child_dims = [compute_dims(inp, memo, snap_threshold, node_filter) for inp in inputs]
-    side_margins = [_subtree_margin(node, slot) for slot in actual_slots]
+    child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter) for inp in inputs]
+    side_margins = [_subtree_margin(node, slot, node_count) for slot in actual_slots]
 
     # --- Y staircase: backward walk so input[n-1] is closest to root ---
     # Mirror the gap enlargement from compute_dims: when n > 1 (or all_side,
@@ -456,19 +465,19 @@ def place_subtree(node, x, y, memo, snap_threshold, node_filter=None):
             # Place the upstream subtree at the staircase position, then
             # position the dot itself separately.
             actual_upstream = inp.input(0)
-            place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold, node_filter)
+            place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter)
             dot_center_x = x_positions[i] + actual_upstream.screenWidth() // 2
             if i == n - 1:
                 # Bottom-most dot: centre it vertically beside the root node.
                 dot_y = y + (node.screenHeight() - inp.screenHeight()) // 2
             else:
-                # Staggered dot: SUBTREE_MARGIN below its input node.
-                dot_y = y_positions[i] + actual_upstream.screenHeight() + SUBTREE_MARGIN
+                # Staggered dot: placed below its input node using prefs-based margin.
+                dot_y = y_positions[i] + actual_upstream.screenHeight() + _subtree_margin(node, actual_slots[n - 1], node_count)
             inp.setXpos(dot_center_x - inp.screenWidth() // 2)
             inp.setYpos(dot_y)
         else:
             # Regular node, or a diamond-resolution Dot (hide_input=True, node_layout_diamond_dot knob).
-            place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold, node_filter)
+            place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter)
             # After recursion, reposition diamond Dots to be centered under the consumer tile.
             # The upstream subtree above the Dot is unaffected — only the Dot tile moves.
             if (inp.Class() == 'Dot'
@@ -563,11 +572,14 @@ def layout_upstream():
         original_subtree_nodes = collect_subtree_nodes(root)
         bbox_before = compute_node_bounding_box(original_subtree_nodes)
 
+        subtree_nodes_for_count = collect_subtree_nodes(root)
+        node_count = len(subtree_nodes_for_count)
+
         insert_dot_nodes(root)
         memo = {}
         snap_threshold = get_dag_snap_threshold()
-        compute_dims(root, memo, snap_threshold)
-        place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold)
+        compute_dims(root, memo, snap_threshold, node_count)
+        place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count)
 
         # Capture final state (includes any newly inserted Dot nodes)
         final_subtree_nodes = collect_subtree_nodes(root)
@@ -611,12 +623,14 @@ def layout_selected():
 
         bbox_before = compute_node_bounding_box(selected_nodes)
 
+        node_count = len(selected_nodes)
+
         snap_threshold = get_dag_snap_threshold()
         memo = {}
         placed_bboxes = []  # list of (left, top, right, bottom) for already-placed trees
         for root in roots:
             insert_dot_nodes(root, node_filter=node_filter)
-            tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_filter=node_filter)
+            tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter)
 
             tree_bottom = root.ypos() + root.screenHeight()
             tree_top = tree_bottom - tree_height
@@ -625,9 +639,16 @@ def layout_selected():
             start_x = root.xpos()
             for placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
                 if tree_top < placed_bottom and tree_bottom > placed_top:  # Y overlap
-                    start_x = max(start_x, placed_right + SUBTREE_MARGIN)
+                    current_prefs = node_layout_prefs.prefs_singleton
+                    horizontal_clearance = int(
+                        current_prefs.get("base_subtree_margin")
+                        * current_prefs.get("normal_multiplier")
+                        * math.sqrt(node_count)
+                        / math.sqrt(current_prefs.get("scaling_reference_count"))
+                    )
+                    start_x = max(start_x, placed_right + horizontal_clearance)
 
-            place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_filter=node_filter)
+            place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter)
             placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
 
         # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
