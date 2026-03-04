@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Bug Fixes** - Correct user-visible layout positioning errors (completed 2026-03-04)
 - [x] **Phase 3: Undo & Reliability** - Wrap layout operations in undo groups so Ctrl+Z restores prior state (completed 2026-03-04)
 - [x] **Phase 4: Preferences System** - Add a JSON-backed prefs module and PySide6 dialog for spacing configuration (completed 2026-03-04)
-- [ ] **Phase 5: New Commands & Scheme** - Deliver shrink/expand scaling commands and a compact layout scheme
+- [x] **Phase 5: New Commands & Scheme** - Deliver shrink/expand scaling commands and a compact layout scheme (completed 2026-03-04)
 
 ## Phase Details
 
@@ -108,4 +108,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Bug Fixes | 3/3 | Complete   | 2026-03-04 |
 | 3. Undo & Reliability | 1/1 | Complete   | 2026-03-04 |
 | 4. Preferences System | 3/3 | Complete   | 2026-03-04 |
-| 5. New Commands & Scheme | 1/2 | In Progress|  |
+| 5. New Commands & Scheme | 2/2 | Complete   | 2026-03-04 |

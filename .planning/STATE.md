@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-04T12:23:22.894Z"
+last_updated: "2026-03-04T14:35:10.811Z"
 progress:
-  total_phases: 4
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # Project State
@@ -50,6 +50,7 @@ Progress: [████████████████████] 80%
 - Trend: stable
 
 *Updated after each plan completion*
+| Phase 05-new-commands-scheme P02 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,8 @@ From plan 05-01:
 - layout_selected resolves scheme_multiplier once into resolved_scheme_multiplier for horizontal_clearance; passes original None/value downstream to compute_dims/place_subtree
 - SHRINK_FACTOR=0.8, EXPAND_FACTOR=1.25 as module-level constants (not in prefs)
 - _scale_upstream_nodes uses nuke.selectedNode() directly; guard in public wrappers via try/except ValueError before undo group opens
+- [Phase 05-new-commands-scheme]: Compact/Loose scheme commands registered with no keyboard shortcuts per CONTEXT.md locked decision
+- [Phase 05-new-commands-scheme]: Shrink/Expand commands use ctrl+comma/period mnemonic (comma=less, period=more) with shift variants for upstream
 
 ### Pending Todos
 
