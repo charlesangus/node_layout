@@ -277,7 +277,9 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
     all_side = _primary_slot_externally_occupied(node, node_filter)
     input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side)
     inputs = [inp for _, inp in input_slot_pairs]
-    side_margins = [_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) for slot, _ in input_slot_pairs]
+    normal_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
+    side_margins_h = [_subtree_margin(node, slot, node_count, mode_multiplier=normal_multiplier) for slot, _ in input_slot_pairs]
+    side_margins_v = [_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) for slot, _ in input_slot_pairs]
 
     if not inputs:
         result = (node.screenWidth(), node.screenHeight())
@@ -285,9 +287,9 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
         # All in-filter inputs are side inputs; none goes directly above.
         child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier) for inp in inputs]
         n = len(inputs)
-        W = node.screenWidth() + sum(side_margins) + sum(w for w, h in child_dims)
-        gap_closest = max(vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier), side_margins[n - 1])
-        inter_band_gaps = sum(side_margins[1:n])
+        W = node.screenWidth() + sum(side_margins_h) + sum(w for w, h in child_dims)
+        gap_closest = max(vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier), side_margins_v[n - 1])
+        inter_band_gaps = sum(side_margins_v[1:n])
         H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_closest + inter_band_gaps
         result = (W, H)
     else:
@@ -296,22 +298,22 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
         if n == 1:
             W = max(node.screenWidth(), child_dims[0][0])
         elif n == 2:
-            # input[0] centered above node; input[1] sits at x + node_w + side_margins[1]
+            # input[0] centered above node; input[1] sits at x + node_w + side_margins_h[1]
             W = max(child_dims[0][0],
-                    node.screenWidth() + side_margins[1] + child_dims[1][0])
+                    node.screenWidth() + side_margins_h[1] + child_dims[1][0])
         else:
             # n >= 3: input[0] centered above node; inputs[1..n-1] rightward from node's right edge
             W = max(child_dims[0][0],
-                    node.screenWidth() + sum(side_margins[1:]) + sum(w for w, h in child_dims[1:]))
+                    node.screenWidth() + sum(side_margins_h[1:]) + sum(w for w, h in child_dims[1:]))
         # Staircase formula for all n: each input gets its own vertical band.
         # Total height is sum of all child subtree heights plus per-gap values that
         # depend on the tile colors of adjacent nodes.
         gap_to_consumer = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
         # When there are side inputs (n > 1), a dot will be inserted for inputs[n-1].
-        # Reserve at least side_margins[n-1] so the dot fits without overlapping.
+        # Reserve at least side_margins_v[n-1] so the dot fits without overlapping.
         if n > 1:
-            gap_to_consumer = max(gap_to_consumer, side_margins[n - 1])
-        inter_band_gaps = sum(side_margins[1:n])
+            gap_to_consumer = max(gap_to_consumer, side_margins_v[n - 1])
+        inter_band_gaps = sum(side_margins_v[1:n])
         H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_to_consumer + inter_band_gaps
         result = (W, H)
 
@@ -395,43 +397,45 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
     inputs = [inp for _, inp in input_slot_pairs]
     n = len(inputs)
     child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier) for inp in inputs]
-    side_margins = [_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) for slot in actual_slots]
+    normal_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
+    side_margins_h = [_subtree_margin(node, slot, node_count, mode_multiplier=normal_multiplier) for slot in actual_slots]
+    side_margins_v = [_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) for slot in actual_slots]
 
     # --- Y staircase: backward walk so input[n-1] is closest to root ---
     # Mirror the gap enlargement from compute_dims: when n > 1 (or all_side,
-    # which always inserts a dot), the gap must be at least side_margins[n-1].
+    # which always inserts a dot), the gap must be at least side_margins_v[n-1].
     gap_closest = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
     if n > 1 or all_side:
-        gap_closest = max(gap_closest, side_margins[n - 1])
+        gap_closest = max(gap_closest, side_margins_v[n - 1])
     bottom_y = [0] * n
     bottom_y[n - 1] = y - gap_closest
     for i in range(n - 2, -1, -1):
-        bottom_y[i] = bottom_y[i + 1] - child_dims[i + 1][1] - side_margins[i + 1]
+        bottom_y[i] = bottom_y[i + 1] - child_dims[i + 1][1] - side_margins_v[i + 1]
 
     y_positions = [bottom_y[i] - inputs[i].screenHeight() for i in range(n)]
 
     # --- X positions ---
     if all_side:
         # All inputs are side inputs; step them rightward from node's right edge.
-        current_x = x + node.screenWidth() + side_margins[0]
+        current_x = x + node.screenWidth() + side_margins_h[0]
         x_positions = []
         for i in range(n):
             x_positions.append(current_x)
-            current_x += child_dims[i][0] + (side_margins[i + 1] if i + 1 < n else 0)
+            current_x += child_dims[i][0] + (side_margins_h[i + 1] if i + 1 < n else 0)
     elif n == 1:
         x_positions = [_center_x(inputs[0].screenWidth(), x, node.screenWidth())]
     elif n == 2:
         # input[0] centered above root; input[1] one step right of root's right edge.
         x_positions = [_center_x(inputs[0].screenWidth(), x, node.screenWidth()),
-                       x + node.screenWidth() + side_margins[1]]
+                       x + node.screenWidth() + side_margins_h[1]]
     else:
         # n >= 3: input[0] centered above root; inputs[1..n-1] step right from root's right edge.
         x_positions = [_center_x(inputs[0].screenWidth(), x, node.screenWidth())]
-        current_x = x + node.screenWidth() + side_margins[1]
+        current_x = x + node.screenWidth() + side_margins_h[1]
         for i in range(1, n):
             x_positions.append(current_x)
             if i + 1 < n:
-                current_x += child_dims[i][0] + side_margins[i + 1]
+                current_x += child_dims[i][0] + side_margins_h[i + 1]
 
     # --- Insert Dots for side inputs that are not already Dots ---
     # Deselect all nodes before creating any dot so Nuke cannot auto-connect it.
@@ -649,7 +653,7 @@ def layout_selected(scheme_multiplier=None):
                     current_prefs = node_layout_prefs.prefs_singleton
                     horizontal_clearance = int(
                         current_prefs.get("base_subtree_margin")
-                        * resolved_scheme_multiplier
+                        * current_prefs.get("normal_multiplier")
                         * math.sqrt(node_count)
                         / math.sqrt(current_prefs.get("scaling_reference_count"))
                     )
