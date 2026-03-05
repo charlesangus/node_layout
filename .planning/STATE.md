@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-04T14:35:10.811Z"
+last_updated: "2026-03-05T05:49:11.542Z"
 progress:
   total_phases: 5
-  completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
+  completed_phases: 4
+  total_plans: 13
+  completed_plans: 12
 ---
 
 # Project State
@@ -51,6 +51,7 @@ Progress: [████████████████████] 80%
 
 *Updated after each plan completion*
 | Phase 05-new-commands-scheme P02 | 4 | 2 tasks | 2 files |
+| Phase 05-new-commands-scheme P03 | 2 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,8 @@ From plan 05-01:
 - _scale_upstream_nodes uses nuke.selectedNode() directly; guard in public wrappers via try/except ValueError before undo group opens
 - [Phase 05-new-commands-scheme]: Compact/Loose scheme commands registered with no keyboard shortcuts per CONTEXT.md locked decision
 - [Phase 05-new-commands-scheme]: Shrink/Expand commands use ctrl+comma/period mnemonic (comma=less, period=more) with shift variants for upstream
+- [Phase 05-new-commands-scheme]: Split side_margins into side_margins_h (normal_multiplier) and side_margins_v (scheme_multiplier) — compact/loose only affects vertical inter-band gaps
+- [Phase 05-new-commands-scheme]: horizontal_clearance in layout_selected uses current_prefs.get(normal_multiplier) directly — not resolved_scheme_multiplier
 
 ### Pending Todos
 
