@@ -701,30 +701,48 @@ def _scale_selected_nodes(scale_factor):
     selected_nodes = nuke.selectedNodes()
     if len(selected_nodes) < 2:
         return
-    anchor_node = max(selected_nodes, key=lambda n: n.ypos())
-    anchor_x = anchor_node.xpos()
-    anchor_y = anchor_node.ypos()
+    # Tiebreaker: among nodes sharing the maximum ypos, pick the leftmost (min xpos).
+    anchor_node = max(selected_nodes, key=lambda n: (n.ypos(), -n.xpos()))
+    snap_min = get_dag_snap_threshold() - 1
+    anchor_center_x = anchor_node.xpos() + anchor_node.screenWidth() / 2
+    anchor_center_y = anchor_node.ypos() + anchor_node.screenHeight() / 2
     for node in selected_nodes:
         if node is anchor_node:
             continue
-        dx = node.xpos() - anchor_x
-        dy = node.ypos() - anchor_y
-        node.setXpos(anchor_x + int(dx * scale_factor))
-        node.setYpos(anchor_y + int(dy * scale_factor))
+        node_center_x = node.xpos() + node.screenWidth() / 2
+        node_center_y = node.ypos() + node.screenHeight() / 2
+        dx = node_center_x - anchor_center_x
+        dy = node_center_y - anchor_center_y
+        new_dx = round(dx * scale_factor)
+        new_dy = round(dy * scale_factor)
+        # Enforce minimum floor: if the node is not at the same position as the anchor
+        # on a given axis, it must remain at least snap_min pixels away (center-to-center).
+        if dx != 0 and abs(new_dx) < snap_min:
+            new_dx = snap_min if dx > 0 else -snap_min
+        if dy != 0 and abs(new_dy) < snap_min:
+            new_dy = snap_min if dy > 0 else -snap_min
+        new_center_x = anchor_center_x + new_dx
+        new_center_y = anchor_center_y + new_dy
+        node.setXpos(round(new_center_x - node.screenWidth() / 2))
+        node.setYpos(round(new_center_y - node.screenHeight() / 2))
 
 
 def _scale_upstream_nodes(scale_factor):
     anchor_node = nuke.selectedNode()
-    anchor_x = anchor_node.xpos()
-    anchor_y = anchor_node.ypos()
+    anchor_center_x = anchor_node.xpos() + anchor_node.screenWidth() / 2
+    anchor_center_y = anchor_node.ypos() + anchor_node.screenHeight() / 2
     upstream_nodes = collect_subtree_nodes(anchor_node)
     for node in upstream_nodes:
         if node is anchor_node:
             continue
-        dx = node.xpos() - anchor_x
-        dy = node.ypos() - anchor_y
-        node.setXpos(anchor_x + int(dx * scale_factor))
-        node.setYpos(anchor_y + int(dy * scale_factor))
+        node_center_x = node.xpos() + node.screenWidth() / 2
+        node_center_y = node.ypos() + node.screenHeight() / 2
+        dx = node_center_x - anchor_center_x
+        dy = node_center_y - anchor_center_y
+        new_center_x = anchor_center_x + round(dx * scale_factor)
+        new_center_y = anchor_center_y + round(dy * scale_factor)
+        node.setXpos(round(new_center_x - node.screenWidth() / 2))
+        node.setYpos(round(new_center_y - node.screenHeight() / 2))
 
 
 def shrink_selected():

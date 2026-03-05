@@ -147,15 +147,12 @@ if "node_layout_prefs" not in sys.modules:
 else:
     _node_layout_prefs_module = sys.modules["node_layout_prefs"]
 
-# Load node_layout if not already loaded.
-if "node_layout" not in sys.modules:
-    _module_path = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
-    _spec = importlib.util.spec_from_file_location("node_layout", _module_path)
-    _nl = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(_nl)
-    sys.modules["node_layout"] = _nl
-else:
-    _nl = sys.modules["node_layout"]
+# Always load a fresh copy of node_layout so this test file uses the latest source
+# regardless of module-cache state from other test files loaded in the same process.
+_module_path = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
+_spec = importlib.util.spec_from_file_location("node_layout_scale_tests_fresh", _module_path)
+_nl = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_nl)
 
 
 # ---------------------------------------------------------------------------
@@ -175,18 +172,20 @@ def _get_function_source(func_name):
 
 
 # ---------------------------------------------------------------------------
-# Helper: configure nuke stub to return a specific selected-nodes list
+# Helper: configure nuke stub to return a specific selected-nodes list.
+# These helpers update the nuke module as seen by _nl (which may differ from
+# sys.modules["nuke"] if test_undo_wrapping.py replaced the stub after _nl was loaded).
 # ---------------------------------------------------------------------------
 
 
 def _set_selected_nodes(nodes):
-    """Override nuke.selectedNodes to return the given list."""
-    sys.modules["nuke"].selectedNodes = lambda: nodes
+    """Override nuke.selectedNodes on the nuke module that _nl actually uses."""
+    _nl.nuke.selectedNodes = lambda: nodes
 
 
 def _set_selected_node(node):
-    """Override nuke.selectedNode to return the given single node."""
-    sys.modules["nuke"].selectedNode = lambda: node
+    """Override nuke.selectedNode on the nuke module that _nl actually uses."""
+    _nl.nuke.selectedNode = lambda: node
 
 
 # ---------------------------------------------------------------------------
