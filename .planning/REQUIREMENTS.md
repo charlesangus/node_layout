@@ -37,11 +37,11 @@
 ### Preferences & Spacing
 
 - [x] **PREFS-01**: `node_layout_prefs.py` module provides a JSON-backed singleton storing prefs at `~/.nuke/node_layout_prefs.json`
-- [x] **PREFS-02**: Default values reflect tighter spacing than current hardcoded constants (SUBTREE_MARGIN significantly reduced from 300)
+- [x] **PREFS-02**: Subtree margin dynamically scales with node count via sqrt formula; base default is backward-compatible at 300 (at reference_count=150 with normal_multiplier=1.0 the formula returns exactly 300); effective spacing for small subtrees is smaller than 300
 - [x] **PREFS-03**: Spacing constants (`SUBTREE_MARGIN`, tight gap multiplier, loose gap multiplier, mask input ratio) are read from prefs at layout-operation time rather than hardcoded
 - [x] **PREFS-04**: Three presets available: Compact, Normal (default), Loose — each sets all spacing values at once
 - [x] **PREFS-05**: PySide6 preferences dialog (`node_layout_prefs_dialog.py`) is accessible from the node_layout menu
-- [x] **PREFS-06**: Dialog exposes a preset selector and numeric fields for SUBTREE_MARGIN, tight gap multiplier, loose gap multiplier, and mask input ratio
+- [x] **PREFS-06**: Dialog exposes 7 numeric QLineEdit fields for base_subtree_margin, scaling_reference_count, compact_multiplier, normal_multiplier, loose_multiplier, loose_gap_multiplier, and mask_input_ratio (no preset selector — Compact/Normal/Loose are menu commands per Phase 5 design)
 - [x] **PREFS-07**: Subtree margin scales proportionally to the number of nodes in the subtree (dynamic spacing) rather than using a single static value
 
 ### New Commands
@@ -93,7 +93,7 @@
 | PREFS-01 | Phase 4 | Complete |
 | PREFS-02 | Phase 4 | Complete |
 | PREFS-03 | Phase 4 | Complete |
-| PREFS-04 | Phase 4 | Complete |
+| PREFS-04 | Phase 4 → Phase 5 | Complete |
 | PREFS-05 | Phase 4 | Complete |
 | PREFS-06 | Phase 4 | Complete |
 | PREFS-07 | Phase 4 | Complete |
@@ -108,4 +108,4 @@
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after roadmap creation*
+*Last updated: 2026-03-05 — PREFS-02 and PREFS-06 requirement text updated to match implemented design; PREFS-04 traceability updated to Phase 4 → Phase 5*
