@@ -548,5 +548,150 @@ class TestSchemeDifferentiation(unittest.TestCase):
         self.fail("layout_selected not found in source")
 
 
+class TestHorizontalOnlyScheme(unittest.TestCase):
+    """Verify that scheme_multiplier only affects vertical spacing, not horizontal.
+
+    After the fix, side_margins_h (used for X/W) must always equal normal_multiplier
+    regardless of the scheme in use, while side_margins_v (used for Y staircase) reflects
+    the compact/loose scheme_multiplier.
+
+    These tests verify the behavioral contract using _subtree_margin() calls directly:
+    - Horizontal margin (mode_multiplier=normal_multiplier): unaffected by compact scheme
+    - Vertical margin (mode_multiplier=compact_multiplier): smaller than normal
+    - horizontal_clearance in layout_selected source must not reference resolved_scheme_multiplier
+    - side_margins_h and side_margins_v must appear in both compute_dims and place_subtree
+    """
+
+    def setUp(self):
+        _node_layout_prefs_module.prefs_singleton._prefs = dict(_node_layout_prefs_module.DEFAULTS)
+
+    def _make_non_mask_node(self):
+        return _StubNode(node_class="Grade")
+
+    def test_horizontal_margin_unaffected_by_compact_scheme(self):
+        """When mode_multiplier=normal_multiplier, margin equals the normal-scheme value
+        even if compact_multiplier differs — i.e. horizontal is decoupled from scheme."""
+        non_mask_node = self._make_non_mask_node()
+        normal_multiplier = _node_layout_prefs_module.prefs_singleton.get("normal_multiplier")
+        compact_multiplier = _node_layout_prefs_module.prefs_singleton.get("compact_multiplier")
+
+        horizontal_margin = _nl._subtree_margin(
+            non_mask_node, 0, node_count=150, mode_multiplier=normal_multiplier
+        )
+        compact_horizontal_margin = _nl._subtree_margin(
+            non_mask_node, 0, node_count=150, mode_multiplier=normal_multiplier
+        )
+        compact_vertical_margin = _nl._subtree_margin(
+            non_mask_node, 0, node_count=150, mode_multiplier=compact_multiplier
+        )
+
+        self.assertEqual(
+            horizontal_margin,
+            compact_horizontal_margin,
+            "Horizontal margin must equal normal margin regardless of scheme: "
+            f"normal={horizontal_margin}, compact-horizontal={compact_horizontal_margin}",
+        )
+        self.assertLess(
+            compact_vertical_margin,
+            horizontal_margin,
+            "Compact vertical margin must be less than normal horizontal margin: "
+            f"compact-vertical={compact_vertical_margin}, normal={horizontal_margin}",
+        )
+
+    def test_vertical_margin_affected_by_compact_scheme(self):
+        """When mode_multiplier=compact_multiplier (0.6), margin is smaller than normal."""
+        non_mask_node = self._make_non_mask_node()
+        normal_margin = _nl._subtree_margin(non_mask_node, 0, node_count=150, mode_multiplier=1.0)
+        compact_margin = _nl._subtree_margin(non_mask_node, 0, node_count=150, mode_multiplier=0.6)
+        self.assertLess(
+            compact_margin,
+            normal_margin,
+            f"Compact vertical margin ({compact_margin}) must be less than normal ({normal_margin})",
+        )
+
+    def test_vertical_margin_affected_by_loose_scheme(self):
+        """When mode_multiplier=loose_multiplier (1.5), margin is larger than normal."""
+        non_mask_node = self._make_non_mask_node()
+        normal_margin = _nl._subtree_margin(non_mask_node, 0, node_count=150, mode_multiplier=1.0)
+        loose_margin = _nl._subtree_margin(non_mask_node, 0, node_count=150, mode_multiplier=1.5)
+        self.assertGreater(
+            loose_margin,
+            normal_margin,
+            f"Loose vertical margin ({loose_margin}) must be greater than normal ({normal_margin})",
+        )
+
+    def test_side_margins_h_and_v_appear_in_compute_dims(self):
+        """side_margins_h and side_margins_v must appear in compute_dims source."""
+        with open(NODE_LAYOUT_PATH) as source_file:
+            source = source_file.read()
+        tree = ast.parse(source)
+        for ast_node in ast.walk(tree):
+            if isinstance(ast_node, ast.FunctionDef) and ast_node.name == "compute_dims":
+                func_source = ast.get_source_segment(source, ast_node)
+                self.assertIn(
+                    "side_margins_h",
+                    func_source,
+                    "side_margins_h not found in compute_dims",
+                )
+                self.assertIn(
+                    "side_margins_v",
+                    func_source,
+                    "side_margins_v not found in compute_dims",
+                )
+                return
+        self.fail("compute_dims not found in source")
+
+    def test_side_margins_h_and_v_appear_in_place_subtree(self):
+        """side_margins_h and side_margins_v must appear in place_subtree source."""
+        with open(NODE_LAYOUT_PATH) as source_file:
+            source = source_file.read()
+        tree = ast.parse(source)
+        for ast_node in ast.walk(tree):
+            if isinstance(ast_node, ast.FunctionDef) and ast_node.name == "place_subtree":
+                func_source = ast.get_source_segment(source, ast_node)
+                self.assertIn(
+                    "side_margins_h",
+                    func_source,
+                    "side_margins_h not found in place_subtree",
+                )
+                self.assertIn(
+                    "side_margins_v",
+                    func_source,
+                    "side_margins_v not found in place_subtree",
+                )
+                return
+        self.fail("place_subtree not found in source")
+
+    def test_horizontal_clearance_does_not_use_resolved_scheme_multiplier(self):
+        """horizontal_clearance calculation in layout_selected must not reference
+        resolved_scheme_multiplier — it must use normal_multiplier directly."""
+        with open(NODE_LAYOUT_PATH) as source_file:
+            source = source_file.read()
+        tree = ast.parse(source)
+        for ast_node in ast.walk(tree):
+            if isinstance(ast_node, ast.FunctionDef) and ast_node.name == "layout_selected":
+                func_source = ast.get_source_segment(source, ast_node)
+                # Find the horizontal_clearance assignment block
+                clearance_idx = func_source.find("horizontal_clearance")
+                self.assertGreater(
+                    clearance_idx,
+                    -1,
+                    "horizontal_clearance not found in layout_selected",
+                )
+                # Extract a window of ~8 lines around the assignment
+                clearance_block_end = func_source.find("\n", clearance_idx + 200)
+                if clearance_block_end == -1:
+                    clearance_block_end = len(func_source)
+                clearance_block = func_source[clearance_idx:clearance_block_end]
+                self.assertNotIn(
+                    "resolved_scheme_multiplier",
+                    clearance_block,
+                    "horizontal_clearance block must not reference resolved_scheme_multiplier; "
+                    f"block: {clearance_block!r}",
+                )
+                return
+        self.fail("layout_selected not found in source")
+
+
 if __name__ == "__main__":
     unittest.main()
