@@ -19,13 +19,10 @@ layout_menu.addCommand('Layout Selected', node_layout.layout_selected)
 
 layout_menu.addSeparator()
 
-layout_menu.addCommand('Compact Layout Upstream', node_layout.layout_upstream_compact)
-layout_menu.addCommand('Compact Layout Selected', node_layout.layout_selected_compact)
-
-layout_menu.addSeparator()
-
-layout_menu.addCommand('Loose Layout Upstream', node_layout.layout_upstream_loose)
-layout_menu.addCommand('Loose Layout Selected', node_layout.layout_selected_loose)
+layout_menu.addCommand('Layout Upstream Compact', node_layout.layout_upstream_compact)
+layout_menu.addCommand('Layout Selected Compact', node_layout.layout_selected_compact)
+layout_menu.addCommand('Layout Upstream Loose', node_layout.layout_upstream_loose)
+layout_menu.addCommand('Layout Selected Loose', node_layout.layout_selected_loose)
 
 layout_menu.addSeparator()
 
