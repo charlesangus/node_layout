@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-05T05:49:11.542Z"
+status: complete
+last_updated: "2026-03-05T05:59:30Z"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 13
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 5 of 5 (New Commands Scheme)
-Plan: 1 of 1 completed in current phase
-Status: Plan 05-01 complete — Phase 05 plan 1 complete
-Last activity: 2026-03-04 — Completed plan 05-01 (scheme_multiplier threading, compact/loose entry-points, shrink/expand geometric scaling)
+Plan: 4 of 4 completed in current phase
+Status: Plan 05-04 complete — Phase 05 complete — all phases complete
+Last activity: 2026-03-05 — Completed plan 05-04 (fixed _scale_selected_nodes and _scale_upstream_nodes with center-based offsets, round(), anchor tiebreaker, snap_min floor)
 
-Progress: [████████████████████] 80%
+Progress: [████████████████████] 100%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [████████████████████] 80%
 *Updated after each plan completion*
 | Phase 05-new-commands-scheme P02 | 4 | 2 tasks | 2 files |
 | Phase 05-new-commands-scheme P03 | 2 | 1 tasks | 2 files |
+| Phase 05-new-commands-scheme P04 | 8 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,9 @@ From plan 05-01:
 - [Phase 05-new-commands-scheme]: Shrink/Expand commands use ctrl+comma/period mnemonic (comma=less, period=more) with shift variants for upstream
 - [Phase 05-new-commands-scheme]: Split side_margins into side_margins_h (normal_multiplier) and side_margins_v (scheme_multiplier) — compact/loose only affects vertical inter-band gaps
 - [Phase 05-new-commands-scheme]: horizontal_clearance in layout_selected uses current_prefs.get(normal_multiplier) directly — not resolved_scheme_multiplier
+- [Phase 05-new-commands-scheme]: Center-based offsets (screenWidth/2) in scale functions — Dot nodes move same fractional distance as regular nodes
+- [Phase 05-new-commands-scheme]: snap_min floor only in _scale_selected_nodes, not _scale_upstream_nodes — upstream trees are self-consistent layouts
+- [Phase 05-new-commands-scheme]: Anchor tiebreaker key=(n.ypos(), -n.xpos()) for deterministic anchor selection on Y tie in _scale_selected_nodes
 
 ### Pending Todos
 
@@ -124,6 +128,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-04
-Stopped at: Completed 05-01-PLAN.md — scheme_multiplier threaded through layout pipeline; compact/loose entry-points and shrink/expand geometric scaling commands added
+Last session: 2026-03-05
+Stopped at: Completed 05-04-PLAN.md — fixed _scale_selected_nodes and _scale_upstream_nodes with center-based offsets, round(), anchor tiebreaker, snap_min floor; all phases complete
 Resume file: None
