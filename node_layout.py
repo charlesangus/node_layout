@@ -580,7 +580,7 @@ def layout_upstream(scheme_multiplier=None):
     global _TOOLBAR_FOLDER_MAP
     _TOOLBAR_FOLDER_MAP = None
     _clear_color_cache()
-    current_group = nuke.thisGroup()    # MUST be the first Nuke API call
+    current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
     root = nuke.selectedNode()
 
     nuke.Undo.name("Layout Upstream")
@@ -630,7 +630,7 @@ def layout_selected(scheme_multiplier=None):
     global _TOOLBAR_FOLDER_MAP
     _TOOLBAR_FOLDER_MAP = None
     _clear_color_cache()
-    current_group = nuke.thisGroup()    # MUST be the first Nuke API call
+    current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
     selected_nodes = nuke.selectedNodes()
     if len(selected_nodes) < 2:
         return  # nothing to lay out relative to each other

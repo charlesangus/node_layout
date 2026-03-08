@@ -2,10 +2,10 @@
 
 These are AST-based structural tests — they inspect the source code of
 node_layout.py to verify that:
-- layout_upstream() captures nuke.thisGroup() before any other Nuke API call
+- layout_upstream() captures nuke.lastHitGroup() before any other Nuke API call
 - layout_upstream() wraps its work inside 'with current_group:'
 - layout_upstream() calls nuke.Undo.begin() before 'with current_group:'
-- layout_selected() captures nuke.thisGroup() before any other Nuke API call
+- layout_selected() captures nuke.lastHitGroup() before any other Nuke API call
 - layout_selected() wraps its work inside 'with current_group:'
 - push_nodes_to_make_room() accepts a current_group parameter
 - push_nodes_to_make_room() uses current_group.nodes() when current_group provided
@@ -35,12 +35,12 @@ class TestGroupContextWrapping(unittest.TestCase):
             return source_file.read()
 
     def test_layout_upstream_captures_current_group_first(self):
-        """layout_upstream() must capture current_group = nuke.thisGroup() before nuke.selectedNode()."""
+        """layout_upstream() must capture current_group = nuke.lastHitGroup() before nuke.selectedNode()."""
         source = self._read_source()
         func_source = _get_function_source(source, "layout_upstream")
         self.assertIsNotNone(func_source, "layout_upstream not found in node_layout.py")
 
-        capture_text = "current_group = nuke.thisGroup()"
+        capture_text = "current_group = nuke.lastHitGroup()"
         selected_node_text = "nuke.selectedNode()"
 
         self.assertIn(
@@ -91,12 +91,12 @@ class TestGroupContextWrapping(unittest.TestCase):
         )
 
     def test_layout_selected_captures_current_group_first(self):
-        """layout_selected() must capture current_group = nuke.thisGroup() before nuke.selectedNodes()."""
+        """layout_selected() must capture current_group = nuke.lastHitGroup() before nuke.selectedNodes()."""
         source = self._read_source()
         func_source = _get_function_source(source, "layout_selected")
         self.assertIsNotNone(func_source, "layout_selected not found in node_layout.py")
 
-        capture_text = "current_group = nuke.thisGroup()"
+        capture_text = "current_group = nuke.lastHitGroup()"
         selected_nodes_text = "nuke.selectedNodes()"
 
         self.assertIn(
