@@ -19,6 +19,7 @@ layout_menu.addCommand('Layout Selected', node_layout.layout_selected)
 
 layout_menu.addSeparator()
 
+# CMD-01: scheme name at end for tab-menu discoverability
 layout_menu.addCommand('Layout Upstream Compact', node_layout.layout_upstream_compact)
 layout_menu.addCommand('Layout Selected Compact', node_layout.layout_selected_compact)
 layout_menu.addCommand('Layout Upstream Loose', node_layout.layout_upstream_loose)
