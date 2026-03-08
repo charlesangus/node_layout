@@ -9,6 +9,9 @@ Verifies:
 - reload() picks up changes written to the prefs file since last load
 
 All tests use temporary files and never touch ~/.nuke/node_layout_prefs.json.
+
+NOTE: If you have an existing ~/.nuke/node_layout_prefs.json from v1.0, delete it to see
+the rebalanced defaults (base_subtree_margin=200, loose_gap_multiplier=8.0).
 """
 import json
 import os
@@ -16,7 +19,7 @@ import tempfile
 import unittest
 
 
-NODE_LAYOUT_PREFS_PATH = "/home/latuser/git/nuke_layout_project/node_layout/node_layout_prefs.py"
+NODE_LAYOUT_PREFS_PATH = "/workspace/node_layout_prefs.py"
 
 
 def _import_prefs_module():
@@ -43,8 +46,8 @@ class TestNodeLayoutPrefsDefaults(unittest.TestCase):
             os.remove(self.nonexistent_path)
 
     def test_default_base_subtree_margin(self):
-        """get('base_subtree_margin') returns 300 when no prefs file exists."""
-        self.assertEqual(self.instance.get("base_subtree_margin"), 300)
+        """get('base_subtree_margin') returns 200 when no prefs file exists."""
+        self.assertEqual(self.instance.get("base_subtree_margin"), 200)
 
     def test_default_compact_multiplier(self):
         """get('compact_multiplier') returns 0.6 when no prefs file exists."""
@@ -59,8 +62,8 @@ class TestNodeLayoutPrefsDefaults(unittest.TestCase):
         self.assertAlmostEqual(self.instance.get("loose_multiplier"), 1.5)
 
     def test_default_loose_gap_multiplier(self):
-        """get('loose_gap_multiplier') returns 12.0 when no prefs file exists."""
-        self.assertAlmostEqual(self.instance.get("loose_gap_multiplier"), 12.0)
+        """get('loose_gap_multiplier') returns 8.0 when no prefs file exists."""
+        self.assertAlmostEqual(self.instance.get("loose_gap_multiplier"), 8.0)
 
     def test_default_mask_input_ratio(self):
         """get('mask_input_ratio') is approximately 0.333 when no prefs file exists."""
@@ -70,6 +73,18 @@ class TestNodeLayoutPrefsDefaults(unittest.TestCase):
         """get('scaling_reference_count') returns 150 when no prefs file exists."""
         self.assertEqual(self.instance.get("scaling_reference_count"), 150)
 
+    def test_default_horizontal_subtree_gap(self):
+        """get('horizontal_subtree_gap') returns 150 when no prefs file exists."""
+        self.assertEqual(self.instance.get("horizontal_subtree_gap"), 150)
+
+    def test_default_horizontal_mask_gap(self):
+        """get('horizontal_mask_gap') returns 50 when no prefs file exists."""
+        self.assertEqual(self.instance.get("horizontal_mask_gap"), 50)
+
+    def test_default_dot_font_reference_size(self):
+        """get('dot_font_reference_size') returns 20 when no prefs file exists."""
+        self.assertEqual(self.instance.get("dot_font_reference_size"), 20)
+
     def test_no_file_not_found_error_on_init(self):
         """Creating NodeLayoutPrefs with a nonexistent file raises no exception."""
         # setUp already created it; if we get here, no exception was raised
@@ -77,15 +92,18 @@ class TestNodeLayoutPrefsDefaults(unittest.TestCase):
 
 
 class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
-    """DEFAULTS dict must contain all 7 expected keys."""
+    """DEFAULTS dict must contain all 10 expected keys."""
 
     def setUp(self):
         self.prefs_module = _import_prefs_module()
 
-    def test_defaults_contains_all_seven_keys(self):
-        """DEFAULTS must contain exactly the 7 required preference keys."""
+    def test_defaults_contains_all_ten_keys(self):
+        """DEFAULTS must contain exactly the 10 required preference keys."""
         required_keys = {
             "base_subtree_margin",
+            "horizontal_subtree_gap",
+            "horizontal_mask_gap",
+            "dot_font_reference_size",
             "compact_multiplier",
             "normal_multiplier",
             "loose_multiplier",
@@ -99,6 +117,11 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
             missing_keys,
             set(),
             f"DEFAULTS is missing required keys: {missing_keys}",
+        )
+        self.assertEqual(
+            len(actual_keys),
+            10,
+            f"DEFAULTS should have exactly 10 keys, got {len(actual_keys)}: {actual_keys}",
         )
 
 
@@ -158,6 +181,48 @@ class TestNodeLayoutPrefsRoundTrip(unittest.TestCase):
         self.assertEqual(instance.get("base_subtree_margin"), 999)
 
 
+class TestNewPrefsRoundTrip(unittest.TestCase):
+    """Round-trip tests for the three new preference keys added in v1.1 Phase 6."""
+
+    def setUp(self):
+        self.prefs_module = _import_prefs_module()
+        self.temp_file = tempfile.NamedTemporaryFile(
+            suffix=".json", delete=False, prefix="test_node_layout_prefs_new_"
+        )
+        self.temp_file.close()
+        self.temp_path = self.temp_file.name
+
+    def tearDown(self):
+        if os.path.exists(self.temp_path):
+            os.remove(self.temp_path)
+
+    def test_round_trip_horizontal_subtree_gap(self):
+        """set('horizontal_subtree_gap', 200) -> save() -> reload() -> get() returns 200."""
+        instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        instance.set("horizontal_subtree_gap", 200)
+        instance.save()
+        instance.reload()
+        self.assertEqual(instance.get("horizontal_subtree_gap"), 200)
+
+    def test_round_trip_horizontal_mask_gap(self):
+        """set('horizontal_mask_gap', 75) -> save() -> new instance -> get() returns 75."""
+        first_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        first_instance.set("horizontal_mask_gap", 75)
+        first_instance.save()
+
+        second_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        self.assertEqual(second_instance.get("horizontal_mask_gap"), 75)
+
+    def test_round_trip_dot_font_reference_size(self):
+        """set('dot_font_reference_size', 24) -> save() -> new instance -> get() returns 24."""
+        first_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        first_instance.set("dot_font_reference_size", 24)
+        first_instance.save()
+
+        second_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        self.assertEqual(second_instance.get("dot_font_reference_size"), 24)
+
+
 class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
     """Missing keys in a saved file fall back to DEFAULTS values, not KeyError."""
 
@@ -189,9 +254,14 @@ class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
         self.assertAlmostEqual(instance.get("compact_multiplier"), 0.6)
         self.assertAlmostEqual(instance.get("normal_multiplier"), 1.0)
         self.assertAlmostEqual(instance.get("loose_multiplier"), 1.5)
-        self.assertAlmostEqual(instance.get("loose_gap_multiplier"), 12.0)
+        self.assertAlmostEqual(instance.get("loose_gap_multiplier"), 8.0)
         self.assertAlmostEqual(instance.get("mask_input_ratio"), 0.333, places=3)
         self.assertEqual(instance.get("scaling_reference_count"), 150)
+
+        # New keys also fall back to DEFAULTS
+        self.assertEqual(instance.get("horizontal_subtree_gap"), 150)
+        self.assertEqual(instance.get("horizontal_mask_gap"), 50)
+        self.assertEqual(instance.get("dot_font_reference_size"), 20)
 
 
 class TestNodeLayoutPrefsExports(unittest.TestCase):
@@ -243,7 +313,7 @@ class TestNodeLayoutPrefsExports(unittest.TestCase):
         )
 
     def test_prefs_singleton_returns_default_base_subtree_margin(self):
-        """prefs_singleton.get('base_subtree_margin') returns 300 (default)."""
+        """prefs_singleton.get('base_subtree_margin') returns 200 (new default)."""
         # prefs_singleton may have loaded from ~/.nuke/node_layout_prefs.json if it exists.
         # We test the default fallback only if the file is absent.
         nuke_prefs_path = os.path.join(
@@ -251,7 +321,7 @@ class TestNodeLayoutPrefsExports(unittest.TestCase):
         )
         if not os.path.exists(nuke_prefs_path):
             self.assertEqual(
-                self.prefs_module.prefs_singleton.get("base_subtree_margin"), 300
+                self.prefs_module.prefs_singleton.get("base_subtree_margin"), 200
             )
 
 
