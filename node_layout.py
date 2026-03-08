@@ -128,6 +128,18 @@ def _subtree_margin(node, slot, node_count, mode_multiplier=None):
     return effective_margin
 
 
+def _horizontal_margin(node, slot):
+    """Return the horizontal gap (px) for the given input slot.
+
+    H-axis margins are absolute pixel values from prefs — no sqrt scaling.
+    Vertical margins still use _subtree_margin() with its sqrt formula.
+    """
+    current_prefs = node_layout_prefs.prefs_singleton
+    if _is_mask_input(node, slot):
+        return current_prefs.get("horizontal_mask_gap")
+    return current_prefs.get("horizontal_subtree_gap")
+
+
 def _center_x(child_width, parent_x, parent_width):
     """Return the xpos that centers a child tile over a parent tile."""
     return parent_x + (parent_width - child_width) // 2
@@ -277,8 +289,7 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
     all_side = _primary_slot_externally_occupied(node, node_filter)
     input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side)
     inputs = [inp for _, inp in input_slot_pairs]
-    normal_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
-    side_margins_h = [_subtree_margin(node, slot, node_count, mode_multiplier=normal_multiplier) for slot, _ in input_slot_pairs]
+    side_margins_h = [_horizontal_margin(node, slot) for slot, _ in input_slot_pairs]
     side_margins_v = [_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) for slot, _ in input_slot_pairs]
 
     if not inputs:
@@ -397,8 +408,7 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
     inputs = [inp for _, inp in input_slot_pairs]
     n = len(inputs)
     child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier) for inp in inputs]
-    normal_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
-    side_margins_h = [_subtree_margin(node, slot, node_count, mode_multiplier=normal_multiplier) for slot in actual_slots]
+    side_margins_h = [_horizontal_margin(node, slot) for slot in actual_slots]
     side_margins_v = [_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) for slot in actual_slots]
 
     # --- Y staircase: backward walk so input[n-1] is closest to root ---
@@ -651,12 +661,7 @@ def layout_selected(scheme_multiplier=None):
             for placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
                 if tree_top < placed_bottom and tree_bottom > placed_top:  # Y overlap
                     current_prefs = node_layout_prefs.prefs_singleton
-                    horizontal_clearance = int(
-                        current_prefs.get("base_subtree_margin")
-                        * current_prefs.get("normal_multiplier")
-                        * math.sqrt(node_count)
-                        / math.sqrt(current_prefs.get("scaling_reference_count"))
-                    )
+                    horizontal_clearance = current_prefs.get("horizontal_subtree_gap")
                     start_x = max(start_x, placed_right + horizontal_clearance)
 
             place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=scheme_multiplier)
