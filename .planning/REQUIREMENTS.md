@@ -9,10 +9,10 @@ Requirements for the Layout Engine & State milestone. Each maps to roadmap phase
 
 ### Prefs & Spacing
 
-- [ ] **PREFS-01**: User can configure horizontal gap between subtrees via the preferences dialog
-- [ ] **PREFS-02**: User can configure a separate (smaller) horizontal gap for mask inputs via the preferences dialog
-- [ ] **PREFS-03**: User can configure the Dot font reference size used to scale subtree margins via the preferences dialog
-- [ ] **PREFS-04**: Default spacing constants are rebalanced (less vertical gap, more horizontal gap) so layouts feel less tall and cramped
+- [x] **PREFS-01**: User can configure horizontal gap between subtrees via the preferences dialog
+- [x] **PREFS-02**: User can configure a separate (smaller) horizontal gap for mask inputs via the preferences dialog
+- [x] **PREFS-03**: User can configure the Dot font reference size used to scale subtree margins via the preferences dialog
+- [x] **PREFS-04**: Default spacing constants are rebalanced (less vertical gap, more horizontal gap) so layouts feel less tall and cramped
 
 ### Layout Quality
 
@@ -70,10 +70,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PREFS-01 | Phase 6 | Pending |
-| PREFS-02 | Phase 6 | Pending |
-| PREFS-03 | Phase 6 | Pending |
-| PREFS-04 | Phase 6 | Pending |
+| PREFS-01 | Phase 6 | Complete |
+| PREFS-02 | Phase 6 | Complete |
+| PREFS-03 | Phase 6 | Complete |
+| PREFS-04 | Phase 6 | Complete |
 | CMD-01 | Phase 6 | Pending |
 | LAYOUT-04 | Phase 6 | Pending |
 | LAYOUT-05 | Phase 6 | Pending |

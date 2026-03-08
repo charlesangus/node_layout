@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
-status: ready_to_plan
-last_updated: "2026-03-05"
+status: in_progress
+last_updated: "2026-03-07"
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
 ---
 
 # Project State
@@ -23,24 +23,23 @@ See: .planning/PROJECT.md (updated 2026-03-05 after v1.1 start)
 ## Current Position
 
 Phase: 6 of 11 (Prefs Groundwork + Group Fix + Renames)
-Plan: — (not yet planned)
-Status: Ready to plan
-Last activity: 2026-03-05 — v1.1 roadmap created; 6 phases defined, 20 requirements mapped
+Plan: 2 of 3 (completed Plan 01)
+Status: In progress — Plan 01 complete, ready for Plan 02
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] ~5% (1 of ~20 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: —
+- Total plans completed: 1
+- Average duration: 3 min
+- Total execution time: 3 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 06 | 1/3 | 3 min | 3 min |
 
 *Updated after each plan completion*
 
@@ -64,9 +63,16 @@ From v1.1 research:
 - DO_NOT_WRITE flag must NOT be set on state knobs — it prevents .nk persistence
 - Group context: capture current_group at entry point; wrap Dot creation with `with current_group:`
 
+From Phase 6, Plan 01:
+- QGroupBox not used for dialog sections — bold QLabel headers preserve flat form appearance
+- horizontal_mask_gap validated as >= 0 (not > 0) — mask gap of zero is architecturally valid
+- No migration logic for rebalanced defaults — users must delete ~/.nuke/node_layout_prefs.json
+- AST tests chosen for PySide6 dialog structure — avoids display server dependency in CI
+- _make_section_header() module-level helper established as pattern for sectioned QFormLayout dialogs
+
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
@@ -75,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-05
-Stopped at: Roadmap created for v1.1 — 6 phases (6-11), 20 requirements mapped, ready to plan Phase 6
+Last session: 2026-03-07
+Stopped at: Phase 6 Plan 01 complete — DEFAULTS expanded to 10 keys, dialog reorganized into 3 sections
 Resume file: None
