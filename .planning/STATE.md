@@ -8,7 +8,7 @@ progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -23,23 +23,23 @@ See: .planning/PROJECT.md (updated 2026-03-05 after v1.1 start)
 ## Current Position
 
 Phase: 6 of 11 (Prefs Groundwork + Group Fix + Renames)
-Plan: 2 of 3 (completed Plan 01)
-Status: In progress — Plan 01 complete, ready for Plan 02
+Plan: 3 of 3 (completed Plan 01, Plan 02)
+Status: In progress — Plans 01 and 02 complete, ready for Plan 03
 
-Progress: [█░░░░░░░░░] ~5% (1 of ~20 plans)
+Progress: [██░░░░░░░░] ~10% (2 of ~20 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 3 min
-- Total execution time: 3 min
+- Total plans completed: 2
+- Average duration: 4.5 min
+- Total execution time: 9 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 06 | 1/3 | 3 min | 3 min |
+| 06 | 2/3 | 9 min | 4.5 min |
 
 *Updated after each plan completion*
 
@@ -63,6 +63,12 @@ From v1.1 research:
 - DO_NOT_WRITE flag must NOT be set on state knobs — it prevents .nk persistence
 - Group context: capture current_group at entry point; wrap Dot creation with `with current_group:`
 
+From Phase 6, Plan 02:
+- _horizontal_margin() is the single H-axis read point; _subtree_margin() is V-axis only
+- H-axis margins: absolute px from prefs (horizontal_subtree_gap / horizontal_mask_gap), no sqrt scaling
+- layout_selected() horizontal_clearance is now a direct prefs.get("horizontal_subtree_gap") — no scaling formula
+- Test _PREFS_DEFAULTS must include all 10 DEFAULTS keys (including new H-axis keys) to prevent cross-test contamination
+
 From Phase 6, Plan 01:
 - QGroupBox not used for dialog sections — bold QLabel headers preserve flat form appearance
 - horizontal_mask_gap validated as >= 0 (not > 0) — mask gap of zero is architecturally valid
@@ -81,6 +87,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-07
-Stopped at: Phase 6 Plan 01 complete — DEFAULTS expanded to 10 keys, dialog reorganized into 3 sections
+Last session: 2026-03-08
+Stopped at: Phase 6 Plan 02 complete — _horizontal_margin() wired in, H-axis decoupled from V-axis sqrt formula, all test paths fixed
 Resume file: None
