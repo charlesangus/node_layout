@@ -10,7 +10,7 @@ import sys
 import unittest
 
 
-MAKE_ROOM_PATH = "/home/latuser/git/nuke_layout_project/node_layout/make_room.py"
+MAKE_ROOM_PATH = "/workspace/make_room.py"
 
 
 def _get_make_room_function_body():

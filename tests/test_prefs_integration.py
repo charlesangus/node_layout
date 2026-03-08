@@ -24,8 +24,8 @@ import os
 import unittest
 
 
-NODE_LAYOUT_PATH = "/home/latuser/git/nuke_layout_project/node_layout/node_layout.py"
-NODE_LAYOUT_PREFS_PATH = "/home/latuser/git/nuke_layout_project/node_layout/node_layout_prefs.py"
+NODE_LAYOUT_PATH = "/workspace/node_layout.py"
+NODE_LAYOUT_PREFS_PATH = "/workspace/node_layout_prefs.py"
 
 
 # ---------------------------------------------------------------------------
@@ -154,11 +154,14 @@ _spec.loader.exec_module(_nl)
 # ---------------------------------------------------------------------------
 
 _PREFS_DEFAULTS = {
-    "base_subtree_margin": 300,
+    "base_subtree_margin": 200,
+    "horizontal_subtree_gap": 150,
+    "horizontal_mask_gap": 50,
+    "dot_font_reference_size": 20,
     "compact_multiplier": 0.6,
     "normal_multiplier": 1.0,
     "loose_multiplier": 1.5,
-    "loose_gap_multiplier": 12.0,
+    "loose_gap_multiplier": 8.0,
     "mask_input_ratio": 0.333,
     "scaling_reference_count": 150,
 }
@@ -233,8 +236,8 @@ class TestPrefsIntegration(unittest.TestCase):
         """_subtree_margin() at node_count=scaling_reference_count returns base_subtree_margin."""
         non_mask_node = self._make_non_mask_node()
         margin = _nl._subtree_margin(non_mask_node, 0, node_count=150)
-        # With normal_multiplier=1.0 and sqrt(150)/sqrt(150)=1.0, result should be 300.
-        self.assertEqual(margin, 300)
+        # With normal_multiplier=1.0 and sqrt(150)/sqrt(150)=1.0, result should equal base_subtree_margin (200).
+        self.assertEqual(margin, 200)
 
     # --- mask input ratio ---
 
@@ -258,7 +261,7 @@ class TestPrefsIntegration(unittest.TestCase):
     # --- vertical_gap_between with default prefs ---
 
     def test_vertical_gap_between_uses_loose_gap_multiplier_default(self):
-        """vertical_gap_between() returns int(12.0 * snap_threshold) for non-matching nodes."""
+        """vertical_gap_between() returns int(8.0 * snap_threshold) for non-matching nodes."""
         # Two nodes with different tile colors (both 0 from stub) and different classes
         # will hit the 'same color' branch only if colors truly match. Since both have
         # tile_color=0 and same default color from prefs, make them different classes
@@ -270,7 +273,7 @@ class TestPrefsIntegration(unittest.TestCase):
         node_b = _StubNode(node_class="Blur", knobs={"tile_color": _StubKnob(0x0000ff00)})
         snap_threshold = 8
         gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold)
-        self.assertEqual(gap, int(12.0 * snap_threshold))
+        self.assertEqual(gap, int(8.0 * snap_threshold))
 
     # --- vertical_gap_between with overridden prefs ---
 
@@ -376,12 +379,12 @@ class TestSchemeMultiplierPipeline(unittest.TestCase):
     # --- Behavioral: compact gap is scaled by scheme_multiplier ---
 
     def test_vertical_gap_between_compact_scheme(self):
-        """vertical_gap_between with scheme_multiplier=0.6 returns int(12.0 * 0.6 * snap)."""
+        """vertical_gap_between with scheme_multiplier=0.6 returns int(8.0 * 0.6 * snap)."""
         node_a = _StubNode(node_class="Grade", knobs={"tile_color": _StubKnob(0x00ff0000)})
         node_b = _StubNode(node_class="Blur", knobs={"tile_color": _StubKnob(0x0000ff00)})
         snap_threshold = 8
         gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=0.6)
-        expected = int(12.0 * 0.6 * snap_threshold)
+        expected = int(8.0 * 0.6 * snap_threshold)
         self.assertEqual(
             gap,
             expected,
@@ -495,7 +498,7 @@ class TestSchemeDifferentiation(unittest.TestCase):
         normal_gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=1.0)
         compact_gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=0.6)
         self.assertLess(compact_gap, normal_gap)
-        self.assertEqual(compact_gap, int(12.0 * 0.6 * snap_threshold))
+        self.assertEqual(compact_gap, int(8.0 * 0.6 * snap_threshold))
 
     def test_vertical_gap_loose_larger_than_normal(self):
         """Loose scheme (1.5) produces larger gap than Normal (1.0)."""
@@ -505,7 +508,7 @@ class TestSchemeDifferentiation(unittest.TestCase):
         normal_gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=1.0)
         loose_gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=1.5)
         self.assertGreater(loose_gap, normal_gap)
-        self.assertEqual(loose_gap, int(12.0 * 1.5 * snap_threshold))
+        self.assertEqual(loose_gap, int(8.0 * 1.5 * snap_threshold))
 
     def test_scheme_multiplier_constants_in_source(self):
         """SHRINK_FACTOR=0.8 and EXPAND_FACTOR=1.25 are module-level constants."""
@@ -569,33 +572,26 @@ class TestHorizontalOnlyScheme(unittest.TestCase):
         return _StubNode(node_class="Grade")
 
     def test_horizontal_margin_unaffected_by_compact_scheme(self):
-        """When mode_multiplier=normal_multiplier, margin equals the normal-scheme value
-        even if compact_multiplier differs — i.e. horizontal is decoupled from scheme."""
-        non_mask_node = self._make_non_mask_node()
-        normal_multiplier = _node_layout_prefs_module.prefs_singleton.get("normal_multiplier")
-        compact_multiplier = _node_layout_prefs_module.prefs_singleton.get("compact_multiplier")
+        """_horizontal_margin() returns horizontal_subtree_gap (150) regardless of any scheme.
 
-        horizontal_margin = _nl._subtree_margin(
-            non_mask_node, 0, node_count=150, mode_multiplier=normal_multiplier
-        )
-        compact_horizontal_margin = _nl._subtree_margin(
-            non_mask_node, 0, node_count=150, mode_multiplier=normal_multiplier
-        )
-        compact_vertical_margin = _nl._subtree_margin(
-            non_mask_node, 0, node_count=150, mode_multiplier=compact_multiplier
-        )
+        H-axis is now fully decoupled: _horizontal_margin() reads a direct pref value,
+        not a sqrt-scaled formula. The result must equal horizontal_subtree_gap (default 150)
+        even when compact_multiplier is set, because _horizontal_margin() ignores multipliers.
+        """
+        non_mask_node = self._make_non_mask_node()
+        expected_gap = _node_layout_prefs_module.prefs_singleton.get("horizontal_subtree_gap")
+
+        horizontal_margin = _nl._horizontal_margin(non_mask_node, 0)
 
         self.assertEqual(
             horizontal_margin,
-            compact_horizontal_margin,
-            "Horizontal margin must equal normal margin regardless of scheme: "
-            f"normal={horizontal_margin}, compact-horizontal={compact_horizontal_margin}",
+            expected_gap,
+            f"_horizontal_margin must return horizontal_subtree_gap={expected_gap}, got {horizontal_margin}",
         )
-        self.assertLess(
-            compact_vertical_margin,
+        self.assertEqual(
             horizontal_margin,
-            "Compact vertical margin must be less than normal horizontal margin: "
-            f"compact-vertical={compact_vertical_margin}, normal={horizontal_margin}",
+            150,
+            f"Default horizontal_subtree_gap must be 150, got {horizontal_margin}",
         )
 
     def test_vertical_margin_affected_by_compact_scheme(self):
@@ -663,8 +659,8 @@ class TestHorizontalOnlyScheme(unittest.TestCase):
         self.fail("place_subtree not found in source")
 
     def test_horizontal_clearance_does_not_use_resolved_scheme_multiplier(self):
-        """horizontal_clearance calculation in layout_selected must not reference
-        resolved_scheme_multiplier — it must use normal_multiplier directly."""
+        """horizontal_clearance in layout_selected must not reference resolved_scheme_multiplier
+        or base_subtree_margin — it must be a direct get('horizontal_subtree_gap') call."""
         with open(NODE_LAYOUT_PATH) as source_file:
             source = source_file.read()
         tree = ast.parse(source)
@@ -678,7 +674,7 @@ class TestHorizontalOnlyScheme(unittest.TestCase):
                     -1,
                     "horizontal_clearance not found in layout_selected",
                 )
-                # Extract a window of ~8 lines around the assignment
+                # Extract a window around the assignment (the new form is a single line)
                 clearance_block_end = func_source.find("\n", clearance_idx + 200)
                 if clearance_block_end == -1:
                     clearance_block_end = len(func_source)
@@ -687,6 +683,13 @@ class TestHorizontalOnlyScheme(unittest.TestCase):
                     "resolved_scheme_multiplier",
                     clearance_block,
                     "horizontal_clearance block must not reference resolved_scheme_multiplier; "
+                    f"block: {clearance_block!r}",
+                )
+                self.assertNotIn(
+                    "base_subtree_margin",
+                    clearance_block,
+                    "horizontal_clearance block must not reference base_subtree_margin "
+                    "(new contract: direct horizontal_subtree_gap read, no sqrt formula); "
                     f"block: {clearance_block!r}",
                 )
                 return
