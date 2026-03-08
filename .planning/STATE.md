@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
-status: in_progress
-last_updated: "2026-03-08"
+status: unknown
+last_updated: "2026-03-08T03:23:27.343Z"
 progress:
-  total_phases: 6
-  completed_phases: 0
-  total_plans: 3
-  completed_plans: 3
+  total_phases: 1
+  completed_phases: 1
+  total_plans: 4
+  completed_plans: 4
 ---
 
 # Project State
@@ -23,23 +23,23 @@ See: .planning/PROJECT.md (updated 2026-03-05 after v1.1 start)
 ## Current Position
 
 Phase: 6 of 11 (Prefs Groundwork + Group Fix + Renames)
-Plan: 3 of 3 (completed Plan 01, Plan 02, Plan 03)
-Status: Complete — Phase 6 all 3 plans done
+Plan: 4 of 4 (completed Plan 01, Plan 02, Plan 03, Plan 04)
+Status: Complete — Phase 6 all 4 plans done
 
-Progress: [███░░░░░░░] ~15% (3 of ~20 plans)
+Progress: [███░░░░░░░] ~20% (4 of ~20 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: ~3.7 min
-- Total execution time: 11 min
+- Total plans completed: 4
+- Average duration: ~3.3 min
+- Total execution time: 13 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 06 | 3/3 | 11 min | 3.7 min |
+| 06 | 4/4 | 13 min | 3.3 min |
 
 *Updated after each plan completion*
 
@@ -63,8 +63,10 @@ From v1.1 research:
 - DO_NOT_WRITE flag must NOT be set on state knobs — it prevents .nk persistence
 - Group context: capture current_group at entry point; wrap Dot creation with `with current_group:`
 
+From Phase 6, Plan 04:
+- nuke.lastHitGroup() replaces nuke.thisGroup() as the canonical group-context capture API — works for both Ctrl-Enter and Group View panels; at root returns nuke.root() (same safe fallback)
+
 From Phase 6, Plan 03:
-- nuke.thisGroup() must be the very first Nuke API call in layout_upstream() and layout_selected()
 - 'with current_group:' chosen over group.begin()/group.end() — context manager is exception-safe
 - nuke.Undo.begin() stays OUTSIDE 'with current_group:' — Undo is script-level
 - push_nodes_to_make_room(current_group=None): uses current_group.nodes() when inside Group, nuke.allNodes() at root
@@ -81,7 +83,6 @@ From Phase 6, Plan 01:
 - No migration logic for rebalanced defaults — users must delete ~/.nuke/node_layout_prefs.json
 - AST tests chosen for PySide6 dialog structure — avoids display server dependency in CI
 - _make_section_header() module-level helper established as pattern for sectioned QFormLayout dialogs
-
 ### Pending Todos
 
 None.
@@ -94,5 +95,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-08
-Stopped at: Phase 6 Plan 03 complete — Group context fix implemented, nuke.thisGroup() captured first, Dot creation and push scoped to Group
+Stopped at: Phase 6 Plan 04 complete — nuke.lastHitGroup() replaces thisGroup() in both entry points; Group View context gap closed
 Resume file: None

@@ -114,7 +114,7 @@ Plans:
 | 3. Undo & Reliability | v1.0 | 1/1 | Complete | 2026-03-04 |
 | 4. Preferences System | v1.0 | 3/3 | Complete | 2026-03-04 |
 | 5. New Commands & Scheme | v1.0 | 4/4 | Complete | 2026-03-05 |
-| 6. Prefs Groundwork + Group Fix + Renames | 3/4 | In progress (gap closure) | 2026-03-08 | - |
+| 6. Prefs Groundwork + Group Fix + Renames | 4/4 | Complete   | 2026-03-08 | - |
 | 7. Per-Node State Storage | v1.1 | 0/? | Not started | - |
 | 8. Dot Font-Size Margin Scaling | v1.1 | 0/? | Not started | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | v1.1 | 0/? | Not started | - |
