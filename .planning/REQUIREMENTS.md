@@ -19,8 +19,8 @@ Requirements for the Layout Engine & State milestone. Each maps to roadmap phase
 - [ ] **LAYOUT-01**: When a node has 2+ non-mask inputs, all immediate input nodes are placed at the same Y position (fan alignment), with their subtrees extending upward
 - [ ] **LAYOUT-02**: When a node has 2+ non-mask inputs, the mask input is placed to the left of all non-mask inputs
 - [ ] **LAYOUT-03**: Subtree margin scales with the font size of the Dot node at the subtree root — a larger font signals a section boundary and produces more breathing room
-- [ ] **LAYOUT-04**: When running layout commands inside a Nuke Group, Dot nodes are created inside that Group (not at Root level)
-- [ ] **LAYOUT-05**: When running layout commands inside a Nuke Group, push-away logic considers only nodes within that Group
+- [x] **LAYOUT-04**: When running layout commands inside a Nuke Group, Dot nodes are created inside that Group (not at Root level)
+- [x] **LAYOUT-05**: When running layout commands inside a Nuke Group, push-away logic considers only nodes within that Group
 
 ### Node State Storage
 
@@ -43,7 +43,7 @@ Requirements for the Layout Engine & State milestone. Each maps to roadmap phase
 
 ### Command Renames
 
-- [ ] **CMD-01**: Compact and Loose layout scheme commands are renamed so the scheme name appears at the end (e.g. "Layout Upstream Compact") for tab-menu discoverability
+- [x] **CMD-01**: Compact and Loose layout scheme commands are renamed so the scheme name appears at the end (e.g. "Layout Upstream Compact") for tab-menu discoverability
 
 ## Future Requirements
 
@@ -74,9 +74,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PREFS-02 | Phase 6 | Complete |
 | PREFS-03 | Phase 6 | Complete |
 | PREFS-04 | Phase 6 | Complete |
-| CMD-01 | Phase 6 | Pending |
-| LAYOUT-04 | Phase 6 | Pending |
-| LAYOUT-05 | Phase 6 | Pending |
+| CMD-01 | Phase 6 | Complete |
+| LAYOUT-04 | Phase 6 | Complete |
+| LAYOUT-05 | Phase 6 | Complete |
 | STATE-01 | Phase 7 | Pending |
 | STATE-02 | Phase 7 | Pending |
 | STATE-03 | Phase 7 | Pending |

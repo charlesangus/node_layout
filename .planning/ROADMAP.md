@@ -24,7 +24,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 **Milestone Goal:** Improve layout quality through spacing rebalance, multi-input fan alignment, horizontal B-spine mode, and per-node state memory for least-surprise re-layout.
 
-- [ ] **Phase 6: Prefs Groundwork + Group Fix + Renames** - Add horizontal gap prefs, fix Group context bug, rename scheme commands
+- [x] **Phase 6: Prefs Groundwork + Group Fix + Renames** - Add horizontal gap prefs, fix Group context bug, rename scheme commands (completed 2026-03-08)
 - [ ] **Phase 7: Per-Node State Storage** - Store layout mode/scheme/scale on each node; survive script save/reload
 - [ ] **Phase 8: Dot Font-Size Margin Scaling** - Scale subtree margin by Dot font size as section-boundary signal
 - [ ] **Phase 9: Multi-Input Fan Alignment + Mask Side-Swap** - Align fan inputs at same Y; move mask input left when non-mask inputs fill right
@@ -113,7 +113,7 @@ Plans:
 | 3. Undo & Reliability | v1.0 | 1/1 | Complete | 2026-03-04 |
 | 4. Preferences System | v1.0 | 3/3 | Complete | 2026-03-04 |
 | 5. New Commands & Scheme | v1.0 | 4/4 | Complete | 2026-03-05 |
-| 6. Prefs Groundwork + Group Fix + Renames | 2/3 | In Progress|  | - |
+| 6. Prefs Groundwork + Group Fix + Renames | 3/3 | Complete   | 2026-03-08 | - |
 | 7. Per-Node State Storage | v1.1 | 0/? | Not started | - |
 | 8. Dot Font-Size Margin Scaling | v1.1 | 0/? | Not started | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | v1.1 | 0/? | Not started | - |
