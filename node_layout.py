@@ -528,7 +528,7 @@ def compute_node_bounding_box(nodes):
     return (min_x, min_y, max_x, max_y)
 
 
-def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after):
+def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after, current_group=None):
     before_min_x, before_min_y, before_max_x, before_max_y = bbox_before
     after_min_x, after_min_y, after_max_x, after_max_y = bbox_after
 
@@ -541,7 +541,8 @@ def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after):
     push_up_amount = before_min_y - after_min_y if grew_up else 0
     push_right_amount = after_max_x - before_max_x if grew_right else 0
 
-    for node in nuke.allNodes():
+    all_dag_nodes = current_group.nodes() if current_group is not None else nuke.allNodes()
+    for node in all_dag_nodes:
         if id(node) in subtree_node_ids:
             continue
 
@@ -579,31 +580,34 @@ def layout_upstream(scheme_multiplier=None):
     global _TOOLBAR_FOLDER_MAP
     _TOOLBAR_FOLDER_MAP = None
     _clear_color_cache()
+    current_group = nuke.thisGroup()    # MUST be the first Nuke API call
     root = nuke.selectedNode()
 
     nuke.Undo.name("Layout Upstream")
     nuke.Undo.begin()
     try:
-        # Capture starting state before any changes
-        original_subtree_nodes = collect_subtree_nodes(root)
-        bbox_before = compute_node_bounding_box(original_subtree_nodes)
+        with current_group:
+            # Capture starting state before any changes
+            original_subtree_nodes = collect_subtree_nodes(root)
+            bbox_before = compute_node_bounding_box(original_subtree_nodes)
 
-        subtree_nodes_for_count = collect_subtree_nodes(root)
-        node_count = len(subtree_nodes_for_count)
+            subtree_nodes_for_count = collect_subtree_nodes(root)
+            node_count = len(subtree_nodes_for_count)
 
-        insert_dot_nodes(root)
-        memo = {}
-        snap_threshold = get_dag_snap_threshold()
-        compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=scheme_multiplier)
-        place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count, scheme_multiplier=scheme_multiplier)
+            insert_dot_nodes(root)
+            memo = {}
+            snap_threshold = get_dag_snap_threshold()
+            compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=scheme_multiplier)
+            place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count, scheme_multiplier=scheme_multiplier)
 
-        # Capture final state (includes any newly inserted Dot nodes)
-        final_subtree_nodes = collect_subtree_nodes(root)
-        final_subtree_node_ids = {id(n) for n in final_subtree_nodes}
-        bbox_after = compute_node_bounding_box(final_subtree_nodes)
+            # Capture final state (includes any newly inserted Dot nodes)
+            final_subtree_nodes = collect_subtree_nodes(root)
+            final_subtree_node_ids = {id(n) for n in final_subtree_nodes}
+            bbox_after = compute_node_bounding_box(final_subtree_nodes)
 
-        if bbox_before is not None and bbox_after is not None:
-            push_nodes_to_make_room(final_subtree_node_ids, bbox_before, bbox_after)
+            if bbox_before is not None and bbox_after is not None:
+                push_nodes_to_make_room(final_subtree_node_ids, bbox_before, bbox_after,
+                                        current_group)
     except Exception:
         nuke.Undo.cancel()
         raise
@@ -626,6 +630,7 @@ def layout_selected(scheme_multiplier=None):
     global _TOOLBAR_FOLDER_MAP
     _TOOLBAR_FOLDER_MAP = None
     _clear_color_cache()
+    current_group = nuke.thisGroup()    # MUST be the first Nuke API call
     selected_nodes = nuke.selectedNodes()
     if len(selected_nodes) < 2:
         return  # nothing to lay out relative to each other
@@ -633,48 +638,50 @@ def layout_selected(scheme_multiplier=None):
     nuke.Undo.name("Layout Selected")
     nuke.Undo.begin()
     try:
-        node_filter = set(selected_nodes)
-        roots = find_selection_roots(selected_nodes)
-        roots.sort(key=lambda n: n.xpos())
+        with current_group:
+            node_filter = set(selected_nodes)
+            roots = find_selection_roots(selected_nodes)
+            roots.sort(key=lambda n: n.xpos())
 
-        bbox_before = compute_node_bounding_box(selected_nodes)
+            bbox_before = compute_node_bounding_box(selected_nodes)
 
-        node_count = len(selected_nodes)
+            node_count = len(selected_nodes)
 
-        if scheme_multiplier is None:
-            resolved_scheme_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
-        else:
-            resolved_scheme_multiplier = scheme_multiplier
+            if scheme_multiplier is None:
+                resolved_scheme_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
+            else:
+                resolved_scheme_multiplier = scheme_multiplier
 
-        snap_threshold = get_dag_snap_threshold()
-        memo = {}
-        placed_bboxes = []  # list of (left, top, right, bottom) for already-placed trees
-        for root in roots:
-            insert_dot_nodes(root, node_filter=node_filter)
-            tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=scheme_multiplier)
+            snap_threshold = get_dag_snap_threshold()
+            memo = {}
+            placed_bboxes = []  # list of (left, top, right, bottom) for already-placed trees
+            for root in roots:
+                insert_dot_nodes(root, node_filter=node_filter)
+                tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=scheme_multiplier)
 
-            tree_bottom = root.ypos() + root.screenHeight()
-            tree_top = tree_bottom - tree_height
+                tree_bottom = root.ypos() + root.screenHeight()
+                tree_top = tree_bottom - tree_height
 
-            # Resolve start_x: push right if Y ranges overlap with any already-placed tree.
-            start_x = root.xpos()
-            for placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
-                if tree_top < placed_bottom and tree_bottom > placed_top:  # Y overlap
-                    current_prefs = node_layout_prefs.prefs_singleton
-                    horizontal_clearance = current_prefs.get("horizontal_subtree_gap")
-                    start_x = max(start_x, placed_right + horizontal_clearance)
+                # Resolve start_x: push right if Y ranges overlap with any already-placed tree.
+                start_x = root.xpos()
+                for placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
+                    if tree_top < placed_bottom and tree_bottom > placed_top:  # Y overlap
+                        current_prefs = node_layout_prefs.prefs_singleton
+                        horizontal_clearance = current_prefs.get("horizontal_subtree_gap")
+                        start_x = max(start_x, placed_right + horizontal_clearance)
 
-            place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=scheme_multiplier)
-            placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
+                place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=scheme_multiplier)
+                placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
 
-        # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
-        # returns [] here. Use the original selected_nodes list — the Python objects are
-        # the same, but their positions have been updated by place_subtree.
-        final_selected_ids = {id(n) for n in node_filter}
-        bbox_after = compute_node_bounding_box(selected_nodes)
+            # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
+            # returns [] here. Use the original selected_nodes list — the Python objects are
+            # the same, but their positions have been updated by place_subtree.
+            final_selected_ids = {id(n) for n in node_filter}
+            bbox_after = compute_node_bounding_box(selected_nodes)
 
-        if bbox_before and bbox_after:
-            push_nodes_to_make_room(final_selected_ids, bbox_before, bbox_after)
+            if bbox_before and bbox_after:
+                push_nodes_to_make_room(final_selected_ids, bbox_before, bbox_after,
+                                        current_group)
     except Exception:
         nuke.Undo.cancel()
         raise
