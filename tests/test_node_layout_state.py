@@ -71,6 +71,11 @@ sys.modules['nuke'] = nuke_stub
 import node_layout_state  # noqa: E402 — must come after stub injection
 
 
+def _restore_nuke_stub():
+    """Re-inject our nuke stub into sys.modules in case other test files replaced it."""
+    sys.modules['nuke'] = nuke_stub
+
+
 # ---------------------------------------------------------------------------
 # FakePrefs helper for scheme resolution tests
 # ---------------------------------------------------------------------------
@@ -156,6 +161,11 @@ class TestReadNodeState(unittest.TestCase):
 
 class TestWriteNodeState(unittest.TestCase):
 
+    def setUp(self):
+        # Other test files may replace sys.modules['nuke'] with their own stubs.
+        # Re-inject our stub before each test that exercises write/clear code paths.
+        _restore_nuke_stub()
+
     def test_creates_tab_and_state_knob_when_absent(self):
         node = FakeNode()
         state = {"scheme": "compact", "mode": "vertical", "h_scale": 1.0, "v_scale": 1.0}
@@ -193,6 +203,9 @@ class TestWriteNodeState(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestClearNodeState(unittest.TestCase):
+
+    def setUp(self):
+        _restore_nuke_stub()
 
     def _node_with_state_only(self):
         """Return a node that has tab + state knob but no diamond dot."""
@@ -272,6 +285,9 @@ class TestSchemeResolution(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestScaleAccumulation(unittest.TestCase):
+
+    def setUp(self):
+        _restore_nuke_stub()
 
     def test_scale_accumulates_without_drift(self):
         """round(0.8 * 0.8, 10) must equal 0.64 with no float drift."""
