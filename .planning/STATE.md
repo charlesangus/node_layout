@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
-status: completed
-stopped_at: Completed 07-02-PLAN.md — state write-back in layout_upstream and layout_selected
-last_updated: "2026-03-10T10:25:36Z"
+status: executing
+stopped_at: Completed 07-03-PLAN.md — per-node scheme resolution and memo key fix
+last_updated: "2026-03-10T10:30:01.729Z"
 progress:
-  total_phases: 11
+  total_phases: 6
   completed_phases: 1
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 8
   percent: 70
 ---
 
@@ -45,6 +45,7 @@ Progress: [███████░░░] 70% (7 of 10 plans)
 | 07 | 2/5 | 13 min | 6.5 min |
 
 *Updated after each plan completion*
+| Phase 07 P03 | 5 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,8 @@ From Phase 6, Plan 01:
 - [Phase 07-02]: State write-back placed after place_subtree() and inside with current_group: + try block — undo covers knob creation on Dot nodes
 - [Phase 07-02]: Read-then-write pattern for state — read_node_state() preserves h_scale/v_scale; only scheme+mode are overwritten by layout
 - [Phase 07-02]: write_scheme_name distinct from resolved_scheme_multiplier — raw scheme_multiplier param used for write-back, resolved only used in compute_dims
+- [Phase 07]: compute_dims memo key changed to (id(node), scheme_multiplier) tuple — prevents cache collision when shared node appears in subtrees with different per-node schemes
+- [Phase 07]: Per-node scheme resolution dict built at entry point; root_scheme_multiplier extracted per-root for compute_dims/place_subtree — single float per call, per-node resolution at dict-build level
 
 ### Pending Todos
 
@@ -104,6 +107,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T10:22:41.966Z
-Stopped at: Completed 07-01-PLAN.md — node_layout_state.py foundation
+Last session: 2026-03-10T10:30:01.725Z
+Stopped at: Completed 07-03-PLAN.md — per-node scheme resolution and memo key fix
 Resume file: None
