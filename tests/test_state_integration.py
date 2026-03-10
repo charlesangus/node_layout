@@ -151,10 +151,10 @@ class TestScaleWriteBackAST(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestUpstreamAnchorAST(unittest.TestCase):
-    """Verify _scale_upstream_nodes uses bottom-left upstream node as pivot."""
+    """Verify _scale_upstream_nodes uses root_node as pivot."""
 
-    def test_scale_upstream_uses_max_upstream_nodes_as_anchor(self):
-        """_scale_upstream_nodes must select pivot via max(upstream_nodes, ...) not nuke.selectedNode() (Plan 06)."""
+    def test_scale_upstream_uses_root_node_as_anchor(self):
+        """_scale_upstream_nodes must use root_node (the selected node) as anchor so it stays fixed."""
         source = _read_source()
         func_source = _get_function_source(source, '_scale_upstream_nodes')
         self.assertIsNotNone(
@@ -163,9 +163,9 @@ class TestUpstreamAnchorAST(unittest.TestCase):
         )
 
         self.assertIn(
-            'max(upstream_nodes',
+            'anchor_node = root_node',
             func_source,
-            "_scale_upstream_nodes must use max(upstream_nodes, ...) to select bottom-left anchor node"
+            "_scale_upstream_nodes must set anchor_node = root_node (not max(upstream_nodes, ...))"
         )
 
 
@@ -174,43 +174,43 @@ class TestUpstreamAnchorAST(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestScaleParamsAST(unittest.TestCase):
-    """Verify compute_dims and place_subtree accept h_scale/v_scale parameters (Plan 07)."""
+    """Verify compute_dims and place_subtree accept per-node h_scale/v_scale dicts (Plan 07)."""
 
-    def test_compute_dims_has_h_scale_default_param(self):
-        """compute_dims must have h_scale=1.0 as a keyword parameter (Plan 07)."""
+    def test_compute_dims_has_per_node_h_scale_param(self):
+        """compute_dims must have per_node_h_scale=None as a keyword parameter (Plan 07)."""
         source = _read_source()
         func_source = _get_function_source(source, 'compute_dims')
         self.assertIsNotNone(func_source, "compute_dims function not found in node_layout.py")
 
         self.assertIn(
-            'h_scale=1.0',
+            'per_node_h_scale=None',
             func_source,
-            "compute_dims must have h_scale=1.0 keyword parameter"
+            "compute_dims must have per_node_h_scale=None keyword parameter"
         )
 
-    def test_place_subtree_has_h_scale_default_param(self):
-        """place_subtree must have h_scale=1.0 as a keyword parameter (Plan 07)."""
+    def test_place_subtree_has_per_node_h_scale_param(self):
+        """place_subtree must have per_node_h_scale=None as a keyword parameter (Plan 07)."""
         source = _read_source()
         func_source = _get_function_source(source, 'place_subtree')
         self.assertIsNotNone(func_source, "place_subtree function not found in node_layout.py")
 
         self.assertIn(
-            'h_scale=1.0',
+            'per_node_h_scale=None',
             func_source,
-            "place_subtree must have h_scale=1.0 keyword parameter"
+            "place_subtree must have per_node_h_scale=None keyword parameter"
         )
 
-    def test_compute_dims_memo_key_includes_h_scale(self):
-        """compute_dims memo key must include h_scale (four-element tuple) (Plan 07)."""
+    def test_compute_dims_memo_key_includes_node_h_scale(self):
+        """compute_dims memo key must include node_h_scale (per-node scale lookup) (Plan 07)."""
         source = _read_source()
         func_source = _get_function_source(source, 'compute_dims')
         self.assertIsNotNone(func_source, "compute_dims function not found in node_layout.py")
 
         self.assertIn(
-            'h_scale',
+            'node_h_scale',
             func_source[func_source.find('memo['):func_source.find('memo[') + 80]
             if 'memo[' in func_source else func_source,
-            "compute_dims memo key must include h_scale"
+            "compute_dims memo key must include node_h_scale"
         )
 
 
@@ -245,28 +245,28 @@ class TestScaleWiringAST(unittest.TestCase):
             "layout_upstream must build per_node_v_scale dict"
         )
 
-    def test_layout_upstream_extracts_root_h_scale(self):
-        """layout_upstream must extract root_h_scale from per_node_h_scale (Plan 07)."""
+    def test_layout_upstream_passes_per_node_h_scale_to_compute_dims(self):
+        """layout_upstream must pass per_node_h_scale dict to compute_dims (Plan 07)."""
         source = _read_source()
         func_source = _get_function_source(source, 'layout_upstream')
         self.assertIsNotNone(func_source, "layout_upstream function not found in node_layout.py")
 
         self.assertIn(
-            'root_h_scale',
+            'per_node_h_scale=per_node_h_scale',
             func_source,
-            "layout_upstream must extract root_h_scale"
+            "layout_upstream must pass per_node_h_scale=per_node_h_scale to compute_dims/place_subtree"
         )
 
-    def test_layout_upstream_extracts_root_v_scale(self):
-        """layout_upstream must extract root_v_scale from per_node_v_scale (Plan 07)."""
+    def test_layout_upstream_passes_per_node_v_scale_to_compute_dims(self):
+        """layout_upstream must pass per_node_v_scale dict to compute_dims (Plan 07)."""
         source = _read_source()
         func_source = _get_function_source(source, 'layout_upstream')
         self.assertIsNotNone(func_source, "layout_upstream function not found in node_layout.py")
 
         self.assertIn(
-            'root_v_scale',
+            'per_node_v_scale=per_node_v_scale',
             func_source,
-            "layout_upstream must extract root_v_scale"
+            "layout_upstream must pass per_node_v_scale=per_node_v_scale to compute_dims/place_subtree"
         )
 
     def test_layout_selected_builds_per_node_h_scale(self):
