@@ -62,7 +62,9 @@ def write_node_state(node, state):
     import nuke  # deferred import — keeps module importable without Nuke runtime
 
     if node.knob(_TAB_KNOB_NAME) is None:
-        node.addKnob(nuke.Tab_Knob(_TAB_KNOB_NAME, "Node Layout"))
+        tab_knob = nuke.Tab_Knob(_TAB_KNOB_NAME, "Node Layout")
+        tab_knob.setFlag(nuke.INVISIBLE)
+        node.addKnob(tab_knob)
 
     if node.knob(_STATE_KNOB_NAME) is None:
         state_knob = nuke.String_Knob(_STATE_KNOB_NAME, "Node Layout State")
