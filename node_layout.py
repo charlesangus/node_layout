@@ -283,8 +283,8 @@ def insert_dot_nodes(root, node_filter=None):
 
 
 def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None):
-    if id(node) in memo:
-        return memo[id(node)]
+    if (id(node), scheme_multiplier) in memo:
+        return memo[(id(node), scheme_multiplier)]
 
     input_slot_pairs = _get_input_slot_pairs(node, node_filter)
     all_side = _primary_slot_externally_occupied(node, node_filter)
@@ -329,7 +329,7 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
         H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_to_consumer + inter_band_gaps
         result = (W, H)
 
-    memo[id(node)] = result
+    memo[(id(node), scheme_multiplier)] = result
     return result
 
 
