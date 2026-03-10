@@ -9,25 +9,25 @@ Requirements for the Layout Engine & State milestone. Each maps to roadmap phase
 
 ### Prefs & Spacing
 
-- [ ] **PREFS-01**: User can configure horizontal gap between subtrees via the preferences dialog
-- [ ] **PREFS-02**: User can configure a separate (smaller) horizontal gap for mask inputs via the preferences dialog
-- [ ] **PREFS-03**: User can configure the Dot font reference size used to scale subtree margins via the preferences dialog
-- [ ] **PREFS-04**: Default spacing constants are rebalanced (less vertical gap, more horizontal gap) so layouts feel less tall and cramped
+- [x] **PREFS-01**: User can configure horizontal gap between subtrees via the preferences dialog
+- [x] **PREFS-02**: User can configure a separate (smaller) horizontal gap for mask inputs via the preferences dialog
+- [x] **PREFS-03**: User can configure the Dot font reference size used to scale subtree margins via the preferences dialog
+- [x] **PREFS-04**: Default spacing constants are rebalanced (less vertical gap, more horizontal gap) so layouts feel less tall and cramped
 
 ### Layout Quality
 
 - [ ] **LAYOUT-01**: When a node has 2+ non-mask inputs, all immediate input nodes are placed at the same Y position (fan alignment), with their subtrees extending upward
 - [ ] **LAYOUT-02**: When a node has 2+ non-mask inputs, the mask input is placed to the left of all non-mask inputs
 - [ ] **LAYOUT-03**: Subtree margin scales with the font size of the Dot node at the subtree root — a larger font signals a section boundary and produces more breathing room
-- [ ] **LAYOUT-04**: When running layout commands inside a Nuke Group, Dot nodes are created inside that Group (not at Root level)
-- [ ] **LAYOUT-05**: When running layout commands inside a Nuke Group, push-away logic considers only nodes within that Group
+- [x] **LAYOUT-04**: When running layout commands inside a Nuke Group, Dot nodes are created inside that Group (not at Root level)
+- [x] **LAYOUT-05**: When running layout commands inside a Nuke Group, push-away logic considers only nodes within that Group
 
 ### Node State Storage
 
-- [ ] **STATE-01**: Every node touched by a layout operation receives a hidden tab with knobs storing: layout mode, scheme (compact/normal/loose), and scale factor
-- [ ] **STATE-02**: Hidden state knobs persist across .nk script save/close/reopen cycles
-- [ ] **STATE-03**: Re-running a layout command replays the stored scheme unless the command explicitly specifies one (e.g. running "Layout Upstream Compact" overrides stored scheme)
-- [ ] **STATE-04**: Shrink/Expand commands update the scale factor knob on affected nodes
+- [x] **STATE-01**: Every node touched by a layout operation receives a hidden tab with knobs storing: layout mode, scheme (compact/normal/loose), and scale factor
+- [x] **STATE-02**: Hidden state knobs persist across .nk script save/close/reopen cycles
+- [x] **STATE-03**: Re-running a layout command replays the stored scheme unless the command explicitly specifies one (e.g. running "Layout Upstream Compact" overrides stored scheme)
+- [x] **STATE-04**: Shrink/Expand commands update the scale factor knob on affected nodes
 
 ### Horizontal Layout
 
@@ -43,7 +43,7 @@ Requirements for the Layout Engine & State milestone. Each maps to roadmap phase
 
 ### Command Renames
 
-- [ ] **CMD-01**: Compact and Loose layout scheme commands are renamed so the scheme name appears at the end (e.g. "Layout Upstream Compact") for tab-menu discoverability
+- [x] **CMD-01**: Compact and Loose layout scheme commands are renamed so the scheme name appears at the end (e.g. "Layout Upstream Compact") for tab-menu discoverability
 
 ## Future Requirements
 
@@ -70,17 +70,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PREFS-01 | Phase 6 | Pending |
-| PREFS-02 | Phase 6 | Pending |
-| PREFS-03 | Phase 6 | Pending |
-| PREFS-04 | Phase 6 | Pending |
-| CMD-01 | Phase 6 | Pending |
-| LAYOUT-04 | Phase 6 | Pending |
-| LAYOUT-05 | Phase 6 | Pending |
-| STATE-01 | Phase 7 | Pending |
-| STATE-02 | Phase 7 | Pending |
-| STATE-03 | Phase 7 | Pending |
-| STATE-04 | Phase 7 | Pending |
+| PREFS-01 | Phase 6 | Complete |
+| PREFS-02 | Phase 6 | Complete |
+| PREFS-03 | Phase 6 | Complete |
+| PREFS-04 | Phase 6 | Complete |
+| CMD-01 | Phase 6 | Complete |
+| LAYOUT-04 | Phase 6 | Complete |
+| LAYOUT-05 | Phase 6 | Complete |
+| STATE-01 | Phase 7 | Complete |
+| STATE-02 | Phase 7 | Complete |
+| STATE-03 | Phase 7 | Complete |
+| STATE-04 | Phase 7 | Complete |
 | LAYOUT-03 | Phase 8 | Pending |
 | LAYOUT-01 | Phase 9 | Pending |
 | LAYOUT-02 | Phase 9 | Pending |

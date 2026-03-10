@@ -24,8 +24,8 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 **Milestone Goal:** Improve layout quality through spacing rebalance, multi-input fan alignment, horizontal B-spine mode, and per-node state memory for least-surprise re-layout.
 
-- [ ] **Phase 6: Prefs Groundwork + Group Fix + Renames** - Add horizontal gap prefs, fix Group context bug, rename scheme commands
-- [ ] **Phase 7: Per-Node State Storage** - Store layout mode/scheme/scale on each node; survive script save/reload
+- [x] **Phase 6: Prefs Groundwork + Group Fix + Renames** - Add horizontal gap prefs, fix Group context bug, rename scheme commands (completed 2026-03-08)
+- [x] **Phase 7: Per-Node State Storage** - Store layout mode/scheme/scale on each node; survive script save/reload (completed 2026-03-10)
 - [ ] **Phase 8: Dot Font-Size Margin Scaling** - Scale subtree margin by Dot font size as section-boundary signal
 - [ ] **Phase 9: Multi-Input Fan Alignment + Mask Side-Swap** - Align fan inputs at same Y; move mask input left when non-mask inputs fill right
 - [ ] **Phase 10: Shrink/Expand H/V/Both + Expand Push-Away** - Axis-specific scale commands; expand pushes surrounding nodes
@@ -44,7 +44,13 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
   4. Default spacing produces layouts that are visibly less tall and cramped than v1.0 defaults
   5. Running any layout command while inside a Nuke Group creates Dot nodes inside that Group, not at root level
   6. Scheme commands appear as "Layout Upstream Compact" / "Layout Upstream Loose" (scheme name at end) in the tab menu
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Add 3 new prefs keys to DEFAULTS, rebalance defaults, reorganize prefs dialog into 3 sections
+- [ ] 06-02-PLAN.md — Wire horizontal_subtree_gap/horizontal_mask_gap into engine; fix broken /home/latuser test paths
+- [ ] 06-03-PLAN.md — Group context fix (with current_group: wrapping) + CMD-01 name verification
+- [ ] 06-04-PLAN.md — Gap closure: replace nuke.thisGroup() with nuke.lastHitGroup() to fix Group View context
 
 ### Phase 7: Per-Node State Storage
 **Goal**: Every node touched by a layout operation carries hidden knobs recording the layout mode, scheme, and scale factor; this state survives a save/close/reopen cycle and is replayed on re-layout
@@ -56,7 +62,16 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
   3. Re-running "Layout Upstream" or "Layout Selected" on a node laid out with Compact scheme replays Compact without the user specifying it again
   4. Running "Layout Upstream Compact" on a node previously stored as Loose overrides the stored scheme to Compact for that re-layout
   5. After a Shrink or Expand operation, the scale factor knob on each affected node reflects the new accumulated scale
-**Plans**: TBD
+**Plans**: 7 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Create node_layout_state.py helper module + both test files (unit tests + AST scaffold)
+- [ ] 07-02-PLAN.md — Add state write-back pass to layout_upstream() and layout_selected()
+- [ ] 07-03-PLAN.md — Per-node scheme replay at entry points + compute_dims() memo key fix
+- [ ] 07-04-PLAN.md — Scale state accumulation in _scale_selected_nodes() and _scale_upstream_nodes()
+- [ ] 07-05-PLAN.md — Clear-state commands in node_layout.py + menu.py registration
+- [ ] 07-06-PLAN.md — Gap closure: fix _scale_upstream_nodes() anchor drift (wrong pivot node)
+- [ ] 07-07-PLAN.md — Gap closure: wire h_scale/v_scale from stored state into layout re-run
 
 ### Phase 8: Dot Font-Size Margin Scaling
 **Goal**: Subtree margins automatically grow when the Dot at a subtree root has a large font size, letting the compositor use visual font size as a section-boundary signal without any extra config
@@ -108,8 +123,8 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 | 3. Undo & Reliability | v1.0 | 1/1 | Complete | 2026-03-04 |
 | 4. Preferences System | v1.0 | 3/3 | Complete | 2026-03-04 |
 | 5. New Commands & Scheme | v1.0 | 4/4 | Complete | 2026-03-05 |
-| 6. Prefs Groundwork + Group Fix + Renames | v1.1 | 0/? | Not started | - |
-| 7. Per-Node State Storage | v1.1 | 0/? | Not started | - |
+| 6. Prefs Groundwork + Group Fix + Renames | 4/4 | Complete   | 2026-03-08 | - |
+| 7. Per-Node State Storage | 7/7 | Complete   | 2026-03-10 | - |
 | 8. Dot Font-Size Margin Scaling | v1.1 | 0/? | Not started | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | v1.1 | 0/? | Not started | - |
 | 10. Shrink/Expand H/V/Both + Expand Push-Away | v1.1 | 0/? | Not started | - |

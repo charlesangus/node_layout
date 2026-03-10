@@ -20,8 +20,8 @@ import os
 import unittest
 
 
-NODE_LAYOUT_PATH = "/home/latuser/git/nuke_layout_project/node_layout/node_layout.py"
-NODE_LAYOUT_PREFS_PATH = "/home/latuser/git/nuke_layout_project/node_layout/node_layout_prefs.py"
+NODE_LAYOUT_PATH = "/workspace/node_layout.py"
+NODE_LAYOUT_PREFS_PATH = "/workspace/node_layout_prefs.py"
 
 
 # ---------------------------------------------------------------------------
@@ -39,6 +39,26 @@ class _StubKnob:
 
     def getValue(self):
         return self._val
+
+
+class _StubWritableKnob:
+    """Stub knob that supports getValue/setValue for state storage tests."""
+
+    def __init__(self, val=''):
+        self._val = val
+        self.name = ''
+
+    def value(self):
+        return self._val
+
+    def getValue(self):
+        return self._val
+
+    def setValue(self, value):
+        self._val = value
+
+    def setFlag(self, flag):
+        pass
 
 
 class _StubNode:
@@ -86,13 +106,19 @@ class _StubNode:
     def knob(self, name):
         return self._knobs.get(name)
 
+    def addKnob(self, knob):
+        if hasattr(knob, 'name') and knob.name not in self._knobs:
+            self._knobs[knob.name] = knob
+
     def inputLabel(self, index):
         return ""
 
     def __getitem__(self, name):
         if name in self._knobs:
             return self._knobs[name]
-        return _StubKnob(0)
+        writable_knob = _StubWritableKnob()
+        self._knobs[name] = writable_knob
+        return writable_knob
 
 
 def _make_preferences_node():
@@ -123,6 +149,13 @@ class _StubUndo:
         pass
 
 
+def _make_stub_knob(name='', label=''):
+    """Factory for knob stubs used by write_node_state (Tab_Knob / String_Knob factories)."""
+    knob = _StubWritableKnob()
+    knob.name = name
+    return knob
+
+
 # Only register the stub if "nuke" not already registered (to avoid conflict with
 # test_prefs_integration.py when running in the same process).
 if "nuke" not in sys.modules:
@@ -135,6 +168,17 @@ if "nuke" not in sys.modules:
     _nuke_stub.menu = lambda name: None
     _nuke_stub.Undo = _StubUndo
     sys.modules["nuke"] = _nuke_stub
+
+# Ensure write_node_state knob factories are present on whichever nuke stub is active.
+# This is needed because test_scale_nodes.py may inherit a stub from another test file
+# that lacks Tab_Knob / String_Knob / INVISIBLE.
+_active_nuke = sys.modules["nuke"]
+if not hasattr(_active_nuke, "Tab_Knob"):
+    _active_nuke.Tab_Knob = lambda name='', label='': _make_stub_knob(name, label)
+if not hasattr(_active_nuke, "String_Knob"):
+    _active_nuke.String_Knob = lambda name='', label='': _make_stub_knob(name, label)
+if not hasattr(_active_nuke, "INVISIBLE"):
+    _active_nuke.INVISIBLE = 0x01
 
 # Load node_layout_prefs if not already loaded.
 if "node_layout_prefs" not in sys.modules:
@@ -260,14 +304,14 @@ class TestScaleUpstreamNodesAST(unittest.TestCase):
             "_scale_upstream_nodes still uses int() — should use round()",
         )
 
-    def test_no_snap_min_in_scale_upstream(self):
-        """_scale_upstream_nodes must NOT contain snap_min (no floor for upstream trees)."""
+    def test_snap_min_floor_guard_in_scale_upstream(self):
+        """_scale_upstream_nodes must contain snap_min floor guard (Plan 06: matching _scale_selected_nodes)."""
         source = _get_function_source("_scale_upstream_nodes")
         self.assertIsNotNone(source, "_scale_upstream_nodes not found in source")
-        self.assertNotIn(
+        self.assertIn(
             "snap_min",
             source,
-            "_scale_upstream_nodes must not have a snap_min floor — upstream trees are self-consistent",
+            "_scale_upstream_nodes missing snap_min floor guard — must match _scale_selected_nodes pattern",
         )
 
 

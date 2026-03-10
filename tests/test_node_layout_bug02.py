@@ -11,7 +11,7 @@ import sys
 import unittest
 
 
-NODE_LAYOUT_PATH = "/home/latuser/git/nuke_layout_project/node_layout/node_layout.py"
+NODE_LAYOUT_PATH = "/workspace/node_layout.py"
 
 
 def _load_source():

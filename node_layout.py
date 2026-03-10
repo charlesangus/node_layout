@@ -1,6 +1,7 @@
 import math
 import nuke
 import node_layout_prefs
+import node_layout_state
 
 _TOOLBAR_FOLDER_MAP = None
 
@@ -126,6 +127,18 @@ def _subtree_margin(node, slot, node_count, mode_multiplier=None):
         ratio = current_prefs.get("mask_input_ratio")
         return int(effective_margin * ratio)
     return effective_margin
+
+
+def _horizontal_margin(node, slot):
+    """Return the horizontal gap (px) for the given input slot.
+
+    H-axis margins are absolute pixel values from prefs — no sqrt scaling.
+    Vertical margins still use _subtree_margin() with its sqrt formula.
+    """
+    current_prefs = node_layout_prefs.prefs_singleton
+    if _is_mask_input(node, slot):
+        return current_prefs.get("horizontal_mask_gap")
+    return current_prefs.get("horizontal_subtree_gap")
 
 
 def _center_x(child_width, parent_x, parent_width):
@@ -269,31 +282,34 @@ def insert_dot_nodes(root, node_filter=None):
             _claim(inp)
 
 
-def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None):
-    if id(node) in memo:
-        return memo[id(node)]
+def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None, per_node_h_scale=None, per_node_v_scale=None):
+    node_h_scale = per_node_h_scale.get(id(node), 1.0) if per_node_h_scale else 1.0
+    node_v_scale = per_node_v_scale.get(id(node), 1.0) if per_node_v_scale else 1.0
+    if (id(node), scheme_multiplier, node_h_scale, node_v_scale) in memo:
+        return memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale)]
 
     input_slot_pairs = _get_input_slot_pairs(node, node_filter)
     all_side = _primary_slot_externally_occupied(node, node_filter)
     input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side)
     inputs = [inp for _, inp in input_slot_pairs]
-    normal_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
-    side_margins_h = [_subtree_margin(node, slot, node_count, mode_multiplier=normal_multiplier) for slot, _ in input_slot_pairs]
-    side_margins_v = [_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) for slot, _ in input_slot_pairs]
+    side_margins_h = [int(_horizontal_margin(node, slot) * node_h_scale) for slot, _ in input_slot_pairs]
+    side_margins_v = [int(_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) * node_v_scale) for slot, _ in input_slot_pairs]
 
     if not inputs:
         result = (node.screenWidth(), node.screenHeight())
     elif all_side:
         # All in-filter inputs are side inputs; none goes directly above.
-        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier) for inp in inputs]
+        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale) for inp in inputs]
         n = len(inputs)
         W = node.screenWidth() + sum(side_margins_h) + sum(w for w, h in child_dims)
-        gap_closest = max(vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier), side_margins_v[n - 1])
+        raw_gap = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+        scaled_gap = max(snap_threshold - 1, int(raw_gap * node_v_scale))
+        gap_closest = max(scaled_gap, side_margins_v[n - 1])
         inter_band_gaps = sum(side_margins_v[1:n])
         H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_closest + inter_band_gaps
         result = (W, H)
     else:
-        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier) for inp in inputs]
+        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale) for inp in inputs]
         n = len(inputs)
         if n == 1:
             W = max(node.screenWidth(), child_dims[0][0])
@@ -308,7 +324,8 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
         # Staircase formula for all n: each input gets its own vertical band.
         # Total height is sum of all child subtree heights plus per-gap values that
         # depend on the tile colors of adjacent nodes.
-        gap_to_consumer = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+        raw_gap_to_consumer = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+        gap_to_consumer = max(snap_threshold - 1, int(raw_gap_to_consumer * node_v_scale))
         # When there are side inputs (n > 1), a dot will be inserted for inputs[n-1].
         # Reserve at least side_margins_v[n-1] so the dot fits without overlapping.
         if n > 1:
@@ -317,11 +334,11 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
         H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_to_consumer + inter_band_gaps
         result = (W, H)
 
-    memo[id(node)] = result
+    memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale)] = result
     return result
 
 
-def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None):
+def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None, per_node_h_scale=None, per_node_v_scale=None):
     """
     Place `node` with its top-left corner at (x, y) and recursively position
     every upstream input above it.
@@ -368,6 +385,8 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
     n >= 3  : input[0] directly above root (same column); inputs[1..n-1] step
               rightward from root's right edge; input[n-1] rightmost.
     """
+    node_h_scale = per_node_h_scale.get(id(node), 1.0) if per_node_h_scale else 1.0
+    node_v_scale = per_node_v_scale.get(id(node), 1.0) if per_node_v_scale else 1.0
     node.setXpos(x)
     node.setYpos(y)
 
@@ -396,15 +415,15 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
     actual_slots = [slot for slot, _ in input_slot_pairs]
     inputs = [inp for _, inp in input_slot_pairs]
     n = len(inputs)
-    child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier) for inp in inputs]
-    normal_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
-    side_margins_h = [_subtree_margin(node, slot, node_count, mode_multiplier=normal_multiplier) for slot in actual_slots]
-    side_margins_v = [_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) for slot in actual_slots]
+    child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale) for inp in inputs]
+    side_margins_h = [int(_horizontal_margin(node, slot) * node_h_scale) for slot in actual_slots]
+    side_margins_v = [int(_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) * node_v_scale) for slot in actual_slots]
 
     # --- Y staircase: backward walk so input[n-1] is closest to root ---
     # Mirror the gap enlargement from compute_dims: when n > 1 (or all_side,
     # which always inserts a dot), the gap must be at least side_margins_v[n-1].
-    gap_closest = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+    raw_gap_closest = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+    gap_closest = max(snap_threshold - 1, int(raw_gap_closest * node_v_scale))
     if n > 1 or all_side:
         gap_closest = max(gap_closest, side_margins_v[n - 1])
     bottom_y = [0] * n
@@ -471,19 +490,19 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
             # Place the upstream subtree at the staircase position, then
             # position the dot itself separately.
             actual_upstream = inp.input(0)
-            place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier)
+            place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
             dot_center_x = x_positions[i] + actual_upstream.screenWidth() // 2
             if i == n - 1:
                 # Bottom-most dot: centre it vertically beside the root node.
                 dot_y = y + (node.screenHeight() - inp.screenHeight()) // 2
             else:
                 # Staggered dot: placed below its input node using prefs-based margin.
-                dot_y = y_positions[i] + actual_upstream.screenHeight() + _subtree_margin(node, actual_slots[n - 1], node_count, mode_multiplier=scheme_multiplier)
+                dot_y = y_positions[i] + actual_upstream.screenHeight() + int(_subtree_margin(node, actual_slots[n - 1], node_count, mode_multiplier=scheme_multiplier) * node_v_scale)
             inp.setXpos(dot_center_x - inp.screenWidth() // 2)
             inp.setYpos(dot_y)
         else:
             # Regular node, or a diamond-resolution Dot (hide_input=True, node_layout_diamond_dot knob).
-            place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier)
+            place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
             # After recursion, reposition diamond Dots to be centered under the consumer tile.
             # The upstream subtree above the Dot is unaffected — only the Dot tile moves.
             if (inp.Class() == 'Dot'
@@ -518,7 +537,7 @@ def compute_node_bounding_box(nodes):
     return (min_x, min_y, max_x, max_y)
 
 
-def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after):
+def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after, current_group=None):
     before_min_x, before_min_y, before_max_x, before_max_y = bbox_before
     after_min_x, after_min_y, after_max_x, after_max_y = bbox_after
 
@@ -531,7 +550,8 @@ def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after):
     push_up_amount = before_min_y - after_min_y if grew_up else 0
     push_right_amount = after_max_x - before_max_x if grew_right else 0
 
-    for node in nuke.allNodes():
+    all_dag_nodes = current_group.nodes() if current_group is not None else nuke.allNodes()
+    for node in all_dag_nodes:
         if id(node) in subtree_node_ids:
             continue
 
@@ -569,31 +589,73 @@ def layout_upstream(scheme_multiplier=None):
     global _TOOLBAR_FOLDER_MAP
     _TOOLBAR_FOLDER_MAP = None
     _clear_color_cache()
+    current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
     root = nuke.selectedNode()
 
     nuke.Undo.name("Layout Upstream")
     nuke.Undo.begin()
     try:
-        # Capture starting state before any changes
-        original_subtree_nodes = collect_subtree_nodes(root)
-        bbox_before = compute_node_bounding_box(original_subtree_nodes)
+        with current_group:
+            # Capture starting state before any changes
+            original_subtree_nodes = collect_subtree_nodes(root)
+            bbox_before = compute_node_bounding_box(original_subtree_nodes)
 
-        subtree_nodes_for_count = collect_subtree_nodes(root)
-        node_count = len(subtree_nodes_for_count)
+            subtree_nodes_for_count = collect_subtree_nodes(root)
+            node_count = len(subtree_nodes_for_count)
 
-        insert_dot_nodes(root)
-        memo = {}
-        snap_threshold = get_dag_snap_threshold()
-        compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=scheme_multiplier)
-        place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count, scheme_multiplier=scheme_multiplier)
+            insert_dot_nodes(root)
 
-        # Capture final state (includes any newly inserted Dot nodes)
-        final_subtree_nodes = collect_subtree_nodes(root)
-        final_subtree_node_ids = {id(n) for n in final_subtree_nodes}
-        bbox_after = compute_node_bounding_box(final_subtree_nodes)
+            # Per-node scheme resolution — build per_node_scheme dict before compute_dims
+            current_prefs = node_layout_prefs.prefs_singleton
+            per_node_scheme = {}  # maps id(node) -> float scheme multiplier
+            per_node_h_scale = {}  # maps id(node) -> float h_scale
+            per_node_v_scale = {}  # maps id(node) -> float v_scale
+            for subtree_node in subtree_nodes_for_count:
+                if scheme_multiplier is not None:
+                    per_node_scheme[id(subtree_node)] = scheme_multiplier
+                else:
+                    stored_state = node_layout_state.read_node_state(subtree_node)
+                    per_node_scheme[id(subtree_node)] = node_layout_state.scheme_name_to_multiplier(
+                        stored_state["scheme"], current_prefs
+                    )
+                # h_scale/v_scale always come from stored state (independent of scheme override)
+                scale_state = node_layout_state.read_node_state(subtree_node)
+                per_node_h_scale[id(subtree_node)] = scale_state["h_scale"]
+                per_node_v_scale[id(subtree_node)] = scale_state["v_scale"]
+            # Resolved multiplier for this root (used in compute_dims and place_subtree)
+            root_scheme_multiplier = per_node_scheme.get(
+                id(root), current_prefs.get("normal_multiplier")
+            )
 
-        if bbox_before is not None and bbox_after is not None:
-            push_nodes_to_make_room(final_subtree_node_ids, bbox_before, bbox_after)
+            memo = {}
+            snap_threshold = get_dag_snap_threshold()
+            compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier,
+                         per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
+            place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count,
+                          scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
+
+            # Capture final state (includes any newly inserted Dot nodes)
+            final_subtree_nodes = collect_subtree_nodes(root)
+
+            # State write-back: record per-node scheme and mode on every layout-touched node
+            for state_node in final_subtree_nodes:
+                stored_state = node_layout_state.read_node_state(state_node)
+                node_scheme_multiplier = per_node_scheme.get(
+                    id(state_node), current_prefs.get("normal_multiplier")
+                )
+                stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
+                    node_scheme_multiplier, current_prefs
+                )
+                stored_state["mode"] = "vertical"
+                # h_scale and v_scale are NOT reset by re-layout — preserve existing values
+                node_layout_state.write_node_state(state_node, stored_state)
+
+            final_subtree_node_ids = {id(n) for n in final_subtree_nodes}
+            bbox_after = compute_node_bounding_box(final_subtree_nodes)
+
+            if bbox_before is not None and bbox_after is not None:
+                push_nodes_to_make_room(final_subtree_node_ids, bbox_before, bbox_after,
+                                        current_group)
     except Exception:
         nuke.Undo.cancel()
         raise
@@ -616,6 +678,7 @@ def layout_selected(scheme_multiplier=None):
     global _TOOLBAR_FOLDER_MAP
     _TOOLBAR_FOLDER_MAP = None
     _clear_color_cache()
+    current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
     selected_nodes = nuke.selectedNodes()
     if len(selected_nodes) < 2:
         return  # nothing to lay out relative to each other
@@ -623,53 +686,80 @@ def layout_selected(scheme_multiplier=None):
     nuke.Undo.name("Layout Selected")
     nuke.Undo.begin()
     try:
-        node_filter = set(selected_nodes)
-        roots = find_selection_roots(selected_nodes)
-        roots.sort(key=lambda n: n.xpos())
+        with current_group:
+            node_filter = set(selected_nodes)
+            roots = find_selection_roots(selected_nodes)
+            roots.sort(key=lambda n: n.xpos())
 
-        bbox_before = compute_node_bounding_box(selected_nodes)
+            bbox_before = compute_node_bounding_box(selected_nodes)
 
-        node_count = len(selected_nodes)
+            node_count = len(selected_nodes)
 
-        if scheme_multiplier is None:
-            resolved_scheme_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
-        else:
-            resolved_scheme_multiplier = scheme_multiplier
-
-        snap_threshold = get_dag_snap_threshold()
-        memo = {}
-        placed_bboxes = []  # list of (left, top, right, bottom) for already-placed trees
-        for root in roots:
-            insert_dot_nodes(root, node_filter=node_filter)
-            tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=scheme_multiplier)
-
-            tree_bottom = root.ypos() + root.screenHeight()
-            tree_top = tree_bottom - tree_height
-
-            # Resolve start_x: push right if Y ranges overlap with any already-placed tree.
-            start_x = root.xpos()
-            for placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
-                if tree_top < placed_bottom and tree_bottom > placed_top:  # Y overlap
-                    current_prefs = node_layout_prefs.prefs_singleton
-                    horizontal_clearance = int(
-                        current_prefs.get("base_subtree_margin")
-                        * current_prefs.get("normal_multiplier")
-                        * math.sqrt(node_count)
-                        / math.sqrt(current_prefs.get("scaling_reference_count"))
+            # Per-node scheme resolution (replaces the old resolved_scheme_multiplier block)
+            current_prefs = node_layout_prefs.prefs_singleton
+            per_node_scheme = {}  # maps id(node) -> float scheme multiplier
+            per_node_h_scale = {}  # maps id(node) -> float h_scale
+            per_node_v_scale = {}  # maps id(node) -> float v_scale
+            for sel_node in selected_nodes:
+                if scheme_multiplier is not None:
+                    per_node_scheme[id(sel_node)] = scheme_multiplier
+                else:
+                    stored_state = node_layout_state.read_node_state(sel_node)
+                    per_node_scheme[id(sel_node)] = node_layout_state.scheme_name_to_multiplier(
+                        stored_state["scheme"], current_prefs
                     )
-                    start_x = max(start_x, placed_right + horizontal_clearance)
+                # h_scale/v_scale always come from stored state (independent of scheme override)
+                scale_state = node_layout_state.read_node_state(sel_node)
+                per_node_h_scale[id(sel_node)] = scale_state["h_scale"]
+                per_node_v_scale[id(sel_node)] = scale_state["v_scale"]
 
-            place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=scheme_multiplier)
-            placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
+            snap_threshold = get_dag_snap_threshold()
+            memo = {}
+            placed_bboxes = []  # list of (left, top, right, bottom) for already-placed trees
+            for root in roots:
+                insert_dot_nodes(root, node_filter=node_filter)
+                root_scheme_multiplier = per_node_scheme.get(
+                    id(root), current_prefs.get("normal_multiplier")
+                )
+                tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
 
-        # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
-        # returns [] here. Use the original selected_nodes list — the Python objects are
-        # the same, but their positions have been updated by place_subtree.
-        final_selected_ids = {id(n) for n in node_filter}
-        bbox_after = compute_node_bounding_box(selected_nodes)
+                tree_bottom = root.ypos() + root.screenHeight()
+                tree_top = tree_bottom - tree_height
 
-        if bbox_before and bbox_after:
-            push_nodes_to_make_room(final_selected_ids, bbox_before, bbox_after)
+                # Resolve start_x: push right if Y ranges overlap with any already-placed tree.
+                start_x = root.xpos()
+                for placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
+                    if tree_top < placed_bottom and tree_bottom > placed_top:  # Y overlap
+                        horizontal_clearance = current_prefs.get("horizontal_subtree_gap")
+                        start_x = max(start_x, placed_right + horizontal_clearance)
+
+                place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
+                placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
+
+            # State write-back: record per-node scheme and mode on every layout-touched node
+            all_touched_nodes = set()
+            for state_root in roots:
+                all_touched_nodes.update(collect_subtree_nodes(state_root, node_filter=node_filter))
+            for state_node in all_touched_nodes:
+                stored_state = node_layout_state.read_node_state(state_node)
+                node_scheme_multiplier = per_node_scheme.get(
+                    id(state_node), current_prefs.get("normal_multiplier")
+                )
+                stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
+                    node_scheme_multiplier, current_prefs
+                )
+                stored_state["mode"] = "vertical"
+                node_layout_state.write_node_state(state_node, stored_state)
+
+            # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
+            # returns [] here. Use the original selected_nodes list — the Python objects are
+            # the same, but their positions have been updated by place_subtree.
+            final_selected_ids = {id(n) for n in node_filter}
+            bbox_after = compute_node_bounding_box(selected_nodes)
+
+            if bbox_before and bbox_after:
+                push_nodes_to_make_room(final_selected_ids, bbox_before, bbox_after,
+                                        current_group)
     except Exception:
         nuke.Undo.cancel()
         raise
@@ -701,8 +791,11 @@ def _scale_selected_nodes(scale_factor):
     selected_nodes = nuke.selectedNodes()
     if len(selected_nodes) < 2:
         return
-    # Tiebreaker: among nodes sharing the maximum ypos, pick the leftmost (min xpos).
-    anchor_node = max(selected_nodes, key=lambda n: (n.ypos(), -n.xpos()))
+    # Anchor: the most downstream selected node, determined topologically.
+    # Using max(ypos) fails when side inputs (e.g. Merge A input) are positioned
+    # below their consumer — topology is the reliable way to find the root.
+    roots = find_selection_roots(selected_nodes)
+    anchor_node = max(roots, key=lambda n: (n.ypos(), -n.xpos()))
     snap_min = get_dag_snap_threshold() - 1
     anchor_center_x = anchor_node.xpos() + anchor_node.screenWidth() / 2
     anchor_center_y = anchor_node.ypos() + anchor_node.screenHeight() / 2
@@ -725,13 +818,23 @@ def _scale_selected_nodes(scale_factor):
         new_center_y = anchor_center_y + new_dy
         node.setXpos(round(new_center_x - node.screenWidth() / 2))
         node.setYpos(round(new_center_y - node.screenHeight() / 2))
+    # Scale state write-back: accumulate h_scale and v_scale on all affected nodes
+    for scale_node in selected_nodes:
+        stored_state = node_layout_state.read_node_state(scale_node)
+        stored_state["h_scale"] = round(stored_state["h_scale"] * scale_factor, 10)
+        stored_state["v_scale"] = round(stored_state["v_scale"] * scale_factor, 10)
+        node_layout_state.write_node_state(scale_node, stored_state)
 
 
 def _scale_upstream_nodes(scale_factor):
-    anchor_node = nuke.selectedNode()
+    root_node = nuke.selectedNode()
+    upstream_nodes = collect_subtree_nodes(root_node)
+    # The selected root node is always the anchor — it stays fixed while all upstream
+    # nodes scale relative to it. This preserves alignment with any downstream nodes.
+    anchor_node = root_node
+    snap_min = get_dag_snap_threshold() - 1
     anchor_center_x = anchor_node.xpos() + anchor_node.screenWidth() / 2
     anchor_center_y = anchor_node.ypos() + anchor_node.screenHeight() / 2
-    upstream_nodes = collect_subtree_nodes(anchor_node)
     for node in upstream_nodes:
         if node is anchor_node:
             continue
@@ -739,10 +842,22 @@ def _scale_upstream_nodes(scale_factor):
         node_center_y = node.ypos() + node.screenHeight() / 2
         dx = node_center_x - anchor_center_x
         dy = node_center_y - anchor_center_y
-        new_center_x = anchor_center_x + round(dx * scale_factor)
-        new_center_y = anchor_center_y + round(dy * scale_factor)
+        new_dx = round(dx * scale_factor)
+        new_dy = round(dy * scale_factor)
+        if dx != 0 and abs(new_dx) < snap_min:
+            new_dx = snap_min if dx > 0 else -snap_min
+        if dy != 0 and abs(new_dy) < snap_min:
+            new_dy = snap_min if dy > 0 else -snap_min
+        new_center_x = anchor_center_x + new_dx
+        new_center_y = anchor_center_y + new_dy
         node.setXpos(round(new_center_x - node.screenWidth() / 2))
         node.setYpos(round(new_center_y - node.screenHeight() / 2))
+    # Scale state write-back: accumulate h_scale and v_scale on all upstream nodes
+    for scale_node in upstream_nodes:
+        stored_state = node_layout_state.read_node_state(scale_node)
+        stored_state["h_scale"] = round(stored_state["h_scale"] * scale_factor, 10)
+        stored_state["v_scale"] = round(stored_state["v_scale"] * scale_factor, 10)
+        node_layout_state.write_node_state(scale_node, stored_state)
 
 
 def shrink_selected():
@@ -760,12 +875,19 @@ def shrink_selected():
 
 
 def expand_selected():
-    if len(nuke.selectedNodes()) < 2:
+    current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
+    selected_nodes = nuke.selectedNodes()
+    if len(selected_nodes) < 2:
         return
+    node_ids = {id(n) for n in selected_nodes}
+    bbox_before = compute_node_bounding_box(selected_nodes)
     nuke.Undo.name("Expand Selected")
     nuke.Undo.begin()
     try:
         _scale_selected_nodes(EXPAND_FACTOR)
+        bbox_after = compute_node_bounding_box(selected_nodes)
+        if bbox_before is not None and bbox_after is not None:
+            push_nodes_to_make_room(node_ids, bbox_before, bbox_after, current_group)
     except Exception:
         nuke.Undo.cancel()
         raise
@@ -790,14 +912,62 @@ def shrink_upstream():
 
 
 def expand_upstream():
+    current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
     try:
-        nuke.selectedNode()
+        root_node = nuke.selectedNode()
     except ValueError:
         return
+    upstream_nodes = collect_subtree_nodes(root_node)
+    upstream_node_ids = {id(n) for n in upstream_nodes}
+    bbox_before = compute_node_bounding_box(upstream_nodes)
     nuke.Undo.name("Expand Upstream")
     nuke.Undo.begin()
     try:
         _scale_upstream_nodes(EXPAND_FACTOR)
+        bbox_after = compute_node_bounding_box(upstream_nodes)
+        if bbox_before is not None and bbox_after is not None:
+            push_nodes_to_make_room(upstream_node_ids, bbox_before, bbox_after, current_group)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def clear_layout_state_selected():
+    """Remove stored layout state from all selected nodes.
+
+    After clear, the next layout run will use default scheme (normal) and scale (1.0).
+    Wrapped in an undo group so the user can Ctrl+Z to restore state knobs.
+    """
+    selected_nodes = nuke.selectedNodes()
+    if not selected_nodes:
+        return
+    nuke.Undo.name("Clear Layout State Selected")
+    nuke.Undo.begin()
+    try:
+        for node in selected_nodes:
+            node_layout_state.clear_node_state(node)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def clear_layout_state_upstream():
+    """Remove stored layout state from the selected node and all upstream nodes.
+
+    After clear, the next layout run will use default scheme (normal) and scale (1.0).
+    Wrapped in an undo group so the user can Ctrl+Z to restore state knobs.
+    """
+    root = nuke.selectedNode()
+    upstream_nodes = collect_subtree_nodes(root)
+    nuke.Undo.name("Clear Layout State Upstream")
+    nuke.Undo.begin()
+    try:
+        for node in upstream_nodes:
+            node_layout_state.clear_node_state(node)
     except Exception:
         nuke.Undo.cancel()
         raise

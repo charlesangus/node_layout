@@ -4,11 +4,14 @@ import os
 PREFS_FILE = os.path.join(os.path.expanduser("~"), ".nuke", "node_layout_prefs.json")
 
 DEFAULTS = {
-    "base_subtree_margin": 300,
+    "base_subtree_margin": 200,           # rebalanced: was 300, now 200 (less tall)
+    "horizontal_subtree_gap": 150,        # NEW: H-axis subtree-to-subtree gap (px)
+    "horizontal_mask_gap": 50,            # NEW: H-axis mask input gap (px)
+    "dot_font_reference_size": 20,        # NEW: stub for Phase 8 font-margin scaling
     "compact_multiplier": 0.6,
     "normal_multiplier": 1.0,
     "loose_multiplier": 1.5,
-    "loose_gap_multiplier": 12.0,
+    "loose_gap_multiplier": 8.0,          # rebalanced: was 12.0, now 8.0 (less tall)
     "mask_input_ratio": 0.333,
     "scaling_reference_count": 150,
 }
