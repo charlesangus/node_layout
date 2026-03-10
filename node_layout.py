@@ -793,6 +793,12 @@ def _scale_selected_nodes(scale_factor):
         new_center_y = anchor_center_y + new_dy
         node.setXpos(round(new_center_x - node.screenWidth() / 2))
         node.setYpos(round(new_center_y - node.screenHeight() / 2))
+    # Scale state write-back: accumulate h_scale and v_scale on all affected nodes
+    for scale_node in selected_nodes:
+        stored_state = node_layout_state.read_node_state(scale_node)
+        stored_state["h_scale"] = round(stored_state["h_scale"] * scale_factor, 10)
+        stored_state["v_scale"] = round(stored_state["v_scale"] * scale_factor, 10)
+        node_layout_state.write_node_state(scale_node, stored_state)
 
 
 def _scale_upstream_nodes(scale_factor):
@@ -811,6 +817,12 @@ def _scale_upstream_nodes(scale_factor):
         new_center_y = anchor_center_y + round(dy * scale_factor)
         node.setXpos(round(new_center_x - node.screenWidth() / 2))
         node.setYpos(round(new_center_y - node.screenHeight() / 2))
+    # Scale state write-back: accumulate h_scale and v_scale on all upstream nodes
+    for scale_node in upstream_nodes:
+        stored_state = node_layout_state.read_node_state(scale_node)
+        stored_state["h_scale"] = round(stored_state["h_scale"] * scale_factor, 10)
+        stored_state["v_scale"] = round(stored_state["v_scale"] * scale_factor, 10)
+        node_layout_state.write_node_state(scale_node, stored_state)
 
 
 def shrink_selected():
