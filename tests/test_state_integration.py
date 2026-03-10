@@ -169,5 +169,130 @@ class TestUpstreamAnchorAST(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# TestScaleParamsAST — RED until Plan 07 extends compute_dims/place_subtree
+# ---------------------------------------------------------------------------
+
+class TestScaleParamsAST(unittest.TestCase):
+    """Verify compute_dims and place_subtree accept h_scale/v_scale parameters (Plan 07)."""
+
+    def test_compute_dims_has_h_scale_default_param(self):
+        """compute_dims must have h_scale=1.0 as a keyword parameter (Plan 07)."""
+        source = _read_source()
+        func_source = _get_function_source(source, 'compute_dims')
+        self.assertIsNotNone(func_source, "compute_dims function not found in node_layout.py")
+
+        self.assertIn(
+            'h_scale=1.0',
+            func_source,
+            "compute_dims must have h_scale=1.0 keyword parameter"
+        )
+
+    def test_place_subtree_has_h_scale_default_param(self):
+        """place_subtree must have h_scale=1.0 as a keyword parameter (Plan 07)."""
+        source = _read_source()
+        func_source = _get_function_source(source, 'place_subtree')
+        self.assertIsNotNone(func_source, "place_subtree function not found in node_layout.py")
+
+        self.assertIn(
+            'h_scale=1.0',
+            func_source,
+            "place_subtree must have h_scale=1.0 keyword parameter"
+        )
+
+    def test_compute_dims_memo_key_includes_h_scale(self):
+        """compute_dims memo key must include h_scale (four-element tuple) (Plan 07)."""
+        source = _read_source()
+        func_source = _get_function_source(source, 'compute_dims')
+        self.assertIsNotNone(func_source, "compute_dims function not found in node_layout.py")
+
+        self.assertIn(
+            'h_scale',
+            func_source[func_source.find('memo['):func_source.find('memo[') + 80]
+            if 'memo[' in func_source else func_source,
+            "compute_dims memo key must include h_scale"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestScaleWiringAST — RED until Plan 07 wires layout_upstream/layout_selected
+# ---------------------------------------------------------------------------
+
+class TestScaleWiringAST(unittest.TestCase):
+    """Verify layout_upstream and layout_selected read and pass h_scale/v_scale (Plan 07)."""
+
+    def test_layout_upstream_builds_per_node_h_scale(self):
+        """layout_upstream must build per_node_h_scale dict (Plan 07)."""
+        source = _read_source()
+        func_source = _get_function_source(source, 'layout_upstream')
+        self.assertIsNotNone(func_source, "layout_upstream function not found in node_layout.py")
+
+        self.assertIn(
+            'per_node_h_scale',
+            func_source,
+            "layout_upstream must build per_node_h_scale dict"
+        )
+
+    def test_layout_upstream_builds_per_node_v_scale(self):
+        """layout_upstream must build per_node_v_scale dict (Plan 07)."""
+        source = _read_source()
+        func_source = _get_function_source(source, 'layout_upstream')
+        self.assertIsNotNone(func_source, "layout_upstream function not found in node_layout.py")
+
+        self.assertIn(
+            'per_node_v_scale',
+            func_source,
+            "layout_upstream must build per_node_v_scale dict"
+        )
+
+    def test_layout_upstream_extracts_root_h_scale(self):
+        """layout_upstream must extract root_h_scale from per_node_h_scale (Plan 07)."""
+        source = _read_source()
+        func_source = _get_function_source(source, 'layout_upstream')
+        self.assertIsNotNone(func_source, "layout_upstream function not found in node_layout.py")
+
+        self.assertIn(
+            'root_h_scale',
+            func_source,
+            "layout_upstream must extract root_h_scale"
+        )
+
+    def test_layout_upstream_extracts_root_v_scale(self):
+        """layout_upstream must extract root_v_scale from per_node_v_scale (Plan 07)."""
+        source = _read_source()
+        func_source = _get_function_source(source, 'layout_upstream')
+        self.assertIsNotNone(func_source, "layout_upstream function not found in node_layout.py")
+
+        self.assertIn(
+            'root_v_scale',
+            func_source,
+            "layout_upstream must extract root_v_scale"
+        )
+
+    def test_layout_selected_builds_per_node_h_scale(self):
+        """layout_selected must build per_node_h_scale dict (Plan 07)."""
+        source = _read_source()
+        func_source = _get_function_source(source, 'layout_selected')
+        self.assertIsNotNone(func_source, "layout_selected function not found in node_layout.py")
+
+        self.assertIn(
+            'per_node_h_scale',
+            func_source,
+            "layout_selected must build per_node_h_scale dict"
+        )
+
+    def test_layout_selected_builds_per_node_v_scale(self):
+        """layout_selected must build per_node_v_scale dict (Plan 07)."""
+        source = _read_source()
+        func_source = _get_function_source(source, 'layout_selected')
+        self.assertIsNotNone(func_source, "layout_selected function not found in node_layout.py")
+
+        self.assertIn(
+            'per_node_v_scale',
+            func_source,
+            "layout_selected must build per_node_v_scale dict"
+        )
+
+
 if __name__ == '__main__':
     unittest.main()
