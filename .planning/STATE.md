@@ -2,13 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
-status: unknown
-last_updated: "2026-03-10T03:28:21.643Z"
+status: completed
+stopped_at: Completed 07-01-PLAN.md — node_layout_state.py foundation
+last_updated: "2026-03-10T10:22:41.970Z"
 progress:
-  total_phases: 1
+  total_phases: 11
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 10
+  completed_plans: 6
+  percent: 60
 ---
 
 # Project State
@@ -18,28 +20,29 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-05 after v1.1 start)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave and need to be able to undo when the result isn't what they wanted.
-**Current focus:** Phase 6 — Prefs Groundwork + Group Fix + Renames
+**Current focus:** Phase 7 — Per-Node State Storage
 
 ## Current Position
 
-Phase: 6 of 11 (Prefs Groundwork + Group Fix + Renames)
-Plan: 4 of 4 (completed Plan 01, Plan 02, Plan 03, Plan 04)
-Status: Complete — Phase 6 all 4 plans done
+Phase: 7 of 11 (Per-Node State Storage)
+Plan: 1 of 5 (completed Plan 01)
+Status: In Progress — Phase 7, 1 of 5 plans done
 
-Progress: [███░░░░░░░] ~20% (4 of ~20 plans)
+Progress: [██████░░░░] 60% (6 of 10 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: ~3.3 min
-- Total execution time: 13 min
+- Total plans completed: 5
+- Average duration: ~4.2 min
+- Total execution time: 21 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 06 | 4/4 | 13 min | 3.3 min |
+| 07 | 1/5 | 8 min | 8 min |
 
 *Updated after each plan completion*
 
@@ -83,6 +86,10 @@ From Phase 6, Plan 01:
 - No migration logic for rebalanced defaults — users must delete ~/.nuke/node_layout_prefs.json
 - AST tests chosen for PySide6 dialog structure — avoids display server dependency in CI
 - _make_section_header() module-level helper established as pattern for sectioned QFormLayout dialogs
+- [Phase 07-01]: Deferred import nuke inside write_node_state/clear_node_state only — keeps module pure-Python importable for tests
+- [Phase 07-01]: setUp() nuke stub restore pattern required in test classes that exercise deferred nuke imports — other test files overwrite sys.modules['nuke'] with incompatible stubs
+- [Phase 07-01]: AST scaffold tests written as proper failing assertions (not skipped) — they are acceptance criteria for Plans 02-04
+
 ### Pending Todos
 
 None.
@@ -94,6 +101,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-08
-Stopped at: Phase 6 Plan 04 complete — nuke.lastHitGroup() replaces thisGroup() in both entry points; Group View context gap closed
+Last session: 2026-03-10T10:22:41.966Z
+Stopped at: Completed 07-01-PLAN.md — node_layout_state.py foundation
 Resume file: None
