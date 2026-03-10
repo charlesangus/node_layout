@@ -124,7 +124,7 @@ Plans:
 | 4. Preferences System | v1.0 | 3/3 | Complete | 2026-03-04 |
 | 5. New Commands & Scheme | v1.0 | 4/4 | Complete | 2026-03-05 |
 | 6. Prefs Groundwork + Group Fix + Renames | 4/4 | Complete   | 2026-03-08 | - |
-| 7. Per-Node State Storage | 5/7 | Gap closure in progress   | 2026-03-10 | - |
+| 7. Per-Node State Storage | 6/7 | In Progress|  | - |
 | 8. Dot Font-Size Margin Scaling | v1.1 | 0/? | Not started | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | v1.1 | 0/? | Not started | - |
 | 10. Shrink/Expand H/V/Both + Expand Push-Away | v1.1 | 0/? | Not started | - |

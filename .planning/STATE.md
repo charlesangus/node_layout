@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: completed
-stopped_at: Completed 07-05-PLAN.md — clear_layout_state_selected() and clear_layout_state_upstream() commands
-last_updated: "2026-03-10T10:38:42.019Z"
+stopped_at: Completed 07-06-PLAN.md — fixed _scale_upstream_nodes() anchor pivot and snap_min floor
+last_updated: "2026-03-10T11:51:43.554Z"
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 1
+  total_plans: 12
+  completed_plans: 11
   percent: 80
 ---
 
@@ -47,6 +47,7 @@ Progress: [████████░░] 80% (8 of 10 plans)
 *Updated after each plan completion*
 | Phase 07 P03 | 5 | 2 tasks | 1 files |
 | Phase 07 P04 | 2 | 1 tasks | 2 files |
+| Phase 07 P06 | 2 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,7 @@ From Phase 6, Plan 01:
 - [Phase 07]: round(h_scale * scale_factor, 10) prevents IEEE 754 float accumulation drift across repeated shrink/expand operations
 - [Phase 07-05]: No keyboard shortcuts for clear-state commands — keyboard namespace kept clean; CONTEXT.md locked decisions did not specify shortcuts
 - [Phase 07-05]: clear_layout_state_upstream() raises ValueError if nothing selected — matches existing upstream command behaviour (no guard before nuke.selectedNode())
+- [Phase 07]: _scale_upstream_nodes now uses max(upstream_nodes) for bottom-left anchor pivot, matching _scale_selected_nodes — snap_min floor applied consistently in both scale functions
 
 ### Pending Todos
 
@@ -112,6 +114,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T10:34:57Z
-Stopped at: Completed 07-05-PLAN.md — clear_layout_state_selected() and clear_layout_state_upstream() commands
+Last session: 2026-03-10T11:51:43.550Z
+Stopped at: Completed 07-06-PLAN.md — fixed _scale_upstream_nodes() anchor pivot and snap_min floor
 Resume file: None
