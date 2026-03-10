@@ -4,7 +4,7 @@ milestone: v1.1
 milestone_name: Layout Engine & State
 status: completed
 stopped_at: Completed 07-06-PLAN.md — fixed _scale_upstream_nodes() anchor pivot and snap_min floor
-last_updated: "2026-03-10T11:51:43.554Z"
+last_updated: "2026-03-10T11:56:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 1
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-05 after v1.1 start)
 ## Current Position
 
 Phase: 7 of 11 (Per-Node State Storage)
-Plan: 5 of 5 (completed Plan 05)
-Status: Phase 7 Complete — all 5 plans done
+Plan: 7 of 7 (completed Plan 07)
+Status: Phase 7 Complete — all 7 plans done (incl. 2 gap-closure plans)
 
-Progress: [████████░░] 80% (8 of 10 plans)
+Progress: [██████████] 100% (10 of 10 plans in phase 7)
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [████████░░] 80% (8 of 10 plans)
 | Phase 07 P03 | 5 | 2 tasks | 1 files |
 | Phase 07 P04 | 2 | 1 tasks | 2 files |
 | Phase 07 P06 | 2 | 1 tasks | 3 files |
+| Phase 07 P07 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,9 @@ From Phase 6, Plan 01:
 - [Phase 07-05]: No keyboard shortcuts for clear-state commands — keyboard namespace kept clean; CONTEXT.md locked decisions did not specify shortcuts
 - [Phase 07-05]: clear_layout_state_upstream() raises ValueError if nothing selected — matches existing upstream command behaviour (no guard before nuke.selectedNode())
 - [Phase 07]: _scale_upstream_nodes now uses max(upstream_nodes) for bottom-left anchor pivot, matching _scale_selected_nodes — snap_min floor applied consistently in both scale functions
+- [Phase 07-07]: h_scale/v_scale read at entry points only (layout_upstream, layout_selected) — mid-recursion reads break memoization; same pattern as per_node_scheme → root_scheme_multiplier
+- [Phase 07-07]: Vertical gap scaling uses max(snap_threshold-1, int(gap * v_scale)) floor — same-color tight-gap is a minimum constraint not a spacing preference
+- [Phase 07-07]: compute_dims memo key extended to (id(node), scheme_multiplier, h_scale, v_scale) — prevents cache collisions when h_scale/v_scale differ across calls
 
 ### Pending Todos
 
@@ -114,6 +118,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T11:51:43.550Z
-Stopped at: Completed 07-06-PLAN.md — fixed _scale_upstream_nodes() anchor pivot and snap_min floor
+Last session: 2026-03-10T11:56:00.000Z
+Stopped at: Completed 07-07-PLAN.md — wired h_scale/v_scale from per-node state into compute_dims/place_subtree and layout entry points
 Resume file: None
