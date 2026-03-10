@@ -24,10 +24,10 @@ Requirements for the Layout Engine & State milestone. Each maps to roadmap phase
 
 ### Node State Storage
 
-- [ ] **STATE-01**: Every node touched by a layout operation receives a hidden tab with knobs storing: layout mode, scheme (compact/normal/loose), and scale factor
-- [ ] **STATE-02**: Hidden state knobs persist across .nk script save/close/reopen cycles
-- [ ] **STATE-03**: Re-running a layout command replays the stored scheme unless the command explicitly specifies one (e.g. running "Layout Upstream Compact" overrides stored scheme)
-- [ ] **STATE-04**: Shrink/Expand commands update the scale factor knob on affected nodes
+- [x] **STATE-01**: Every node touched by a layout operation receives a hidden tab with knobs storing: layout mode, scheme (compact/normal/loose), and scale factor
+- [x] **STATE-02**: Hidden state knobs persist across .nk script save/close/reopen cycles
+- [x] **STATE-03**: Re-running a layout command replays the stored scheme unless the command explicitly specifies one (e.g. running "Layout Upstream Compact" overrides stored scheme)
+- [x] **STATE-04**: Shrink/Expand commands update the scale factor knob on affected nodes
 
 ### Horizontal Layout
 
@@ -77,10 +77,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CMD-01 | Phase 6 | Complete |
 | LAYOUT-04 | Phase 6 | Complete |
 | LAYOUT-05 | Phase 6 | Complete |
-| STATE-01 | Phase 7 | Pending |
-| STATE-02 | Phase 7 | Pending |
-| STATE-03 | Phase 7 | Pending |
-| STATE-04 | Phase 7 | Pending |
+| STATE-01 | Phase 7 | Complete |
+| STATE-02 | Phase 7 | Complete |
+| STATE-03 | Phase 7 | Complete |
+| STATE-04 | Phase 7 | Complete |
 | LAYOUT-03 | Phase 8 | Pending |
 | LAYOUT-01 | Phase 9 | Pending |
 | LAYOUT-02 | Phase 9 | Pending |
