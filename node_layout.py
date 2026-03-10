@@ -604,6 +604,8 @@ def layout_upstream(scheme_multiplier=None):
             # Per-node scheme resolution — build per_node_scheme dict before compute_dims
             current_prefs = node_layout_prefs.prefs_singleton
             per_node_scheme = {}  # maps id(node) -> float scheme multiplier
+            per_node_h_scale = {}  # maps id(node) -> float h_scale
+            per_node_v_scale = {}  # maps id(node) -> float v_scale
             for subtree_node in subtree_nodes_for_count:
                 if scheme_multiplier is not None:
                     per_node_scheme[id(subtree_node)] = scheme_multiplier
@@ -612,15 +614,23 @@ def layout_upstream(scheme_multiplier=None):
                     per_node_scheme[id(subtree_node)] = node_layout_state.scheme_name_to_multiplier(
                         stored_state["scheme"], current_prefs
                     )
+                # h_scale/v_scale always come from stored state (independent of scheme override)
+                scale_state = node_layout_state.read_node_state(subtree_node)
+                per_node_h_scale[id(subtree_node)] = scale_state["h_scale"]
+                per_node_v_scale[id(subtree_node)] = scale_state["v_scale"]
             # Resolved multiplier for this root (used in compute_dims and place_subtree)
             root_scheme_multiplier = per_node_scheme.get(
                 id(root), current_prefs.get("normal_multiplier")
             )
+            root_h_scale = per_node_h_scale.get(id(root), 1.0)
+            root_v_scale = per_node_v_scale.get(id(root), 1.0)
 
             memo = {}
             snap_threshold = get_dag_snap_threshold()
-            compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier)
-            place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier)
+            compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier,
+                         h_scale=root_h_scale, v_scale=root_v_scale)
+            place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count,
+                          scheme_multiplier=root_scheme_multiplier, h_scale=root_h_scale, v_scale=root_v_scale)
 
             # Capture final state (includes any newly inserted Dot nodes)
             final_subtree_nodes = collect_subtree_nodes(root)
@@ -686,6 +696,8 @@ def layout_selected(scheme_multiplier=None):
             # Per-node scheme resolution (replaces the old resolved_scheme_multiplier block)
             current_prefs = node_layout_prefs.prefs_singleton
             per_node_scheme = {}  # maps id(node) -> float scheme multiplier
+            per_node_h_scale = {}  # maps id(node) -> float h_scale
+            per_node_v_scale = {}  # maps id(node) -> float v_scale
             for sel_node in selected_nodes:
                 if scheme_multiplier is not None:
                     per_node_scheme[id(sel_node)] = scheme_multiplier
@@ -694,6 +706,10 @@ def layout_selected(scheme_multiplier=None):
                     per_node_scheme[id(sel_node)] = node_layout_state.scheme_name_to_multiplier(
                         stored_state["scheme"], current_prefs
                     )
+                # h_scale/v_scale always come from stored state (independent of scheme override)
+                scale_state = node_layout_state.read_node_state(sel_node)
+                per_node_h_scale[id(sel_node)] = scale_state["h_scale"]
+                per_node_v_scale[id(sel_node)] = scale_state["v_scale"]
 
             snap_threshold = get_dag_snap_threshold()
             memo = {}
@@ -703,7 +719,9 @@ def layout_selected(scheme_multiplier=None):
                 root_scheme_multiplier = per_node_scheme.get(
                     id(root), current_prefs.get("normal_multiplier")
                 )
-                tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier)
+                root_h_scale = per_node_h_scale.get(id(root), 1.0)
+                root_v_scale = per_node_v_scale.get(id(root), 1.0)
+                tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, h_scale=root_h_scale, v_scale=root_v_scale)
 
                 tree_bottom = root.ypos() + root.screenHeight()
                 tree_top = tree_bottom - tree_height
@@ -715,7 +733,7 @@ def layout_selected(scheme_multiplier=None):
                         horizontal_clearance = current_prefs.get("horizontal_subtree_gap")
                         start_x = max(start_x, placed_right + horizontal_clearance)
 
-                place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier)
+                place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, h_scale=root_h_scale, v_scale=root_v_scale)
                 placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
 
             # State write-back: record per-node scheme and mode on every layout-touched node
