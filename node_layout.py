@@ -686,6 +686,19 @@ def layout_selected(scheme_multiplier=None):
                 place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=scheme_multiplier)
                 placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
 
+            # State write-back: record scheme and mode on every layout-touched node
+            current_prefs = node_layout_prefs.prefs_singleton
+            resolved_write_multiplier = scheme_multiplier if scheme_multiplier is not None else current_prefs.get("normal_multiplier")
+            write_scheme_name = node_layout_state.multiplier_to_scheme_name(resolved_write_multiplier, current_prefs)
+            all_touched_nodes = set()
+            for state_root in roots:
+                all_touched_nodes.update(collect_subtree_nodes(state_root, node_filter=node_filter))
+            for state_node in all_touched_nodes:
+                stored_state = node_layout_state.read_node_state(state_node)
+                stored_state["scheme"] = write_scheme_name
+                stored_state["mode"] = "vertical"
+                node_layout_state.write_node_state(state_node, stored_state)
+
             # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
             # returns [] here. Use the original selected_nodes list — the Python objects are
             # the same, but their positions have been updated by place_subtree.
