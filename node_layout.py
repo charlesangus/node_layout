@@ -883,3 +883,44 @@ def expand_upstream():
         raise
     else:
         nuke.Undo.end()
+
+
+def clear_layout_state_selected():
+    """Remove stored layout state from all selected nodes.
+
+    After clear, the next layout run will use default scheme (normal) and scale (1.0).
+    Wrapped in an undo group so the user can Ctrl+Z to restore state knobs.
+    """
+    selected_nodes = nuke.selectedNodes()
+    if not selected_nodes:
+        return
+    nuke.Undo.name("Clear Layout State Selected")
+    nuke.Undo.begin()
+    try:
+        for node in selected_nodes:
+            node_layout_state.clear_node_state(node)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def clear_layout_state_upstream():
+    """Remove stored layout state from the selected node and all upstream nodes.
+
+    After clear, the next layout run will use default scheme (normal) and scale (1.0).
+    Wrapped in an undo group so the user can Ctrl+Z to restore state knobs.
+    """
+    root = nuke.selectedNode()
+    upstream_nodes = collect_subtree_nodes(root)
+    nuke.Undo.name("Clear Layout State Upstream")
+    nuke.Undo.begin()
+    try:
+        for node in upstream_nodes:
+            node_layout_state.clear_node_state(node)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
