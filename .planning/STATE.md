@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: completed
-stopped_at: Completed 07-01-PLAN.md — node_layout_state.py foundation
-last_updated: "2026-03-10T10:22:41.970Z"
+stopped_at: Completed 07-02-PLAN.md — state write-back in layout_upstream and layout_selected
+last_updated: "2026-03-10T10:25:36Z"
 progress:
   total_phases: 11
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
-  percent: 60
+  completed_plans: 7
+  percent: 70
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-05 after v1.1 start)
 ## Current Position
 
 Phase: 7 of 11 (Per-Node State Storage)
-Plan: 1 of 5 (completed Plan 01)
-Status: In Progress — Phase 7, 1 of 5 plans done
+Plan: 2 of 5 (completed Plan 02)
+Status: In Progress — Phase 7, 2 of 5 plans done
 
-Progress: [██████░░░░] 60% (6 of 10 plans)
+Progress: [███████░░░] 70% (7 of 10 plans)
 
 ## Performance Metrics
 
@@ -42,7 +42,7 @@ Progress: [██████░░░░] 60% (6 of 10 plans)
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 06 | 4/4 | 13 min | 3.3 min |
-| 07 | 1/5 | 8 min | 8 min |
+| 07 | 2/5 | 13 min | 6.5 min |
 
 *Updated after each plan completion*
 
@@ -89,6 +89,9 @@ From Phase 6, Plan 01:
 - [Phase 07-01]: Deferred import nuke inside write_node_state/clear_node_state only — keeps module pure-Python importable for tests
 - [Phase 07-01]: setUp() nuke stub restore pattern required in test classes that exercise deferred nuke imports — other test files overwrite sys.modules['nuke'] with incompatible stubs
 - [Phase 07-01]: AST scaffold tests written as proper failing assertions (not skipped) — they are acceptance criteria for Plans 02-04
+- [Phase 07-02]: State write-back placed after place_subtree() and inside with current_group: + try block — undo covers knob creation on Dot nodes
+- [Phase 07-02]: Read-then-write pattern for state — read_node_state() preserves h_scale/v_scale; only scheme+mode are overwritten by layout
+- [Phase 07-02]: write_scheme_name distinct from resolved_scheme_multiplier — raw scheme_multiplier param used for write-back, resolved only used in compute_dims
 
 ### Pending Todos
 
