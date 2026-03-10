@@ -1,6 +1,7 @@
 import math
 import nuke
 import node_layout_prefs
+import node_layout_state
 
 _TOOLBAR_FOLDER_MAP = None
 
@@ -602,6 +603,18 @@ def layout_upstream(scheme_multiplier=None):
 
             # Capture final state (includes any newly inserted Dot nodes)
             final_subtree_nodes = collect_subtree_nodes(root)
+
+            # State write-back: record scheme and mode on every layout-touched node
+            current_prefs = node_layout_prefs.prefs_singleton
+            resolved_write_multiplier = scheme_multiplier if scheme_multiplier is not None else current_prefs.get("normal_multiplier")
+            scheme_name = node_layout_state.multiplier_to_scheme_name(resolved_write_multiplier, current_prefs)
+            for state_node in final_subtree_nodes:
+                stored_state = node_layout_state.read_node_state(state_node)
+                stored_state["scheme"] = scheme_name
+                stored_state["mode"] = "vertical"
+                # h_scale and v_scale are NOT reset by re-layout — preserve existing values
+                node_layout_state.write_node_state(state_node, stored_state)
+
             final_subtree_node_ids = {id(n) for n in final_subtree_nodes}
             bbox_after = compute_node_bounding_box(final_subtree_nodes)
 
