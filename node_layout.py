@@ -282,30 +282,32 @@ def insert_dot_nodes(root, node_filter=None):
             _claim(inp)
 
 
-def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None):
-    if (id(node), scheme_multiplier) in memo:
-        return memo[(id(node), scheme_multiplier)]
+def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None, h_scale=1.0, v_scale=1.0):
+    if (id(node), scheme_multiplier, h_scale, v_scale) in memo:
+        return memo[(id(node), scheme_multiplier, h_scale, v_scale)]
 
     input_slot_pairs = _get_input_slot_pairs(node, node_filter)
     all_side = _primary_slot_externally_occupied(node, node_filter)
     input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side)
     inputs = [inp for _, inp in input_slot_pairs]
-    side_margins_h = [_horizontal_margin(node, slot) for slot, _ in input_slot_pairs]
-    side_margins_v = [_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) for slot, _ in input_slot_pairs]
+    side_margins_h = [int(_horizontal_margin(node, slot) * h_scale) for slot, _ in input_slot_pairs]
+    side_margins_v = [int(_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) * v_scale) for slot, _ in input_slot_pairs]
 
     if not inputs:
         result = (node.screenWidth(), node.screenHeight())
     elif all_side:
         # All in-filter inputs are side inputs; none goes directly above.
-        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier) for inp in inputs]
+        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, h_scale=h_scale, v_scale=v_scale) for inp in inputs]
         n = len(inputs)
         W = node.screenWidth() + sum(side_margins_h) + sum(w for w, h in child_dims)
-        gap_closest = max(vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier), side_margins_v[n - 1])
+        raw_gap = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+        scaled_gap = max(snap_threshold - 1, int(raw_gap * v_scale))
+        gap_closest = max(scaled_gap, side_margins_v[n - 1])
         inter_band_gaps = sum(side_margins_v[1:n])
         H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_closest + inter_band_gaps
         result = (W, H)
     else:
-        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier) for inp in inputs]
+        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, h_scale=h_scale, v_scale=v_scale) for inp in inputs]
         n = len(inputs)
         if n == 1:
             W = max(node.screenWidth(), child_dims[0][0])
@@ -320,7 +322,8 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
         # Staircase formula for all n: each input gets its own vertical band.
         # Total height is sum of all child subtree heights plus per-gap values that
         # depend on the tile colors of adjacent nodes.
-        gap_to_consumer = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+        raw_gap_to_consumer = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+        gap_to_consumer = max(snap_threshold - 1, int(raw_gap_to_consumer * v_scale))
         # When there are side inputs (n > 1), a dot will be inserted for inputs[n-1].
         # Reserve at least side_margins_v[n-1] so the dot fits without overlapping.
         if n > 1:
@@ -329,11 +332,11 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
         H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_to_consumer + inter_band_gaps
         result = (W, H)
 
-    memo[(id(node), scheme_multiplier)] = result
+    memo[(id(node), scheme_multiplier, h_scale, v_scale)] = result
     return result
 
 
-def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None):
+def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None, h_scale=1.0, v_scale=1.0):
     """
     Place `node` with its top-left corner at (x, y) and recursively position
     every upstream input above it.
@@ -408,14 +411,15 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
     actual_slots = [slot for slot, _ in input_slot_pairs]
     inputs = [inp for _, inp in input_slot_pairs]
     n = len(inputs)
-    child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier) for inp in inputs]
-    side_margins_h = [_horizontal_margin(node, slot) for slot in actual_slots]
-    side_margins_v = [_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) for slot in actual_slots]
+    child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, h_scale=h_scale, v_scale=v_scale) for inp in inputs]
+    side_margins_h = [int(_horizontal_margin(node, slot) * h_scale) for slot in actual_slots]
+    side_margins_v = [int(_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) * v_scale) for slot in actual_slots]
 
     # --- Y staircase: backward walk so input[n-1] is closest to root ---
     # Mirror the gap enlargement from compute_dims: when n > 1 (or all_side,
     # which always inserts a dot), the gap must be at least side_margins_v[n-1].
-    gap_closest = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+    raw_gap_closest = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+    gap_closest = max(snap_threshold - 1, int(raw_gap_closest * v_scale))
     if n > 1 or all_side:
         gap_closest = max(gap_closest, side_margins_v[n - 1])
     bottom_y = [0] * n
@@ -482,19 +486,19 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
             # Place the upstream subtree at the staircase position, then
             # position the dot itself separately.
             actual_upstream = inp.input(0)
-            place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier)
+            place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, h_scale=h_scale, v_scale=v_scale)
             dot_center_x = x_positions[i] + actual_upstream.screenWidth() // 2
             if i == n - 1:
                 # Bottom-most dot: centre it vertically beside the root node.
                 dot_y = y + (node.screenHeight() - inp.screenHeight()) // 2
             else:
                 # Staggered dot: placed below its input node using prefs-based margin.
-                dot_y = y_positions[i] + actual_upstream.screenHeight() + _subtree_margin(node, actual_slots[n - 1], node_count, mode_multiplier=scheme_multiplier)
+                dot_y = y_positions[i] + actual_upstream.screenHeight() + int(_subtree_margin(node, actual_slots[n - 1], node_count, mode_multiplier=scheme_multiplier) * v_scale)
             inp.setXpos(dot_center_x - inp.screenWidth() // 2)
             inp.setYpos(dot_y)
         else:
             # Regular node, or a diamond-resolution Dot (hide_input=True, node_layout_diamond_dot knob).
-            place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier)
+            place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, h_scale=h_scale, v_scale=v_scale)
             # After recursion, reposition diamond Dots to be centered under the consumer tile.
             # The upstream subtree above the Dot is unaffected — only the Dot tile moves.
             if (inp.Class() == 'Dot'
