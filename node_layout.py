@@ -791,8 +791,11 @@ def _scale_selected_nodes(scale_factor):
     selected_nodes = nuke.selectedNodes()
     if len(selected_nodes) < 2:
         return
-    # Tiebreaker: among nodes sharing the maximum ypos, pick the leftmost (min xpos).
-    anchor_node = max(selected_nodes, key=lambda n: (n.ypos(), -n.xpos()))
+    # Anchor: the most downstream selected node, determined topologically.
+    # Using max(ypos) fails when side inputs (e.g. Merge A input) are positioned
+    # below their consumer — topology is the reliable way to find the root.
+    roots = find_selection_roots(selected_nodes)
+    anchor_node = max(roots, key=lambda n: (n.ypos(), -n.xpos()))
     snap_min = get_dag_snap_threshold() - 1
     anchor_center_x = anchor_node.xpos() + anchor_node.screenWidth() / 2
     anchor_center_y = anchor_node.ypos() + anchor_node.screenHeight() / 2
@@ -872,12 +875,19 @@ def shrink_selected():
 
 
 def expand_selected():
-    if len(nuke.selectedNodes()) < 2:
+    current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
+    selected_nodes = nuke.selectedNodes()
+    if len(selected_nodes) < 2:
         return
+    node_ids = {id(n) for n in selected_nodes}
+    bbox_before = compute_node_bounding_box(selected_nodes)
     nuke.Undo.name("Expand Selected")
     nuke.Undo.begin()
     try:
         _scale_selected_nodes(EXPAND_FACTOR)
+        bbox_after = compute_node_bounding_box(selected_nodes)
+        if bbox_before is not None and bbox_after is not None:
+            push_nodes_to_make_room(node_ids, bbox_before, bbox_after, current_group)
     except Exception:
         nuke.Undo.cancel()
         raise
@@ -902,14 +912,21 @@ def shrink_upstream():
 
 
 def expand_upstream():
+    current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
     try:
-        nuke.selectedNode()
+        root_node = nuke.selectedNode()
     except ValueError:
         return
+    upstream_nodes = collect_subtree_nodes(root_node)
+    upstream_node_ids = {id(n) for n in upstream_nodes}
+    bbox_before = compute_node_bounding_box(upstream_nodes)
     nuke.Undo.name("Expand Upstream")
     nuke.Undo.begin()
     try:
         _scale_upstream_nodes(EXPAND_FACTOR)
+        bbox_after = compute_node_bounding_box(upstream_nodes)
+        if bbox_before is not None and bbox_after is not None:
+            push_nodes_to_make_room(upstream_node_ids, bbox_before, bbox_after, current_group)
     except Exception:
         nuke.Undo.cancel()
         raise
