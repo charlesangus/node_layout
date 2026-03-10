@@ -62,7 +62,14 @@ Plans:
   3. Re-running "Layout Upstream" or "Layout Selected" on a node laid out with Compact scheme replays Compact without the user specifying it again
   4. Running "Layout Upstream Compact" on a node previously stored as Loose overrides the stored scheme to Compact for that re-layout
   5. After a Shrink or Expand operation, the scale factor knob on each affected node reflects the new accumulated scale
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Create node_layout_state.py helper module + both test files (unit tests + AST scaffold)
+- [ ] 07-02-PLAN.md — Add state write-back pass to layout_upstream() and layout_selected()
+- [ ] 07-03-PLAN.md — Per-node scheme replay at entry points + compute_dims() memo key fix
+- [ ] 07-04-PLAN.md — Scale state accumulation in _scale_selected_nodes() and _scale_upstream_nodes()
+- [ ] 07-05-PLAN.md — Clear-state commands in node_layout.py + menu.py registration
 
 ### Phase 8: Dot Font-Size Margin Scaling
 **Goal**: Subtree margins automatically grow when the Dot at a subtree root has a large font size, letting the compositor use visual font size as a section-boundary signal without any extra config
@@ -115,7 +122,7 @@ Plans:
 | 4. Preferences System | v1.0 | 3/3 | Complete | 2026-03-04 |
 | 5. New Commands & Scheme | v1.0 | 4/4 | Complete | 2026-03-05 |
 | 6. Prefs Groundwork + Group Fix + Renames | 4/4 | Complete   | 2026-03-08 | - |
-| 7. Per-Node State Storage | v1.1 | 0/? | Not started | - |
+| 7. Per-Node State Storage | v1.1 | 0/5 | Not started | - |
 | 8. Dot Font-Size Margin Scaling | v1.1 | 0/? | Not started | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | v1.1 | 0/? | Not started | - |
 | 10. Shrink/Expand H/V/Both + Expand Push-Away | v1.1 | 0/? | Not started | - |
