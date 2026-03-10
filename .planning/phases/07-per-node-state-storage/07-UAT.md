@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 07-per-node-state-storage
 source: [07-01-SUMMARY.md, 07-02-SUMMARY.md, 07-03-SUMMARY.md, 07-04-SUMMARY.md, 07-05-SUMMARY.md]
 started: 2026-03-10T11:00:00Z
@@ -64,13 +64,28 @@ skipped: 0
   reason: "User reported: Works, but subsequent layouts do not respect the setting."
   severity: major
   test: 4
-  artifacts: []
-  missing: []
+  root_cause: "layout_upstream() and layout_selected() per-node resolution blocks only read stored_state[scheme] — h_scale/v_scale are never read back. Additionally, compute_dims() and place_subtree() only accept a single scheme_multiplier scalar with no h/v split, so the geometry engine cannot express per-axis scaling."
+  artifacts:
+    - path: "node_layout.py"
+      issue: "layout_upstream() and layout_selected() ignore h_scale/v_scale from per-node state"
+    - path: "node_layout.py"
+      issue: "compute_dims() and place_subtree() have no h_scale/v_scale parameters"
+  missing:
+    - "Read h_scale/v_scale in per-node resolution blocks of both layout entry points"
+    - "Extend compute_dims() and place_subtree() with h_scale/v_scale parameters"
+    - "Apply h_scale to horizontal margins and v_scale to vertical spacing"
+  debug_session: ".planning/debug/layout-ignores-hscale-vscale.md"
 
 - truth: "Shrink/Expand should anchor on the bottom-left node (it should not move)"
   status: failed
   reason: "User reported: The bottom left node is moving right and left."
   severity: major
   test: 4
-  artifacts: []
-  missing: []
+  root_cause: "_scale_upstream_nodes() unconditionally uses nuke.selectedNode() as pivot, which is the downstream root — typically centered above the upstream tree. The bottom-left upstream node has a non-zero dx from this pivot, so it drifts on scale. _scale_selected_nodes() already does this correctly using max(nodes, key=lambda n: (n.ypos(), -n.xpos()))."
+  artifacts:
+    - path: "node_layout.py"
+      issue: "_scale_upstream_nodes() lines 804-807: anchor is nuke.selectedNode() instead of bottom-most leftmost upstream node"
+  missing:
+    - "Replace nuke.selectedNode() pivot in _scale_upstream_nodes() with max(upstream_nodes, key=lambda n: (n.ypos(), -n.xpos())) — matching _scale_selected_nodes() pattern"
+    - "Also add snap-minimum floor (present in _scale_selected_nodes lines 788-791) to _scale_upstream_nodes"
+  debug_session: ".planning/debug/anchor-drift-scale-ops.md"
