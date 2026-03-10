@@ -596,21 +596,40 @@ def layout_upstream(scheme_multiplier=None):
             node_count = len(subtree_nodes_for_count)
 
             insert_dot_nodes(root)
+
+            # Per-node scheme resolution — build per_node_scheme dict before compute_dims
+            current_prefs = node_layout_prefs.prefs_singleton
+            per_node_scheme = {}  # maps id(node) -> float scheme multiplier
+            for subtree_node in subtree_nodes_for_count:
+                if scheme_multiplier is not None:
+                    per_node_scheme[id(subtree_node)] = scheme_multiplier
+                else:
+                    stored_state = node_layout_state.read_node_state(subtree_node)
+                    per_node_scheme[id(subtree_node)] = node_layout_state.scheme_name_to_multiplier(
+                        stored_state["scheme"], current_prefs
+                    )
+            # Resolved multiplier for this root (used in compute_dims and place_subtree)
+            root_scheme_multiplier = per_node_scheme.get(
+                id(root), current_prefs.get("normal_multiplier")
+            )
+
             memo = {}
             snap_threshold = get_dag_snap_threshold()
-            compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=scheme_multiplier)
-            place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count, scheme_multiplier=scheme_multiplier)
+            compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier)
+            place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier)
 
             # Capture final state (includes any newly inserted Dot nodes)
             final_subtree_nodes = collect_subtree_nodes(root)
 
-            # State write-back: record scheme and mode on every layout-touched node
-            current_prefs = node_layout_prefs.prefs_singleton
-            resolved_write_multiplier = scheme_multiplier if scheme_multiplier is not None else current_prefs.get("normal_multiplier")
-            scheme_name = node_layout_state.multiplier_to_scheme_name(resolved_write_multiplier, current_prefs)
+            # State write-back: record per-node scheme and mode on every layout-touched node
             for state_node in final_subtree_nodes:
                 stored_state = node_layout_state.read_node_state(state_node)
-                stored_state["scheme"] = scheme_name
+                node_scheme_multiplier = per_node_scheme.get(
+                    id(state_node), current_prefs.get("normal_multiplier")
+                )
+                stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
+                    node_scheme_multiplier, current_prefs
+                )
                 stored_state["mode"] = "vertical"
                 # h_scale and v_scale are NOT reset by re-layout — preserve existing values
                 node_layout_state.write_node_state(state_node, stored_state)
@@ -660,17 +679,27 @@ def layout_selected(scheme_multiplier=None):
 
             node_count = len(selected_nodes)
 
-            if scheme_multiplier is None:
-                resolved_scheme_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
-            else:
-                resolved_scheme_multiplier = scheme_multiplier
+            # Per-node scheme resolution (replaces the old resolved_scheme_multiplier block)
+            current_prefs = node_layout_prefs.prefs_singleton
+            per_node_scheme = {}  # maps id(node) -> float scheme multiplier
+            for sel_node in selected_nodes:
+                if scheme_multiplier is not None:
+                    per_node_scheme[id(sel_node)] = scheme_multiplier
+                else:
+                    stored_state = node_layout_state.read_node_state(sel_node)
+                    per_node_scheme[id(sel_node)] = node_layout_state.scheme_name_to_multiplier(
+                        stored_state["scheme"], current_prefs
+                    )
 
             snap_threshold = get_dag_snap_threshold()
             memo = {}
             placed_bboxes = []  # list of (left, top, right, bottom) for already-placed trees
             for root in roots:
                 insert_dot_nodes(root, node_filter=node_filter)
-                tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=scheme_multiplier)
+                root_scheme_multiplier = per_node_scheme.get(
+                    id(root), current_prefs.get("normal_multiplier")
+                )
+                tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier)
 
                 tree_bottom = root.ypos() + root.screenHeight()
                 tree_top = tree_bottom - tree_height
@@ -679,23 +708,24 @@ def layout_selected(scheme_multiplier=None):
                 start_x = root.xpos()
                 for placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
                     if tree_top < placed_bottom and tree_bottom > placed_top:  # Y overlap
-                        current_prefs = node_layout_prefs.prefs_singleton
                         horizontal_clearance = current_prefs.get("horizontal_subtree_gap")
                         start_x = max(start_x, placed_right + horizontal_clearance)
 
-                place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=scheme_multiplier)
+                place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier)
                 placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
 
-            # State write-back: record scheme and mode on every layout-touched node
-            current_prefs = node_layout_prefs.prefs_singleton
-            resolved_write_multiplier = scheme_multiplier if scheme_multiplier is not None else current_prefs.get("normal_multiplier")
-            write_scheme_name = node_layout_state.multiplier_to_scheme_name(resolved_write_multiplier, current_prefs)
+            # State write-back: record per-node scheme and mode on every layout-touched node
             all_touched_nodes = set()
             for state_root in roots:
                 all_touched_nodes.update(collect_subtree_nodes(state_root, node_filter=node_filter))
             for state_node in all_touched_nodes:
                 stored_state = node_layout_state.read_node_state(state_node)
-                stored_state["scheme"] = write_scheme_name
+                node_scheme_multiplier = per_node_scheme.get(
+                    id(state_node), current_prefs.get("normal_multiplier")
+                )
+                stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
+                    node_scheme_multiplier, current_prefs
+                )
                 stored_state["mode"] = "vertical"
                 node_layout_state.write_node_state(state_node, stored_state)
 
