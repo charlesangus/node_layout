@@ -146,5 +146,28 @@ class TestScaleWriteBackAST(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# TestUpstreamAnchorAST — RED until Plan 06 fixes _scale_upstream_nodes() pivot
+# ---------------------------------------------------------------------------
+
+class TestUpstreamAnchorAST(unittest.TestCase):
+    """Verify _scale_upstream_nodes uses bottom-left upstream node as pivot."""
+
+    def test_scale_upstream_uses_max_upstream_nodes_as_anchor(self):
+        """_scale_upstream_nodes must select pivot via max(upstream_nodes, ...) not nuke.selectedNode() (Plan 06)."""
+        source = _read_source()
+        func_source = _get_function_source(source, '_scale_upstream_nodes')
+        self.assertIsNotNone(
+            func_source,
+            "_scale_upstream_nodes function not found in node_layout.py"
+        )
+
+        self.assertIn(
+            'max(upstream_nodes',
+            func_source,
+            "_scale_upstream_nodes must use max(upstream_nodes, ...) to select bottom-left anchor node"
+        )
+
+
 if __name__ == '__main__':
     unittest.main()
