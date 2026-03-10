@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: executing
-stopped_at: Completed 07-03-PLAN.md — per-node scheme resolution and memo key fix
-last_updated: "2026-03-10T10:30:01.729Z"
+stopped_at: Completed 07-04-PLAN.md — scale state write-back in _scale_selected_nodes and _scale_upstream_nodes
+last_updated: "2026-03-10T10:33:31.426Z"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
   percent: 70
 ---
 
@@ -46,6 +46,7 @@ Progress: [███████░░░] 70% (7 of 10 plans)
 
 *Updated after each plan completion*
 | Phase 07 P03 | 5 | 2 tasks | 1 files |
+| Phase 07 P04 | 2 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,8 @@ From Phase 6, Plan 01:
 - [Phase 07-02]: write_scheme_name distinct from resolved_scheme_multiplier — raw scheme_multiplier param used for write-back, resolved only used in compute_dims
 - [Phase 07]: compute_dims memo key changed to (id(node), scheme_multiplier) tuple — prevents cache collision when shared node appears in subtrees with different per-node schemes
 - [Phase 07]: Per-node scheme resolution dict built at entry point; root_scheme_multiplier extracted per-root for compute_dims/place_subtree — single float per call, per-node resolution at dict-build level
+- [Phase 07]: Scale write-back placed after position loop in both scale functions; anchor node included even though it does not move
+- [Phase 07]: round(h_scale * scale_factor, 10) prevents IEEE 754 float accumulation drift across repeated shrink/expand operations
 
 ### Pending Todos
 
@@ -107,6 +110,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T10:30:01.725Z
-Stopped at: Completed 07-03-PLAN.md — per-node scheme resolution and memo key fix
+Last session: 2026-03-10T10:33:31.422Z
+Stopped at: Completed 07-04-PLAN.md — scale state write-back in _scale_selected_nodes and _scale_upstream_nodes
 Resume file: None
