@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: completed
-stopped_at: Completed 07-06-PLAN.md — fixed _scale_upstream_nodes() anchor pivot and snap_min floor
-last_updated: "2026-03-10T11:56:00.000Z"
+stopped_at: Completed 07-07-PLAN.md — wired h_scale/v_scale from per-node state into compute_dims/place_subtree and layout entry points
+last_updated: "2026-03-10T12:00:45.271Z"
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 12
-  completed_plans: 11
-  percent: 80
+  completed_plans: 12
+  percent: 100
 ---
 
 # Project State

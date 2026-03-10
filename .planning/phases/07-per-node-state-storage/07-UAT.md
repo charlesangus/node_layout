@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: resolved
 phase: 07-per-node-state-storage
 source: [07-01-SUMMARY.md, 07-02-SUMMARY.md, 07-03-SUMMARY.md, 07-04-SUMMARY.md, 07-05-SUMMARY.md]
 started: 2026-03-10T11:00:00Z
-updated: 2026-03-10T11:05:00Z
+updated: 2026-03-10T14:00:00Z
 ---
 
 ## Current Test
@@ -60,7 +60,7 @@ skipped: 0
   fix: "Set INVISIBLE flag on Tab_Knob in write_node_state() — committed 3179afa"
 
 - truth: "Subsequent layouts after Shrink/Expand should respect stored h_scale/v_scale"
-  status: failed
+  status: resolved
   reason: "User reported: Works, but subsequent layouts do not respect the setting."
   severity: major
   test: 4
@@ -77,7 +77,7 @@ skipped: 0
   debug_session: ".planning/debug/layout-ignores-hscale-vscale.md"
 
 - truth: "Shrink/Expand should anchor on the bottom-left node (it should not move)"
-  status: failed
+  status: resolved
   reason: "User reported: The bottom left node is moving right and left."
   severity: major
   test: 4
