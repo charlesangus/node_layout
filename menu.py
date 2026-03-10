@@ -24,6 +24,8 @@ layout_menu.addCommand('Layout Upstream Compact', node_layout.layout_upstream_co
 layout_menu.addCommand('Layout Selected Compact', node_layout.layout_selected_compact)
 layout_menu.addCommand('Layout Upstream Loose', node_layout.layout_upstream_loose)
 layout_menu.addCommand('Layout Selected Loose', node_layout.layout_selected_loose)
+layout_menu.addCommand('Clear Layout State Selected', node_layout.clear_layout_state_selected)
+layout_menu.addCommand('Clear Layout State Upstream', node_layout.clear_layout_state_upstream)
 
 layout_menu.addSeparator()
 
