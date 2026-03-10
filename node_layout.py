@@ -802,10 +802,15 @@ def _scale_selected_nodes(scale_factor):
 
 
 def _scale_upstream_nodes(scale_factor):
-    anchor_node = nuke.selectedNode()
+    root_node = nuke.selectedNode()
+    upstream_nodes = collect_subtree_nodes(root_node)
+    # Anchor: bottom-left of the entire upstream subtree (includes root_node).
+    # Matching _scale_selected_nodes: tiebreaker prefers leftmost among nodes
+    # sharing the maximum ypos.
+    anchor_node = max(upstream_nodes, key=lambda n: (n.ypos(), -n.xpos()))
+    snap_min = get_dag_snap_threshold() - 1
     anchor_center_x = anchor_node.xpos() + anchor_node.screenWidth() / 2
     anchor_center_y = anchor_node.ypos() + anchor_node.screenHeight() / 2
-    upstream_nodes = collect_subtree_nodes(anchor_node)
     for node in upstream_nodes:
         if node is anchor_node:
             continue
@@ -813,8 +818,14 @@ def _scale_upstream_nodes(scale_factor):
         node_center_y = node.ypos() + node.screenHeight() / 2
         dx = node_center_x - anchor_center_x
         dy = node_center_y - anchor_center_y
-        new_center_x = anchor_center_x + round(dx * scale_factor)
-        new_center_y = anchor_center_y + round(dy * scale_factor)
+        new_dx = round(dx * scale_factor)
+        new_dy = round(dy * scale_factor)
+        if dx != 0 and abs(new_dx) < snap_min:
+            new_dx = snap_min if dx > 0 else -snap_min
+        if dy != 0 and abs(new_dy) < snap_min:
+            new_dy = snap_min if dy > 0 else -snap_min
+        new_center_x = anchor_center_x + new_dx
+        new_center_y = anchor_center_y + new_dy
         node.setXpos(round(new_center_x - node.screenWidth() / 2))
         node.setYpos(round(new_center_y - node.screenHeight() / 2))
     # Scale state write-back: accumulate h_scale and v_scale on all upstream nodes

@@ -304,14 +304,14 @@ class TestScaleUpstreamNodesAST(unittest.TestCase):
             "_scale_upstream_nodes still uses int() — should use round()",
         )
 
-    def test_no_snap_min_in_scale_upstream(self):
-        """_scale_upstream_nodes must NOT contain snap_min (no floor for upstream trees)."""
+    def test_snap_min_floor_guard_in_scale_upstream(self):
+        """_scale_upstream_nodes must contain snap_min floor guard (Plan 06: matching _scale_selected_nodes)."""
         source = _get_function_source("_scale_upstream_nodes")
         self.assertIsNotNone(source, "_scale_upstream_nodes not found in source")
-        self.assertNotIn(
+        self.assertIn(
             "snap_min",
             source,
-            "_scale_upstream_nodes must not have a snap_min floor — upstream trees are self-consistent",
+            "_scale_upstream_nodes missing snap_min floor guard — must match _scale_selected_nodes pattern",
         )
 
 
