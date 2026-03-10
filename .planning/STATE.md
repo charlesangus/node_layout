@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: executing
-stopped_at: Completed 07-04-PLAN.md — scale state write-back in _scale_selected_nodes and _scale_upstream_nodes
-last_updated: "2026-03-10T10:33:31.426Z"
+stopped_at: Completed 07-05-PLAN.md — clear_layout_state_selected() and clear_layout_state_upstream() commands
+last_updated: "2026-03-10T10:34:57Z"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 10
-  completed_plans: 9
-  percent: 70
+  completed_plans: 10
+  percent: 80
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-05 after v1.1 start)
 ## Current Position
 
 Phase: 7 of 11 (Per-Node State Storage)
-Plan: 2 of 5 (completed Plan 02)
-Status: In Progress — Phase 7, 2 of 5 plans done
+Plan: 5 of 5 (completed Plan 05)
+Status: Phase 7 Complete — all 5 plans done
 
-Progress: [███████░░░] 70% (7 of 10 plans)
+Progress: [████████░░] 80% (8 of 10 plans)
 
 ## Performance Metrics
 
@@ -98,6 +98,8 @@ From Phase 6, Plan 01:
 - [Phase 07]: Per-node scheme resolution dict built at entry point; root_scheme_multiplier extracted per-root for compute_dims/place_subtree — single float per call, per-node resolution at dict-build level
 - [Phase 07]: Scale write-back placed after position loop in both scale functions; anchor node included even though it does not move
 - [Phase 07]: round(h_scale * scale_factor, 10) prevents IEEE 754 float accumulation drift across repeated shrink/expand operations
+- [Phase 07-05]: No keyboard shortcuts for clear-state commands — keyboard namespace kept clean; CONTEXT.md locked decisions did not specify shortcuts
+- [Phase 07-05]: clear_layout_state_upstream() raises ValueError if nothing selected — matches existing upstream command behaviour (no guard before nuke.selectedNode())
 
 ### Pending Todos
 
@@ -110,6 +112,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T10:33:31.422Z
-Stopped at: Completed 07-04-PLAN.md — scale state write-back in _scale_selected_nodes and _scale_upstream_nodes
+Last session: 2026-03-10T10:34:57Z
+Stopped at: Completed 07-05-PLAN.md — clear_layout_state_selected() and clear_layout_state_upstream() commands
 Resume file: None
