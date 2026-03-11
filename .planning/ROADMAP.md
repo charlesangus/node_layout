@@ -81,7 +81,11 @@ Plans:
   1. A Dot with a large font size (e.g. 40) at a subtree root produces a noticeably wider margin around that subtree than a Dot with the default font size
   2. The margin scaling uses the `dot_font_reference_size` pref value as the baseline, so changing the pref shifts the scaling curve
   3. Dot nodes without a custom font size (at the factory default) produce the same margin as before this phase (no regression for existing layouts)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Write RED test scaffold for _dot_font_scale (11 failing tests)
+- [ ] 08-02-PLAN.md — Implement _dot_font_scale() and wire into _subtree_margin() and _horizontal_margin()
 
 ### Phase 9: Multi-Input Fan Alignment + Mask Side-Swap
 **Goal**: When a node has two or more non-mask inputs, all immediate input nodes sit at the same Y position and extend their subtrees upward in parallel; the mask input is placed to the left of all non-mask inputs rather than to the right
@@ -125,7 +129,7 @@ Plans:
 | 5. New Commands & Scheme | v1.0 | 4/4 | Complete | 2026-03-05 |
 | 6. Prefs Groundwork + Group Fix + Renames | 4/4 | Complete   | 2026-03-08 | - |
 | 7. Per-Node State Storage | 7/7 | Complete   | 2026-03-10 | - |
-| 8. Dot Font-Size Margin Scaling | v1.1 | 0/? | Not started | - |
+| 8. Dot Font-Size Margin Scaling | v1.1 | 0/2 | Not started | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | v1.1 | 0/? | Not started | - |
 | 10. Shrink/Expand H/V/Both + Expand Push-Away | v1.1 | 0/? | Not started | - |
 | 11. Horizontal B-Spine Layout | v1.1 | 0/? | Not started | - |
