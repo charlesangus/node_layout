@@ -18,7 +18,7 @@ Requirements for the Layout Engine & State milestone. Each maps to roadmap phase
 
 - [ ] **LAYOUT-01**: When a node has 2+ non-mask inputs, all immediate input nodes are placed at the same Y position (fan alignment), with their subtrees extending upward
 - [ ] **LAYOUT-02**: When a node has 2+ non-mask inputs, the mask input is placed to the left of all non-mask inputs
-- [ ] **LAYOUT-03**: Subtree margin scales with the font size of the Dot node at the subtree root — a larger font signals a section boundary and produces more breathing room
+- [x] **LAYOUT-03**: Subtree margin scales with the font size of the Dot node at the subtree root — a larger font signals a section boundary and produces more breathing room
 - [x] **LAYOUT-04**: When running layout commands inside a Nuke Group, Dot nodes are created inside that Group (not at Root level)
 - [x] **LAYOUT-05**: When running layout commands inside a Nuke Group, push-away logic considers only nodes within that Group
 
@@ -81,7 +81,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STATE-02 | Phase 7 | Complete |
 | STATE-03 | Phase 7 | Complete |
 | STATE-04 | Phase 7 | Complete |
-| LAYOUT-03 | Phase 8 | Pending |
+| LAYOUT-03 | Phase 8 | Complete |
 | LAYOUT-01 | Phase 9 | Pending |
 | LAYOUT-02 | Phase 9 | Pending |
 | SCALE-01 | Phase 10 | Pending |
