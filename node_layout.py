@@ -116,13 +116,43 @@ def _is_mask_input(node, i):
     return False
 
 
+def _dot_font_scale(node, slot):
+    """Return the font multiplier for the labeled-Dot walk from node.input(slot).
+
+    Walks consecutive Dot nodes upstream from the given slot.  Returns the font
+    multiplier for the first Dot that has a non-empty label.  Returns 1.0 if no
+    labeled Dot is found before the chain ends.
+
+    Formula: min(max(font_size / reference_size, 1.0), 4.0)
+    Floor at 1.0 — small fonts never shrink margins.
+    Cap at 4.0 — very large fonts produce at most 4x margin.
+    """
+    current_prefs = node_layout_prefs.prefs_singleton
+    reference_size = current_prefs.get("dot_font_reference_size")
+    candidate = node.input(slot)
+    while candidate is not None and candidate.Class() == 'Dot':
+        try:
+            label = candidate['label'].value()
+        except (KeyError, AttributeError):
+            label = ''
+        if label.strip():
+            try:
+                font_size = int(candidate['note_font_size'].value())
+            except (KeyError, AttributeError, ValueError):
+                font_size = reference_size
+            return min(max(font_size / reference_size, 1.0), 4.0)
+        candidate = candidate.input(0)
+    return 1.0
+
+
 def _subtree_margin(node, slot, node_count, mode_multiplier=None):
     current_prefs = node_layout_prefs.prefs_singleton
     base = current_prefs.get("base_subtree_margin")
     if mode_multiplier is None:
         mode_multiplier = current_prefs.get("normal_multiplier")
     reference_count = current_prefs.get("scaling_reference_count")
-    effective_margin = int(base * mode_multiplier * math.sqrt(node_count) / math.sqrt(reference_count))
+    font_mult = _dot_font_scale(node, slot)
+    effective_margin = int(base * mode_multiplier * math.sqrt(node_count) / math.sqrt(reference_count) * font_mult)
     if _is_mask_input(node, slot):
         ratio = current_prefs.get("mask_input_ratio")
         return int(effective_margin * ratio)
@@ -136,9 +166,10 @@ def _horizontal_margin(node, slot):
     Vertical margins still use _subtree_margin() with its sqrt formula.
     """
     current_prefs = node_layout_prefs.prefs_singleton
+    font_mult = _dot_font_scale(node, slot)
     if _is_mask_input(node, slot):
-        return current_prefs.get("horizontal_mask_gap")
-    return current_prefs.get("horizontal_subtree_gap")
+        return int(current_prefs.get("horizontal_mask_gap") * font_mult)
+    return int(current_prefs.get("horizontal_subtree_gap") * font_mult)
 
 
 def _center_x(child_width, parent_x, parent_width):
