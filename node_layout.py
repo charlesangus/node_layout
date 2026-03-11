@@ -132,7 +132,7 @@ def _dot_font_scale(node, slot):
     candidate = node.input(slot)
     while candidate is not None and candidate.Class() == 'Dot':
         try:
-            label = candidate['label'].value()
+            label = str(candidate['label'].value())
         except (KeyError, AttributeError):
             label = ''
         if label.strip():
