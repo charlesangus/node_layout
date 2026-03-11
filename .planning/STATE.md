@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: completed
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-03-11T12:46:46.868Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-03-11T12:49:46.757Z"
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 14
-  completed_plans: 13
+  completed_plans: 14
   percent: 100
 ---
 
@@ -50,6 +50,7 @@ Progress: [██████████] 100% (10 of 10 plans in phase 7)
 | Phase 07 P06 | 2 | 1 tasks | 3 files |
 | Phase 07 P07 | 4 | 2 tasks | 2 files |
 | Phase 08 P01 | 8 | 1 tasks | 1 files |
+| Phase 08 P02 | 5 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,8 @@ From Phase 6, Plan 01:
 - [Phase 07-07]: Vertical gap scaling uses max(snap_threshold-1, int(gap * v_scale)) floor — same-color tight-gap is a minimum constraint not a spacing preference
 - [Phase 07-07]: compute_dims memo key extended to (id(node), scheme_multiplier, h_scale, v_scale) — prevents cache collisions when h_scale/v_scale differ across calls
 - [Phase 08]: test_default_font_no_change passes at RED by design — regression guard is trivially true before implementation; correct expected RED state for that test
+- [Phase 08-02]: str() wraps label knob value before .strip() to guard against int 0 fallback from Nuke stubs
+- [Phase 08-02]: font_mult applied before final int() cast in margin helpers to preserve fractional precision
 
 ### Pending Todos
 
@@ -120,6 +123,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-11T12:46:46.866Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-03-11T12:49:46.754Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None

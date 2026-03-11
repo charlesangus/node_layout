@@ -26,7 +26,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 - [x] **Phase 6: Prefs Groundwork + Group Fix + Renames** - Add horizontal gap prefs, fix Group context bug, rename scheme commands (completed 2026-03-08)
 - [x] **Phase 7: Per-Node State Storage** - Store layout mode/scheme/scale on each node; survive script save/reload (completed 2026-03-10)
-- [ ] **Phase 8: Dot Font-Size Margin Scaling** - Scale subtree margin by Dot font size as section-boundary signal
+- [x] **Phase 8: Dot Font-Size Margin Scaling** - Scale subtree margin by Dot font size as section-boundary signal (completed 2026-03-11)
 - [ ] **Phase 9: Multi-Input Fan Alignment + Mask Side-Swap** - Align fan inputs at same Y; move mask input left when non-mask inputs fill right
 - [ ] **Phase 10: Shrink/Expand H/V/Both + Expand Push-Away** - Axis-specific scale commands; expand pushes surrounding nodes
 - [ ] **Phase 11: Horizontal B-Spine Layout** - Left-to-right B-spine layout command; stored in state and replayed by normal layout
@@ -129,7 +129,7 @@ Plans:
 | 5. New Commands & Scheme | v1.0 | 4/4 | Complete | 2026-03-05 |
 | 6. Prefs Groundwork + Group Fix + Renames | 4/4 | Complete   | 2026-03-08 | - |
 | 7. Per-Node State Storage | 7/7 | Complete   | 2026-03-10 | - |
-| 8. Dot Font-Size Margin Scaling | 1/2 | In Progress|  | - |
+| 8. Dot Font-Size Margin Scaling | 2/2 | Complete   | 2026-03-11 | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | v1.1 | 0/? | Not started | - |
 | 10. Shrink/Expand H/V/Both + Expand Push-Away | v1.1 | 0/? | Not started | - |
 | 11. Horizontal B-Spine Layout | v1.1 | 0/? | Not started | - |
