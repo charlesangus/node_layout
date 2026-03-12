@@ -54,6 +54,21 @@ layout_menu.addCommand(
     shortcutContext=2,
 )
 
+layout_menu.addCommand('Shrink Selected Horizontal', node_layout.shrink_selected_horizontal)
+layout_menu.addCommand('Shrink Selected Vertical',   node_layout.shrink_selected_vertical)
+layout_menu.addCommand('Expand Selected Horizontal', node_layout.expand_selected_horizontal)
+layout_menu.addCommand('Expand Selected Vertical',   node_layout.expand_selected_vertical)
+layout_menu.addCommand('Shrink Upstream Horizontal', node_layout.shrink_upstream_horizontal)
+layout_menu.addCommand('Shrink Upstream Vertical',   node_layout.shrink_upstream_vertical)
+layout_menu.addCommand('Expand Upstream Horizontal', node_layout.expand_upstream_horizontal)
+layout_menu.addCommand('Expand Upstream Vertical',   node_layout.expand_upstream_vertical)
+layout_menu.addCommand(
+    'Repeat Last Scale',
+    node_layout.repeat_last_scale,
+    'ctrl+/',
+    shortcutContext=2,
+)
+
 layout_menu.addSeparator()
 
 layout_menu.addCommand("Sort By Filename", "util.sort_by_filename()", shortcutContext=2,)

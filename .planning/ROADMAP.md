@@ -28,7 +28,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 - [x] **Phase 7: Per-Node State Storage** - Store layout mode/scheme/scale on each node; survive script save/reload (completed 2026-03-10)
 - [x] **Phase 8: Dot Font-Size Margin Scaling** - Scale subtree margin by Dot font size as section-boundary signal (completed 2026-03-11)
 - [x] **Phase 9: Multi-Input Fan Alignment + Mask Side-Swap** - Align fan inputs at same Y; move mask input left when non-mask inputs fill right (completed 2026-03-12)
-- [ ] **Phase 10: Shrink/Expand H/V/Both + Expand Push-Away** - Axis-specific scale commands; expand pushes surrounding nodes
+- [x] **Phase 10: Shrink/Expand H/V/Both + Expand Push-Away** - Axis-specific scale commands; expand pushes surrounding nodes (completed 2026-03-12)
 - [ ] **Phase 11: Horizontal B-Spine Layout** - Left-to-right B-spine layout command; stored in state and replayed by normal layout
 
 ## Phase Details
@@ -139,5 +139,5 @@ Plans:
 | 7. Per-Node State Storage | 7/7 | Complete   | 2026-03-10 | - |
 | 8. Dot Font-Size Margin Scaling | 2/2 | Complete   | 2026-03-11 | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | 2/2 | Complete   | 2026-03-12 | - |
-| 10. Shrink/Expand H/V/Both + Expand Push-Away | v1.1 | 0/2 | Not started | - |
+| 10. Shrink/Expand H/V/Both + Expand Push-Away | 2/2 | Complete    | 2026-03-12 | - |
 | 11. Horizontal B-Spine Layout | v1.1 | 0/? | Not started | - |
