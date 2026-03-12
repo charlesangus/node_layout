@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: completed
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-03-12T13:00:28.625Z"
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-03-12T13:06:37.069Z"
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
   percent: 100
 ---
 
@@ -54,6 +54,7 @@ Progress: [██████████] 100% (10 of 10 plans in phase 7)
 | Phase 09-multi-input-fan-alignment-mask-side-swap P01 | 5 | 1 tasks | 1 files |
 | Phase 09-multi-input-fan-alignment-mask-side-swap P02 | 5 | 2 tasks | 1 files |
 | Phase 10-shrink-expand-h-v-both-expand-push-away P01 | 2 | 1 tasks | 1 files |
+| Phase 10-shrink-expand-h-v-both-expand-push-away P02 | 6 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,8 @@ From Phase 6, Plan 01:
 - [Phase 09-multi-input-fan-alignment-mask-side-swap]: mask side-swap: mask placed at x - mask_gap_h - mask_subtree_width when fan_active (3+ non-mask inputs)
 - [Phase 10-shrink-expand-h-v-both-expand-push-away]: Test count is 15 not 14 — plan's class enumeration yields 15 behaviors across 6 classes; all fail RED correctly
 - [Phase 10-shrink-expand-h-v-both-expand-push-away]: lastHitGroup stub added to nuke stub in test file — expand wrappers call nuke.lastHitGroup() as first line, stub must expose it
+- [Phase 10]: axis parameter uses string 'both'/'h'/'v' — readable and unambiguous, gates both position changes and state write-back on the same axis conditions
+- [Phase 10]: repeat_last_scale is a no-op when _last_scale_fn is None — avoids surprising user with unexpected scale direction on first invocation
 
 ### Pending Todos
 
@@ -131,6 +134,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-12T13:00:24.190Z
-Stopped at: Completed 10-01-PLAN.md
+Last session: 2026-03-12T13:06:37.067Z
+Stopped at: Completed 10-02-PLAN.md
 Resume file: None
