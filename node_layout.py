@@ -911,6 +911,7 @@ def layout_selected(scheme_multiplier=None):
 
 SHRINK_FACTOR = 0.8
 EXPAND_FACTOR = 1.25
+_last_scale_fn = None   # set by every scale wrapper; called by repeat_last_scale()
 
 
 def layout_upstream_compact():
@@ -929,7 +930,7 @@ def layout_selected_loose():
     layout_selected(scheme_multiplier=node_layout_prefs.prefs_singleton.get("loose_multiplier"))
 
 
-def _scale_selected_nodes(scale_factor):
+def _scale_selected_nodes(scale_factor, axis="both"):
     selected_nodes = nuke.selectedNodes()
     if len(selected_nodes) < 2:
         return
@@ -948,27 +949,31 @@ def _scale_selected_nodes(scale_factor):
         node_center_y = node.ypos() + node.screenHeight() / 2
         dx = node_center_x - anchor_center_x
         dy = node_center_y - anchor_center_y
-        new_dx = round(dx * scale_factor)
-        new_dy = round(dy * scale_factor)
+        new_dx = round(dx * scale_factor) if axis != "v" else round(dx)
+        new_dy = round(dy * scale_factor) if axis != "h" else round(dy)
         # Enforce minimum floor: if the node is not at the same position as the anchor
         # on a given axis, it must remain at least snap_min pixels away (center-to-center).
-        if dx != 0 and abs(new_dx) < snap_min:
+        # Only apply the floor to the axis being scaled.
+        if axis != "v" and dx != 0 and abs(new_dx) < snap_min:
             new_dx = snap_min if dx > 0 else -snap_min
-        if dy != 0 and abs(new_dy) < snap_min:
+        if axis != "h" and dy != 0 and abs(new_dy) < snap_min:
             new_dy = snap_min if dy > 0 else -snap_min
         new_center_x = anchor_center_x + new_dx
         new_center_y = anchor_center_y + new_dy
         node.setXpos(round(new_center_x - node.screenWidth() / 2))
         node.setYpos(round(new_center_y - node.screenHeight() / 2))
-    # Scale state write-back: accumulate h_scale and v_scale on all affected nodes
+    # Scale state write-back: accumulate h_scale and v_scale on all affected nodes.
+    # Only update the scale state for the axis being scaled.
     for scale_node in selected_nodes:
         stored_state = node_layout_state.read_node_state(scale_node)
-        stored_state["h_scale"] = round(stored_state["h_scale"] * scale_factor, 10)
-        stored_state["v_scale"] = round(stored_state["v_scale"] * scale_factor, 10)
+        if axis != "v":
+            stored_state["h_scale"] = round(stored_state["h_scale"] * scale_factor, 10)
+        if axis != "h":
+            stored_state["v_scale"] = round(stored_state["v_scale"] * scale_factor, 10)
         node_layout_state.write_node_state(scale_node, stored_state)
 
 
-def _scale_upstream_nodes(scale_factor):
+def _scale_upstream_nodes(scale_factor, axis="both"):
     root_node = nuke.selectedNode()
     upstream_nodes = collect_subtree_nodes(root_node)
     # The selected root node is always the anchor — it stays fixed while all upstream
@@ -984,27 +989,32 @@ def _scale_upstream_nodes(scale_factor):
         node_center_y = node.ypos() + node.screenHeight() / 2
         dx = node_center_x - anchor_center_x
         dy = node_center_y - anchor_center_y
-        new_dx = round(dx * scale_factor)
-        new_dy = round(dy * scale_factor)
-        if dx != 0 and abs(new_dx) < snap_min:
+        new_dx = round(dx * scale_factor) if axis != "v" else round(dx)
+        new_dy = round(dy * scale_factor) if axis != "h" else round(dy)
+        if axis != "v" and dx != 0 and abs(new_dx) < snap_min:
             new_dx = snap_min if dx > 0 else -snap_min
-        if dy != 0 and abs(new_dy) < snap_min:
+        if axis != "h" and dy != 0 and abs(new_dy) < snap_min:
             new_dy = snap_min if dy > 0 else -snap_min
         new_center_x = anchor_center_x + new_dx
         new_center_y = anchor_center_y + new_dy
         node.setXpos(round(new_center_x - node.screenWidth() / 2))
         node.setYpos(round(new_center_y - node.screenHeight() / 2))
-    # Scale state write-back: accumulate h_scale and v_scale on all upstream nodes
+    # Scale state write-back: accumulate h_scale and v_scale on all upstream nodes.
+    # Only update the scale state for the axis being scaled.
     for scale_node in upstream_nodes:
         stored_state = node_layout_state.read_node_state(scale_node)
-        stored_state["h_scale"] = round(stored_state["h_scale"] * scale_factor, 10)
-        stored_state["v_scale"] = round(stored_state["v_scale"] * scale_factor, 10)
+        if axis != "v":
+            stored_state["h_scale"] = round(stored_state["h_scale"] * scale_factor, 10)
+        if axis != "h":
+            stored_state["v_scale"] = round(stored_state["v_scale"] * scale_factor, 10)
         node_layout_state.write_node_state(scale_node, stored_state)
 
 
 def shrink_selected():
     if len(nuke.selectedNodes()) < 2:
         return
+    global _last_scale_fn
+    _last_scale_fn = shrink_selected
     nuke.Undo.name("Shrink Selected")
     nuke.Undo.begin()
     try:
@@ -1021,6 +1031,8 @@ def expand_selected():
     selected_nodes = nuke.selectedNodes()
     if len(selected_nodes) < 2:
         return
+    global _last_scale_fn
+    _last_scale_fn = expand_selected
     node_ids = {id(n) for n in selected_nodes}
     bbox_before = compute_node_bounding_box(selected_nodes)
     nuke.Undo.name("Expand Selected")
@@ -1042,6 +1054,8 @@ def shrink_upstream():
         nuke.selectedNode()
     except ValueError:
         return
+    global _last_scale_fn
+    _last_scale_fn = shrink_upstream
     nuke.Undo.name("Shrink Upstream")
     nuke.Undo.begin()
     try:
@@ -1059,6 +1073,8 @@ def expand_upstream():
         root_node = nuke.selectedNode()
     except ValueError:
         return
+    global _last_scale_fn
+    _last_scale_fn = expand_upstream
     upstream_nodes = collect_subtree_nodes(root_node)
     upstream_node_ids = {id(n) for n in upstream_nodes}
     bbox_before = compute_node_bounding_box(upstream_nodes)
@@ -1074,6 +1090,179 @@ def expand_upstream():
         raise
     else:
         nuke.Undo.end()
+
+
+def shrink_selected_horizontal():
+    if len(nuke.selectedNodes()) < 2:
+        return
+    global _last_scale_fn
+    _last_scale_fn = shrink_selected_horizontal
+    nuke.Undo.name("Shrink Selected Horizontal")
+    nuke.Undo.begin()
+    try:
+        _scale_selected_nodes(SHRINK_FACTOR, axis="h")
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def shrink_selected_vertical():
+    if len(nuke.selectedNodes()) < 2:
+        return
+    global _last_scale_fn
+    _last_scale_fn = shrink_selected_vertical
+    nuke.Undo.name("Shrink Selected Vertical")
+    nuke.Undo.begin()
+    try:
+        _scale_selected_nodes(SHRINK_FACTOR, axis="v")
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def expand_selected_horizontal():
+    current_group = nuke.lastHitGroup()    # MUST be first Nuke API call
+    selected_nodes = nuke.selectedNodes()
+    if len(selected_nodes) < 2:
+        return
+    global _last_scale_fn
+    _last_scale_fn = expand_selected_horizontal
+    node_ids = {id(n) for n in selected_nodes}
+    bbox_before = compute_node_bounding_box(selected_nodes)
+    nuke.Undo.name("Expand Selected Horizontal")
+    nuke.Undo.begin()
+    try:
+        _scale_selected_nodes(EXPAND_FACTOR, axis="h")
+        bbox_after = compute_node_bounding_box(selected_nodes)
+        if bbox_before is not None and bbox_after is not None:
+            push_nodes_to_make_room(node_ids, bbox_before, bbox_after, current_group)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def expand_selected_vertical():
+    current_group = nuke.lastHitGroup()    # MUST be first Nuke API call
+    selected_nodes = nuke.selectedNodes()
+    if len(selected_nodes) < 2:
+        return
+    global _last_scale_fn
+    _last_scale_fn = expand_selected_vertical
+    node_ids = {id(n) for n in selected_nodes}
+    bbox_before = compute_node_bounding_box(selected_nodes)
+    nuke.Undo.name("Expand Selected Vertical")
+    nuke.Undo.begin()
+    try:
+        _scale_selected_nodes(EXPAND_FACTOR, axis="v")
+        bbox_after = compute_node_bounding_box(selected_nodes)
+        if bbox_before is not None and bbox_after is not None:
+            push_nodes_to_make_room(node_ids, bbox_before, bbox_after, current_group)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def shrink_upstream_horizontal():
+    try:
+        nuke.selectedNode()
+    except ValueError:
+        return
+    global _last_scale_fn
+    _last_scale_fn = shrink_upstream_horizontal
+    nuke.Undo.name("Shrink Upstream Horizontal")
+    nuke.Undo.begin()
+    try:
+        _scale_upstream_nodes(SHRINK_FACTOR, axis="h")
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def shrink_upstream_vertical():
+    try:
+        nuke.selectedNode()
+    except ValueError:
+        return
+    global _last_scale_fn
+    _last_scale_fn = shrink_upstream_vertical
+    nuke.Undo.name("Shrink Upstream Vertical")
+    nuke.Undo.begin()
+    try:
+        _scale_upstream_nodes(SHRINK_FACTOR, axis="v")
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def expand_upstream_horizontal():
+    current_group = nuke.lastHitGroup()    # MUST be first Nuke API call
+    try:
+        root_node = nuke.selectedNode()
+    except ValueError:
+        return
+    global _last_scale_fn
+    _last_scale_fn = expand_upstream_horizontal
+    upstream_nodes = collect_subtree_nodes(root_node)
+    upstream_node_ids = {id(n) for n in upstream_nodes}
+    bbox_before = compute_node_bounding_box(upstream_nodes)
+    nuke.Undo.name("Expand Upstream Horizontal")
+    nuke.Undo.begin()
+    try:
+        _scale_upstream_nodes(EXPAND_FACTOR, axis="h")
+        bbox_after = compute_node_bounding_box(upstream_nodes)
+        if bbox_before is not None and bbox_after is not None:
+            push_nodes_to_make_room(upstream_node_ids, bbox_before, bbox_after, current_group)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def expand_upstream_vertical():
+    current_group = nuke.lastHitGroup()    # MUST be first Nuke API call
+    try:
+        root_node = nuke.selectedNode()
+    except ValueError:
+        return
+    global _last_scale_fn
+    _last_scale_fn = expand_upstream_vertical
+    upstream_nodes = collect_subtree_nodes(root_node)
+    upstream_node_ids = {id(n) for n in upstream_nodes}
+    bbox_before = compute_node_bounding_box(upstream_nodes)
+    nuke.Undo.name("Expand Upstream Vertical")
+    nuke.Undo.begin()
+    try:
+        _scale_upstream_nodes(EXPAND_FACTOR, axis="v")
+        bbox_after = compute_node_bounding_box(upstream_nodes)
+        if bbox_before is not None and bbox_after is not None:
+            push_nodes_to_make_room(upstream_node_ids, bbox_before, bbox_after, current_group)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def repeat_last_scale():
+    # _last_scale_fn is None if no scale command has been run this session.
+    # No-op when None to avoid surprising the user with an unexpected direction.
+    global _last_scale_fn
+    if _last_scale_fn is None:
+        return
+    _last_scale_fn()
 
 
 def clear_layout_state_selected():

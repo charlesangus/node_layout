@@ -301,20 +301,27 @@ class TestAxisScalingBehavior(unittest.TestCase):
         )
 
     def test_both_axis_unchanged(self):
-        """axis='both': both dx and dy change — regression guard for default behaviour."""
+        """axis='both': both dx and dy change — regression guard for default behaviour.
+
+        _scale_selected_nodes picks the most downstream node (highest ypos) as the internal
+        pivot. Here non_anchor (ypos=300) is the pivot; anchor (ypos=200) is the node that
+        moves. Measurements are therefore taken from the pivot's perspective:
+        distance = anchor.center - pivot.center.
+        """
         anchor = _make_regular_node(xpos=0, ypos=200)
         non_anchor = _make_regular_node(xpos=200, ypos=300)
 
-        anchor_center_x = anchor.xpos() + anchor.screenWidth() / 2
-        anchor_center_y = anchor.ypos() + anchor.screenHeight() / 2
-        original_dx = (non_anchor.xpos() + non_anchor.screenWidth() / 2) - anchor_center_x
-        original_dy = (non_anchor.ypos() + non_anchor.screenHeight() / 2) - anchor_center_y
+        # non_anchor is the internal pivot (ypos=300 > ypos=200)
+        pivot_center_x = non_anchor.xpos() + non_anchor.screenWidth() / 2   # 240
+        pivot_center_y = non_anchor.ypos() + non_anchor.screenHeight() / 2  # 314
+        original_dx = (anchor.xpos() + anchor.screenWidth() / 2) - pivot_center_x    # 40 - 240 = -200
+        original_dy = (anchor.ypos() + anchor.screenHeight() / 2) - pivot_center_y   # 214 - 314 = -100
 
         _set_selected_nodes([anchor, non_anchor])
         _nl._scale_selected_nodes(EXPAND_FACTOR, axis="both")
 
-        actual_dx = (non_anchor.xpos() + non_anchor.screenWidth() / 2) - anchor_center_x
-        actual_dy = (non_anchor.ypos() + non_anchor.screenHeight() / 2) - anchor_center_y
+        actual_dx = (anchor.xpos() + anchor.screenWidth() / 2) - pivot_center_x
+        actual_dy = (anchor.ypos() + anchor.screenHeight() / 2) - pivot_center_y
 
         self.assertNotEqual(actual_dx, original_dx, "axis='both' must scale dx")
         self.assertNotEqual(actual_dy, original_dy, "axis='both' must scale dy")
