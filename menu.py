@@ -72,6 +72,6 @@ layout_menu.addCommand("Make Room Right", "make_room.make_room(amount=800, direc
 
 layout_menu.addSeparator()
 layout_menu.addCommand(
-    "Preferences\u2026",
+    "Node Layout Preferences\u2026",
     node_layout_prefs_dialog.show_prefs_dialog,
 )
