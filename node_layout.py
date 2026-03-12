@@ -381,20 +381,42 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
             W = max(child_dims[0][0],
                     node.screenWidth() + side_margins_h[1] + child_dims[1][0])
         else:
-            # n >= 3: input[0] centered above node; inputs[1..n-1] rightward from node's right edge
-            W = max(child_dims[0][0],
-                    node.screenWidth() + sum(side_margins_h[1:]) + sum(w for w, h in child_dims[1:]))
-        # Staircase formula for all n: each input gets its own vertical band.
-        # Total height is sum of all child subtree heights plus per-gap values that
-        # depend on the tile colors of adjacent nodes.
-        raw_gap_to_consumer = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
-        gap_to_consumer = max(snap_threshold - 1, int(raw_gap_to_consumer * node_v_scale))
-        # When there are side inputs (n > 1), a dot will be inserted for inputs[n-1].
-        # Reserve at least side_margins_v[n-1] so the dot fits without overlapping.
-        if n > 1:
-            gap_to_consumer = max(gap_to_consumer, side_margins_v[n - 1])
-        inter_band_gaps = sum(side_margins_v[1:n])
-        H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_to_consumer + inter_band_gaps
+            # n >= 3: W formula differs in fan mode to exclude mask from rightward spread.
+            mask_count = sum(1 for slot, _ in input_slot_pairs if _is_mask_input(node, slot))
+            if fan_active and mask_count > 0:
+                # Fan mode with mask: mask is placed LEFT; W measures only rightward (non-mask) spread.
+                non_mask_dims = child_dims[mask_count:]
+                W = max(non_mask_dims[0][0],
+                        node.screenWidth() + sum(side_margins_h[mask_count + 1:]) + sum(w for w, h in non_mask_dims[1:]))
+            else:
+                # Standard n >= 3: input[0] centered above node; inputs[1..n-1] rightward from node's right edge
+                W = max(child_dims[0][0],
+                        node.screenWidth() + sum(side_margins_h[1:]) + sum(w for w, h in child_dims[1:]))
+
+        if fan_active and n >= 3:
+            # Fan mode: all non-mask inputs sit at the same Y level.
+            # H is determined by the TALLEST non-mask subtree, not the sum.
+            # The mask subtree is placed LEFT (outside the rightward W); exclude it from H.
+            mask_count = sum(1 for slot, _ in input_slot_pairs if _is_mask_input(node, slot))
+            non_mask_child_dims = child_dims[mask_count:]  # non-mask children follow mask(s) in list
+            non_mask_start = mask_count
+            raw_gap_b = vertical_gap_between(inputs[non_mask_start], node, snap_threshold, scheme_multiplier)
+            gap_to_fan = max(snap_threshold - 1, int(raw_gap_b * node_v_scale))
+            gap_to_fan = max(gap_to_fan, side_margins_v[non_mask_start])  # ensure Dot row fits
+            fan_max_child_h = max(h for w, h in non_mask_child_dims) if non_mask_child_dims else 0
+            H = node.screenHeight() + fan_max_child_h + gap_to_fan
+        else:
+            # Staircase formula for all n: each input gets its own vertical band.
+            # Total height is sum of all child subtree heights plus per-gap values that
+            # depend on the tile colors of adjacent nodes.
+            raw_gap_to_consumer = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+            gap_to_consumer = max(snap_threshold - 1, int(raw_gap_to_consumer * node_v_scale))
+            # When there are side inputs (n > 1), a dot will be inserted for inputs[n-1].
+            # Reserve at least side_margins_v[n-1] so the dot fits without overlapping.
+            if n > 1:
+                gap_to_consumer = max(gap_to_consumer, side_margins_v[n - 1])
+            inter_band_gaps = sum(side_margins_v[1:n])
+            H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_to_consumer + inter_band_gaps
         result = (W, H)
 
     memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale)] = result
@@ -483,19 +505,40 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
     side_margins_h = [int(_horizontal_margin(node, slot) * node_h_scale) for slot in actual_slots]
     side_margins_v = [int(_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) * node_v_scale) for slot in actual_slots]
 
-    # --- Y staircase: backward walk so input[n-1] is closest to root ---
-    # Mirror the gap enlargement from compute_dims: when n > 1 (or all_side,
-    # which always inserts a dot), the gap must be at least side_margins_v[n-1].
-    raw_gap_closest = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
-    gap_closest = max(snap_threshold - 1, int(raw_gap_closest * node_v_scale))
-    if n > 1 or all_side:
-        gap_closest = max(gap_closest, side_margins_v[n - 1])
-    bottom_y = [0] * n
-    bottom_y[n - 1] = y - gap_closest
-    for i in range(n - 2, -1, -1):
-        bottom_y[i] = bottom_y[i + 1] - child_dims[i + 1][1] - side_margins_v[i + 1]
-
-    y_positions = [bottom_y[i] - inputs[i].screenHeight() for i in range(n)]
+    # --- Y placement: fan mode (uniform row) or staircase (backward walk) ---
+    if fan_active and n >= 3:
+        # Fan mode: determine mask_count from reordered input_slot_pairs.
+        # After reorder with fan_active=True: mask at front, non-mask inputs follow.
+        mask_count = sum(1 for slot, _ in input_slot_pairs if _is_mask_input(node, slot))
+        non_mask_start = mask_count  # non-mask inputs begin at this index after reorder
+        # Fan Y: all non-mask inputs at the same row; use B's (first non-mask) gap formula.
+        raw_gap_b = vertical_gap_between(inputs[non_mask_start], node, snap_threshold, scheme_multiplier)
+        gap_to_fan = max(snap_threshold - 1, int(raw_gap_b * node_v_scale))
+        gap_to_fan = max(gap_to_fan, side_margins_v[non_mask_start])
+        # All non-mask roots placed at fan_y (top-left corner = fan_y).
+        fan_y = y - gap_to_fan - inputs[non_mask_start].screenHeight()
+        y_positions = [0] * n
+        for i in range(non_mask_start, n):
+            y_positions[i] = fan_y  # same Y for all non-mask inputs
+        # Mask Y: own V-band, unaffected (existing _subtree_margin/mask_input_ratio logic).
+        for i in range(mask_count):
+            raw_gap_mask = vertical_gap_between(inputs[i], node, snap_threshold, scheme_multiplier)
+            gap_mask = max(snap_threshold - 1, int(raw_gap_mask * node_v_scale))
+            gap_mask = max(gap_mask, side_margins_v[i])
+            y_positions[i] = y - gap_mask - inputs[i].screenHeight()
+    else:
+        # Staircase Y: backward walk so input[n-1] is closest to root.
+        # Mirror the gap enlargement from compute_dims: when n > 1 (or all_side,
+        # which always inserts a dot), the gap must be at least side_margins_v[n-1].
+        raw_gap_closest = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+        gap_closest = max(snap_threshold - 1, int(raw_gap_closest * node_v_scale))
+        if n > 1 or all_side:
+            gap_closest = max(gap_closest, side_margins_v[n - 1])
+        bottom_y = [0] * n
+        bottom_y[n - 1] = y - gap_closest
+        for i in range(n - 2, -1, -1):
+            bottom_y[i] = bottom_y[i + 1] - child_dims[i + 1][1] - side_margins_v[i + 1]
+        y_positions = [bottom_y[i] - inputs[i].screenHeight() for i in range(n)]
 
     # --- X positions ---
     if all_side:
@@ -511,8 +554,25 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
         # input[0] centered above root; input[1] one step right of root's right edge.
         x_positions = [_center_x(inputs[0].screenWidth(), x, node.screenWidth()),
                        x + node.screenWidth() + side_margins_h[1]]
+    elif fan_active and n >= 3:
+        # Fan mode n >= 3: mask(s) placed LEFT; non-mask B centered above; A1/A2/... rightward.
+        # non_mask_start is already computed in the Y section above.
+        x_positions = [0] * n
+        # B (first non-mask) centered above consumer.
+        x_positions[non_mask_start] = _center_x(inputs[non_mask_start].screenWidth(), x, node.screenWidth())
+        # A1, A2, ... step rightward from consumer's right edge.
+        current_x = x + node.screenWidth() + (side_margins_h[non_mask_start + 1] if non_mask_start + 1 < n else 0)
+        for i in range(non_mask_start + 1, n):
+            x_positions[i] = current_x
+            if i + 1 < n:
+                current_x += child_dims[i][0] + side_margins_h[i + 1]
+        # Mask(s) placed LEFT of consumer.
+        for i in range(mask_count):
+            mask_gap_h = int(_horizontal_margin(node, actual_slots[i]) * node_h_scale)
+            mask_subtree_width = child_dims[i][0]
+            x_positions[i] = x - mask_gap_h - mask_subtree_width
     else:
-        # n >= 3: input[0] centered above root; inputs[1..n-1] step right from root's right edge.
+        # n >= 3 non-fan: input[0] centered above root; inputs[1..n-1] step right from root's right edge.
         x_positions = [_center_x(inputs[0].screenWidth(), x, node.screenWidth())]
         current_x = x + node.screenWidth() + side_margins_h[1]
         for i in range(1, n):
@@ -535,32 +595,50 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
                 node.setInput(actual_slots[i], dot)
                 inputs[i] = dot
     else:
-        # Only non-primary inputs (i > 0) need dots.
-        for i in range(1, n):
-            if inputs[i].Class() != 'Dot':
-                dot = nuke.nodes.Dot()
-                # Disconnect any auto-connection Nuke may have made, then wire inline.
-                for auto_slot in range(dot.inputs()):
-                    dot.setInput(auto_slot, None)
-                dot.setInput(0, inputs[i])
-                node.setInput(actual_slots[i], dot)
-                inputs[i] = dot
+        if fan_active and n >= 3:
+            # Fan mode: insert Dots for ALL inputs (non-mask including B at index non_mask_start, plus mask as side).
+            for i in range(n):
+                if inputs[i].Class() != 'Dot':
+                    dot = nuke.nodes.Dot()
+                    for auto_slot in range(dot.inputs()):
+                        dot.setInput(auto_slot, None)
+                    dot.setInput(0, inputs[i])
+                    node.setInput(actual_slots[i], dot)
+                    inputs[i] = dot
+        else:
+            # Non-fan: only non-primary inputs (i > 0) need dots.
+            for i in range(1, n):
+                if inputs[i].Class() != 'Dot':
+                    dot = nuke.nodes.Dot()
+                    # Disconnect any auto-connection Nuke may have made, then wire inline.
+                    for auto_slot in range(dot.inputs()):
+                        dot.setInput(auto_slot, None)
+                    dot.setInput(0, inputs[i])
+                    node.setInput(actual_slots[i], dot)
+                    inputs[i] = dot
 
     # --- Recurse ---
     for i, inp in enumerate(inputs):
-        is_side_dot = (all_side or i > 0) and inp.Class() == 'Dot' and not _hides_inputs(inp)
+        # In fan mode, ALL inputs (including B at non_mask_start) are treated as side inputs
+        # and get routing Dots. The not _hides_inputs guard prevents diamond Dots from
+        # being treated as routing Dots.
+        is_side_dot = (all_side or (fan_active and n >= 3) or i > 0) and inp.Class() == 'Dot' and not _hides_inputs(inp)
         if is_side_dot:
             # Newly inserted side-input dot (hide_input is False).
-            # Place the upstream subtree at the staircase position, then
+            # Place the upstream subtree at the fan/staircase position, then
             # position the dot itself separately.
             actual_upstream = inp.input(0)
             place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
             dot_center_x = x_positions[i] + actual_upstream.screenWidth() // 2
-            if i == n - 1:
-                # Bottom-most dot: centre it vertically beside the root node.
+            if fan_active and n >= 3:
+                # Fan mode: uniform Dot row — all Dots at the same Y regardless of index.
+                dot_row_y = y + (node.screenHeight() - inp.screenHeight()) // 2
+                dot_y = dot_row_y
+            elif i == n - 1:
+                # Staircase: bottom-most dot centred vertically beside the root node.
                 dot_y = y + (node.screenHeight() - inp.screenHeight()) // 2
             else:
-                # Staggered dot: placed below its input node using prefs-based margin.
+                # Staircase: staggered dot placed below its input node using prefs-based margin.
                 dot_y = y_positions[i] + actual_upstream.screenHeight() + int(_subtree_margin(node, actual_slots[n - 1], node_count, mode_multiplier=scheme_multiplier) * node_v_scale)
             inp.setXpos(dot_center_x - inp.screenWidth() // 2)
             inp.setYpos(dot_y)
