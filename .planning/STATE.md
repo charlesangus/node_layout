@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: completed
-stopped_at: Completed 09-multi-input-fan-alignment-mask-side-swap/09-01-PLAN.md
-last_updated: "2026-03-12T05:31:08.147Z"
+stopped_at: Completed 09-multi-input-fan-alignment-mask-side-swap/09-02-PLAN.md
+last_updated: "2026-03-12T05:36:17.052Z"
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
   percent: 100
 ---
 
@@ -52,6 +52,7 @@ Progress: [██████████] 100% (10 of 10 plans in phase 7)
 | Phase 08 P01 | 8 | 1 tasks | 1 files |
 | Phase 08 P02 | 5 | 2 tasks | 1 files |
 | Phase 09-multi-input-fan-alignment-mask-side-swap P01 | 5 | 1 tasks | 1 files |
+| Phase 09-multi-input-fan-alignment-mask-side-swap P02 | 5 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,8 @@ From Phase 6, Plan 01:
 - [Phase 08-02]: str() wraps label knob value before .strip() to guard against int 0 fallback from Nuke stubs
 - [Phase 08-02]: font_mult applied before final int() cast in margin helpers to preserve fractional precision
 - [Phase 09]: test_two_input_no_fan_regression and test_mask_right_when_no_fan_regression are expected to PASS RED — regression guards for unchanged n==2 behaviour
+- [Phase 09-multi-input-fan-alignment-mask-side-swap]: fan H formula uses single gap_to_fan (not 2x) — Dot row is inside consumer tile, no extra vertical band needed
+- [Phase 09-multi-input-fan-alignment-mask-side-swap]: mask side-swap: mask placed at x - mask_gap_h - mask_subtree_width when fan_active (3+ non-mask inputs)
 
 ### Pending Todos
 
@@ -125,6 +128,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-12T05:31:08.143Z
-Stopped at: Completed 09-multi-input-fan-alignment-mask-side-swap/09-01-PLAN.md
+Last session: 2026-03-12T05:36:17.049Z
+Stopped at: Completed 09-multi-input-fan-alignment-mask-side-swap/09-02-PLAN.md
 Resume file: None
