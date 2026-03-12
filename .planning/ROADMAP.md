@@ -110,7 +110,11 @@ Plans:
   2. Running "Expand Selected Vertical" increases only the vertical spacing between selected nodes, leaving horizontal positions unchanged
   3. All four axis-mode variants (Shrink/Expand x Selected/Upstream, each in H/V modes) appear as distinct menu commands and respond to modifier keys on existing shortcuts
   4. After running any Expand command, nodes outside the selection that would overlap the expanded tree are pushed away
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Write RED test scaffold for axis scaling, state write-back, repeat-last-scale, and expand push-away (14 failing tests)
+- [ ] 10-02-PLAN.md — Implement axis parameter in scale helpers, 8 new H/V wrappers, repeat_last_scale, and menu registration
 
 ### Phase 11: Horizontal B-Spine Layout
 **Goal**: Users can lay out a B-spine chain left-to-right, with the root node rightmost and each successive input(0) ancestor stepping left; this mode is stored in node state and replayed automatically by subsequent normal layout commands
@@ -135,5 +139,5 @@ Plans:
 | 7. Per-Node State Storage | 7/7 | Complete   | 2026-03-10 | - |
 | 8. Dot Font-Size Margin Scaling | 2/2 | Complete   | 2026-03-11 | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | 2/2 | Complete   | 2026-03-12 | - |
-| 10. Shrink/Expand H/V/Both + Expand Push-Away | v1.1 | 0/? | Not started | - |
+| 10. Shrink/Expand H/V/Both + Expand Push-Away | v1.1 | 0/2 | Not started | - |
 | 11. Horizontal B-Spine Layout | v1.1 | 0/? | Not started | - |
