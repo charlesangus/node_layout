@@ -26,8 +26,8 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 - [x] **Phase 6: Prefs Groundwork + Group Fix + Renames** - Add horizontal gap prefs, fix Group context bug, rename scheme commands (completed 2026-03-08)
 - [x] **Phase 7: Per-Node State Storage** - Store layout mode/scheme/scale on each node; survive script save/reload (completed 2026-03-10)
-- [ ] **Phase 8: Dot Font-Size Margin Scaling** - Scale subtree margin by Dot font size as section-boundary signal
-- [ ] **Phase 9: Multi-Input Fan Alignment + Mask Side-Swap** - Align fan inputs at same Y; move mask input left when non-mask inputs fill right
+- [x] **Phase 8: Dot Font-Size Margin Scaling** - Scale subtree margin by Dot font size as section-boundary signal (completed 2026-03-11)
+- [x] **Phase 9: Multi-Input Fan Alignment + Mask Side-Swap** - Align fan inputs at same Y; move mask input left when non-mask inputs fill right (completed 2026-03-12)
 - [ ] **Phase 10: Shrink/Expand H/V/Both + Expand Push-Away** - Axis-specific scale commands; expand pushes surrounding nodes
 - [ ] **Phase 11: Horizontal B-Spine Layout** - Left-to-right B-spine layout command; stored in state and replayed by normal layout
 
@@ -88,14 +88,18 @@ Plans:
 - [ ] 08-02-PLAN.md — Implement _dot_font_scale() and wire into _subtree_margin() and _horizontal_margin()
 
 ### Phase 9: Multi-Input Fan Alignment + Mask Side-Swap
-**Goal**: When a node has two or more non-mask inputs, all immediate input nodes sit at the same Y position and extend their subtrees upward in parallel; the mask input is placed to the left of all non-mask inputs rather than to the right
+**Goal**: When a node has 3 or more non-mask inputs, all immediate input nodes sit at the same Y position and extend their subtrees upward in parallel; the mask input is placed to the left of all non-mask inputs rather than to the right
 **Depends on**: Phase 7
 **Requirements**: LAYOUT-01, LAYOUT-02
 **Success Criteria** (what must be TRUE):
-  1. A Merge node with two non-mask inputs (A and B) produces both immediate input nodes at the same Y position after layout, with their subtrees fanning upward from that shared Y
-  2. A Merge node with a mask input and two or more non-mask inputs places the mask input to the left of all non-mask inputs after layout
-  3. A node with only one non-mask input (plus optional mask) is unaffected — existing stacking behavior is preserved
-**Plans**: TBD
+  1. A node with 3+ non-mask inputs produces all immediate input nodes at the same Y position after layout, with their subtrees fanning upward from that shared Y
+  2. A node with 3+ non-mask inputs and a mask input places the mask input to the left of all non-mask inputs after layout
+  3. A node with only 1 or 2 non-mask inputs (plus optional mask) is unaffected — existing stacking behavior is preserved
+**Plans**: 2 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Write RED test scaffold for fan alignment (8 failing tests)
+- [ ] 09-02-PLAN.md — Implement _is_fan_active, fan branches in compute_dims and place_subtree, mask-left placement
 
 ### Phase 10: Shrink/Expand H/V/Both + Expand Push-Away
 **Goal**: Users can compress or expand node trees along a specific axis (horizontal, vertical, or both); expanding a tree pushes surrounding nodes aside using the same push logic as a full layout operation
@@ -129,7 +133,7 @@ Plans:
 | 5. New Commands & Scheme | v1.0 | 4/4 | Complete | 2026-03-05 |
 | 6. Prefs Groundwork + Group Fix + Renames | 4/4 | Complete   | 2026-03-08 | - |
 | 7. Per-Node State Storage | 7/7 | Complete   | 2026-03-10 | - |
-| 8. Dot Font-Size Margin Scaling | v1.1 | 0/2 | Not started | - |
-| 9. Multi-Input Fan Alignment + Mask Side-Swap | v1.1 | 0/? | Not started | - |
+| 8. Dot Font-Size Margin Scaling | 2/2 | Complete   | 2026-03-11 | - |
+| 9. Multi-Input Fan Alignment + Mask Side-Swap | 2/2 | Complete   | 2026-03-12 | - |
 | 10. Shrink/Expand H/V/Both + Expand Push-Away | v1.1 | 0/? | Not started | - |
 | 11. Horizontal B-Spine Layout | v1.1 | 0/? | Not started | - |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: completed
-stopped_at: Completed 07-07-PLAN.md — wired h_scale/v_scale from per-node state into compute_dims/place_subtree and layout entry points
-last_updated: "2026-03-10T12:00:45.271Z"
+stopped_at: Completed 09-multi-input-fan-alignment-mask-side-swap/09-02-PLAN.md
+last_updated: "2026-03-12T05:38:48.611Z"
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
+  completed_phases: 4
+  total_plans: 16
+  completed_plans: 16
   percent: 100
 ---
 
@@ -49,6 +49,10 @@ Progress: [██████████] 100% (10 of 10 plans in phase 7)
 | Phase 07 P04 | 2 | 1 tasks | 2 files |
 | Phase 07 P06 | 2 | 1 tasks | 3 files |
 | Phase 07 P07 | 4 | 2 tasks | 2 files |
+| Phase 08 P01 | 8 | 1 tasks | 1 files |
+| Phase 08 P02 | 5 | 2 tasks | 1 files |
+| Phase 09-multi-input-fan-alignment-mask-side-swap P01 | 5 | 1 tasks | 1 files |
+| Phase 09-multi-input-fan-alignment-mask-side-swap P02 | 5 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -106,6 +110,12 @@ From Phase 6, Plan 01:
 - [Phase 07-07]: h_scale/v_scale read at entry points only (layout_upstream, layout_selected) — mid-recursion reads break memoization; same pattern as per_node_scheme → root_scheme_multiplier
 - [Phase 07-07]: Vertical gap scaling uses max(snap_threshold-1, int(gap * v_scale)) floor — same-color tight-gap is a minimum constraint not a spacing preference
 - [Phase 07-07]: compute_dims memo key extended to (id(node), scheme_multiplier, h_scale, v_scale) — prevents cache collisions when h_scale/v_scale differ across calls
+- [Phase 08]: test_default_font_no_change passes at RED by design — regression guard is trivially true before implementation; correct expected RED state for that test
+- [Phase 08-02]: str() wraps label knob value before .strip() to guard against int 0 fallback from Nuke stubs
+- [Phase 08-02]: font_mult applied before final int() cast in margin helpers to preserve fractional precision
+- [Phase 09]: test_two_input_no_fan_regression and test_mask_right_when_no_fan_regression are expected to PASS RED — regression guards for unchanged n==2 behaviour
+- [Phase 09-multi-input-fan-alignment-mask-side-swap]: fan H formula uses single gap_to_fan (not 2x) — Dot row is inside consumer tile, no extra vertical band needed
+- [Phase 09-multi-input-fan-alignment-mask-side-swap]: mask side-swap: mask placed at x - mask_gap_h - mask_subtree_width when fan_active (3+ non-mask inputs)
 
 ### Pending Todos
 
@@ -118,6 +128,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10T11:56:00.000Z
-Stopped at: Completed 07-07-PLAN.md — wired h_scale/v_scale from per-node state into compute_dims/place_subtree and layout entry points
+Last session: 2026-03-12T05:36:17.049Z
+Stopped at: Completed 09-multi-input-fan-alignment-mask-side-swap/09-02-PLAN.md
 Resume file: None
