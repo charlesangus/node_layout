@@ -177,14 +177,45 @@ def _center_x(child_width, parent_x, parent_width):
     return parent_x + (parent_width - child_width) // 2
 
 
-def _reorder_inputs_mask_last(input_slot_pairs, node, all_side):
+def _is_fan_active(input_slot_pairs, node):
+    """Return True when 3+ non-mask inputs are present (fan mode trigger).
+
+    Fan mode activates at 3+ non-mask inputs.  A standard Merge2 (B + A = 2
+    non-mask inputs) is NOT affected — staircase behaviour is preserved.
+    """
+    non_mask_count = sum(
+        1 for slot, _ in input_slot_pairs if not _is_mask_input(node, slot)
+    )
+    return non_mask_count >= 3
+
+
+def _reorder_inputs_mask_last(input_slot_pairs, node, all_side, fan_active=False):
     """Move mask side inputs to the end so they appear rightmost when n > 2.
 
     In normal mode (not all_side), input[0] is the primary (above), so only the
     side inputs (index 1+) are reordered.  In all_side mode, every input is a
     side input, so the whole list is reordered.  When n <= 2 there is at most one
     side input so ordering is moot.
+
+    When fan_active=True, mask inputs are moved to the FRONT (leftmost placement)
+    so that place_subtree can position them to the left of the consumer.  Relative
+    order within each group (mask vs non-mask) is preserved.
     """
+    if fan_active and len(input_slot_pairs) > 2:
+        # Fan mode: mask goes to the FRONT (leftmost placement).
+        # Preserves relative order within mask and non-mask groups.
+        if all_side:
+            mask_inputs = [(slot, inp) for slot, inp in input_slot_pairs if _is_mask_input(node, slot)]
+            non_mask = [(slot, inp) for slot, inp in input_slot_pairs if not _is_mask_input(node, slot)]
+        else:
+            primary = input_slot_pairs[:1]
+            side = input_slot_pairs[1:]
+            side_non_mask = [(slot, inp) for slot, inp in side if not _is_mask_input(node, slot)]
+            side_mask = [(slot, inp) for slot, inp in side if _is_mask_input(node, slot)]
+            mask_inputs = side_mask
+            non_mask = primary + side_non_mask
+        return mask_inputs + non_mask
+
     if len(input_slot_pairs) <= 2:
         return input_slot_pairs
     if all_side:
@@ -321,7 +352,8 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
 
     input_slot_pairs = _get_input_slot_pairs(node, node_filter)
     all_side = _primary_slot_externally_occupied(node, node_filter)
-    input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side)
+    fan_active = _is_fan_active(input_slot_pairs, node)
+    input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side, fan_active=fan_active)
     inputs = [inp for _, inp in input_slot_pairs]
     side_margins_h = [int(_horizontal_margin(node, slot) * node_h_scale) for slot, _ in input_slot_pairs]
     side_margins_v = [int(_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) * node_v_scale) for slot, _ in input_slot_pairs]
@@ -442,7 +474,8 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
         return
 
     all_side = _primary_slot_externally_occupied(node, node_filter)
-    input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side)
+    fan_active = _is_fan_active(input_slot_pairs, node)
+    input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side, fan_active=fan_active)
     actual_slots = [slot for slot, _ in input_slot_pairs]
     inputs = [inp for _, inp in input_slot_pairs]
     n = len(inputs)
