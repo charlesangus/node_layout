@@ -37,9 +37,9 @@ Requirements for the Layout Engine & State milestone. Each maps to roadmap phase
 
 ### Scale Commands
 
-- [ ] **SCALE-01**: Shrink/Expand Selected and Upstream commands support Horizontal, Vertical, and Both axis modes
-- [ ] **SCALE-02**: Axis mode is selectable via separate menu commands (e.g. "Shrink Selected Horizontal") and via modifier keys on existing shortcuts
-- [ ] **SCALE-03**: Expand Selected and Expand Upstream push surrounding nodes away after expanding (same push logic as regular layout)
+- [x] **SCALE-01**: Shrink/Expand Selected and Upstream commands support Horizontal, Vertical, and Both axis modes
+- [x] **SCALE-02**: Axis mode is selectable via separate menu commands (e.g. "Shrink Selected Horizontal") and via modifier keys on existing shortcuts
+- [x] **SCALE-03**: Expand Selected and Expand Upstream push surrounding nodes away after expanding (same push logic as regular layout)
 
 ### Command Renames
 
@@ -84,9 +84,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LAYOUT-03 | Phase 8 | Complete |
 | LAYOUT-01 | Phase 9 | Complete |
 | LAYOUT-02 | Phase 9 | Complete |
-| SCALE-01 | Phase 10 | Pending |
-| SCALE-02 | Phase 10 | Pending |
-| SCALE-03 | Phase 10 | Pending |
+| SCALE-01 | Phase 10 | Complete |
+| SCALE-02 | Phase 10 | Complete |
+| SCALE-03 | Phase 10 | Complete |
 | HORIZ-01 | Phase 11 | Pending |
 | HORIZ-02 | Phase 11 | Pending |
 | HORIZ-03 | Phase 11 | Pending |

@@ -139,5 +139,5 @@ Plans:
 | 7. Per-Node State Storage | 7/7 | Complete   | 2026-03-10 | - |
 | 8. Dot Font-Size Margin Scaling | 2/2 | Complete   | 2026-03-11 | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | 2/2 | Complete   | 2026-03-12 | - |
-| 10. Shrink/Expand H/V/Both + Expand Push-Away | v1.1 | 0/2 | Not started | - |
+| 10. Shrink/Expand H/V/Both + Expand Push-Away | 1/2 | In Progress|  | - |
 | 11. Horizontal B-Spine Layout | v1.1 | 0/? | Not started | - |

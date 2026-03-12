@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: completed
-stopped_at: Completed 09-multi-input-fan-alignment-mask-side-swap/09-02-PLAN.md
-last_updated: "2026-03-12T05:38:48.611Z"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-03-12T13:00:28.625Z"
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 18
+  completed_plans: 17
   percent: 100
 ---
 
@@ -53,6 +53,7 @@ Progress: [██████████] 100% (10 of 10 plans in phase 7)
 | Phase 08 P02 | 5 | 2 tasks | 1 files |
 | Phase 09-multi-input-fan-alignment-mask-side-swap P01 | 5 | 1 tasks | 1 files |
 | Phase 09-multi-input-fan-alignment-mask-side-swap P02 | 5 | 2 tasks | 1 files |
+| Phase 10-shrink-expand-h-v-both-expand-push-away P01 | 2 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,8 @@ From Phase 6, Plan 01:
 - [Phase 09]: test_two_input_no_fan_regression and test_mask_right_when_no_fan_regression are expected to PASS RED — regression guards for unchanged n==2 behaviour
 - [Phase 09-multi-input-fan-alignment-mask-side-swap]: fan H formula uses single gap_to_fan (not 2x) — Dot row is inside consumer tile, no extra vertical band needed
 - [Phase 09-multi-input-fan-alignment-mask-side-swap]: mask side-swap: mask placed at x - mask_gap_h - mask_subtree_width when fan_active (3+ non-mask inputs)
+- [Phase 10-shrink-expand-h-v-both-expand-push-away]: Test count is 15 not 14 — plan's class enumeration yields 15 behaviors across 6 classes; all fail RED correctly
+- [Phase 10-shrink-expand-h-v-both-expand-push-away]: lastHitGroup stub added to nuke stub in test file — expand wrappers call nuke.lastHitGroup() as first line, stub must expose it
 
 ### Pending Todos
 
@@ -128,6 +131,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-12T05:36:17.049Z
-Stopped at: Completed 09-multi-input-fan-alignment-mask-side-swap/09-02-PLAN.md
+Last session: 2026-03-12T13:00:24.190Z
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
