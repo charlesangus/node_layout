@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: executing
-stopped_at: Completed 11-02-PLAN.md (place_subtree_horizontal + _find_or_create_output_dot)
-last_updated: "2026-03-13T00:55:36.598Z"
+stopped_at: Completed 11-03-PLAN.md (layout_upstream_horizontal, layout_selected_horizontal, mode dispatch, menu registration)
+last_updated: "2026-03-13T01:02:33.299Z"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
   percent: 33
 ---
 
@@ -57,6 +57,7 @@ Progress: [█░░] 33% (1 of 3 plans in phase 11)
 | Phase 10-shrink-expand-h-v-both-expand-push-away P02 | 6 | 2 tasks | 3 files |
 | Phase 11-horizontal-b-spine-layout P01 | 3 | 1 tasks | 1 files |
 | Phase 11-horizontal-b-spine-layout P02 | 3 | 2 tasks | 1 files |
+| Phase 11-horizontal-b-spine-layout P03 | 6 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -129,6 +130,8 @@ From Phase 6, Plan 01:
 - [Phase 11-01]: TestModeReplay checks both "horizontal" string AND "place_subtree_horizontal" in layout_upstream() body — two-condition AST prevents comment-only false pass
 - [Phase 11-02]: _find_or_create_output_dot takes (root, consumer_node, consumer_slot, current_group) — consumer passed directly; tests are acceptance criteria
 - [Phase 11-02]: Two-pass spine walk: first pass accumulates mask kink Y (ancestor-first), second pass places spine nodes — clean cumulative kink without backward reference
+- [Phase 11]: compute_dims memo key uses inline tuple syntax (not memo_key variable) — AST test checks for 'node_h_scale' within 80 chars of 'memo['; named variable breaks test
+- [Phase 11]: layout_selected() mode dispatch is per-root — each root reads its own stored mode independently; roots in same selection can mix horizontal and vertical
 
 ### Pending Todos
 
@@ -141,6 +144,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-13T00:55:36.595Z
-Stopped at: Completed 11-02-PLAN.md (place_subtree_horizontal + _find_or_create_output_dot)
+Last session: 2026-03-13T01:02:33.295Z
+Stopped at: Completed 11-03-PLAN.md (layout_upstream_horizontal, layout_selected_horizontal, mode dispatch, menu registration)
 Resume file: None

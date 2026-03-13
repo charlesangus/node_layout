@@ -29,7 +29,7 @@ Full archive: `.planning/milestones/v1.0-ROADMAP.md`
 - [x] **Phase 8: Dot Font-Size Margin Scaling** - Scale subtree margin by Dot font size as section-boundary signal (completed 2026-03-11)
 - [x] **Phase 9: Multi-Input Fan Alignment + Mask Side-Swap** - Align fan inputs at same Y; move mask input left when non-mask inputs fill right (completed 2026-03-12)
 - [x] **Phase 10: Shrink/Expand H/V/Both + Expand Push-Away** - Axis-specific scale commands; expand pushes surrounding nodes (completed 2026-03-12)
-- [ ] **Phase 11: Horizontal B-Spine Layout** - Left-to-right B-spine layout command; stored in state and replayed by normal layout
+- [x] **Phase 11: Horizontal B-Spine Layout** - Left-to-right B-spine layout command; stored in state and replayed by normal layout (completed 2026-03-13)
 
 ## Phase Details
 
@@ -145,4 +145,4 @@ Plans:
 | 8. Dot Font-Size Margin Scaling | 2/2 | Complete   | 2026-03-11 | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | 2/2 | Complete   | 2026-03-12 | - |
 | 10. Shrink/Expand H/V/Both + Expand Push-Away | 2/2 | Complete    | 2026-03-12 | - |
-| 11. Horizontal B-Spine Layout | 2/3 | In Progress|  | - |
+| 11. Horizontal B-Spine Layout | 3/3 | Complete   | 2026-03-13 | - |
