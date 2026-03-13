@@ -400,6 +400,121 @@ def _find_or_create_output_dot(root, consumer_node, consumer_slot, current_group
     return dot
 
 
+def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
+                             scheme_multiplier=None, per_node_h_scale=None,
+                             per_node_v_scale=None, current_prefs=None,
+                             current_group=None, memo=None):
+    """Lay out a B-spine subtree horizontally.
+
+    Root is placed at (spine_x, spine_y). Each input[0] ancestor is placed one
+    step to the left: step_x = horizontal_subtree_gap * scheme_multiplier + node.screenWidth().
+    Side inputs (input[1+]) are placed above (lower Y) their spine node.
+
+    Mask kink: when a spine node has a mask input, all spine nodes closer to root
+    (downstream, i.e. lower index in the spine list) drop by the mask subtree height
+    to clear the mask subtree above that spine node.
+
+    Coordinate system: positive X is right; positive Y is down (Nuke DAG).
+
+    Args:
+        root: Rightmost node in the spine (root of the horizontal subtree).
+        spine_x: X position for the root node.
+        spine_y: Baseline Y position for the spine (before any kink adjustment).
+        snap_threshold: DAG snap threshold in pixels.
+        node_count: Total node count for margin scaling formulas.
+        scheme_multiplier: Layout scheme multiplier; resolved from prefs if None.
+        per_node_h_scale: Per-node horizontal scale dict {id(node): float}, or None.
+        per_node_v_scale: Per-node vertical scale dict {id(node): float}, or None.
+        current_prefs: Prefs singleton override; uses prefs_singleton if None.
+        current_group: Current Nuke group context, or None for root context.
+        memo: Shared compute_dims memo dict; created locally if None.
+    """
+    current_prefs = current_prefs or node_layout_prefs.prefs_singleton
+    if scheme_multiplier is None:
+        scheme_multiplier = current_prefs.get("normal_multiplier")
+    if memo is None:
+        memo = {}
+
+    # Step between spine nodes: gap + the upstream node's own width.
+    # Applied incrementally: after placing spine[i], the next node to the left
+    # starts at cur_x - step_x - upstream_node.screenWidth().
+    step_x = int(current_prefs.get("horizontal_subtree_gap") * scheme_multiplier)
+
+    # Build the spine list: [root, ancestor1, ancestor2, ...]
+    # root is index 0 (rightmost); last element is farthest ancestor (leftmost).
+    spine_nodes = []
+    cursor = root
+    while cursor is not None:
+        spine_nodes.append(cursor)
+        cursor = cursor.input(0)
+
+    # --- First pass: walk spine from farthest ancestor toward root (reverse order).
+    # Accumulate cumulative_kink_y from mask inputs encountered on each spine node.
+    # Each spine node closer to root (lower index) drops by the accumulated kink
+    # so that it clears the mask subtrees above nodes further upstream.
+    #
+    # kink_y_per_index[i] = total Y drop applied to spine_nodes[i].
+    # We accumulate from the upstream end (high index) toward root (index 0).
+    kink_y_per_index = [0] * len(spine_nodes)
+    cumulative_kink_y = 0
+
+    for reverse_index in range(len(spine_nodes) - 1, -1, -1):
+        spine_node = spine_nodes[reverse_index]
+
+        # Apply the kink accumulated so far (from nodes further upstream) to
+        # this node's downstream neighbors. Assign cumulative kink to this node
+        # BEFORE checking its own mask so that a node's own mask drops nodes
+        # closer to root (lower indices), not itself.
+        kink_y_per_index[reverse_index] = cumulative_kink_y
+
+        # Check for mask inputs on this spine node; add their subtree height to
+        # the cumulative kink that will affect all nodes closer to root.
+        for slot_index in range(spine_node.inputs()):
+            if slot_index == 0:
+                continue  # B-spine slot, not a side/mask input
+            input_node = spine_node.input(slot_index)
+            if input_node is None:
+                continue
+            if _is_mask_input(spine_node, slot_index):
+                mask_dims = compute_dims(
+                    input_node, memo, snap_threshold, node_count,
+                    scheme_multiplier=scheme_multiplier,
+                    per_node_h_scale=per_node_h_scale,
+                    per_node_v_scale=per_node_v_scale,
+                )
+                mask_height = mask_dims[1]
+                mask_margin = _subtree_margin(
+                    spine_node, slot_index, node_count,
+                    mode_multiplier=scheme_multiplier,
+                )
+                cumulative_kink_y += mask_height + mask_margin
+
+    # --- Second pass: place each spine node at its final X/Y position.
+    # Track cur_x incrementally from spine_x leftward.
+    cur_x = spine_x
+    for index, spine_node in enumerate(spine_nodes):
+        cur_y = spine_y + kink_y_per_index[index]
+        spine_node.setXpos(cur_x)
+        spine_node.setYpos(cur_y)
+
+        # Place side inputs (slots 1+) above this spine node.
+        for slot_index in range(1, spine_node.inputs()):
+            side_node = spine_node.input(slot_index)
+            if side_node is None:
+                continue
+            # Place above the spine node: lower Y value = higher on screen.
+            raw_gap = vertical_gap_between(side_node, spine_node, snap_threshold, scheme_multiplier)
+            side_y = cur_y - raw_gap - side_node.screenHeight()
+            side_x = _center_x(side_node.screenWidth(), cur_x, spine_node.screenWidth())
+            side_node.setXpos(side_x)
+            side_node.setYpos(side_y)
+
+        # Advance cur_x leftward for the next upstream spine node.
+        if index + 1 < len(spine_nodes):
+            next_spine_node = spine_nodes[index + 1]
+            cur_x = cur_x - step_x - next_spine_node.screenWidth()
+
+
 def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None, per_node_h_scale=None, per_node_v_scale=None):
     node_h_scale = per_node_h_scale.get(id(node), 1.0) if per_node_h_scale else 1.0
     node_v_scale = per_node_v_scale.get(id(node), 1.0) if per_node_v_scale else 1.0
