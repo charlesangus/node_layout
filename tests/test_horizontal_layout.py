@@ -250,13 +250,12 @@ class TestHorizontalAST(unittest.TestCase):
             "must be added in Phase 11 Plan 02"
         )
 
-    def test_layout_upstream_horizontal_exists(self):
-        """layout_upstream_horizontal must be defined in node_layout.py."""
+    def test_layout_selected_horizontal_place_only_exists(self):
+        """layout_selected_horizontal_place_only must be defined in node_layout.py."""
         self.assertIn(
-            "layout_upstream_horizontal",
+            "layout_selected_horizontal_place_only",
             self.function_names,
-            "layout_upstream_horizontal() is missing from node_layout.py — "
-            "must be added in Phase 11 Plan 02"
+            "layout_selected_horizontal_place_only() is missing from node_layout.py"
         )
 
     def test_layout_selected_horizontal_exists(self):

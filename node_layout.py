@@ -403,21 +403,35 @@ def _find_or_create_output_dot(root, consumer_node, consumer_slot, current_group
 def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                              scheme_multiplier=None, per_node_h_scale=None,
                              per_node_v_scale=None, current_prefs=None,
-                             current_group=None, memo=None):
+                             current_group=None, memo=None,
+                             spine_set=None, side_layout_mode="place_only"):
     """Lay out a B-spine subtree horizontally.
 
-    Root is placed at (spine_x, spine_y). Each input[0] ancestor is placed one
-    step to the left: step_x = horizontal_subtree_gap * scheme_multiplier + node.screenWidth().
-    Side inputs (input[1+]) are placed above (lower Y) their spine node.
+    Root is placed at (spine_x, spine_y). Each input[0] ancestor that belongs to
+    the spine is placed one step to the left.
+
+    Spine membership is controlled by spine_set: if provided (a set of node id()
+    values), only nodes whose id() is in spine_set are included. The spine walk
+    stops at the first input[0] that is not in spine_set. If spine_set is None,
+    all input[0] ancestors are included (original behaviour).
+
+    Side inputs are all inputs[1+] of any spine node, plus input[0] of the
+    farthest spine node when that node is not a member of the spine.
+
+    side_layout_mode controls how side inputs are handled:
+    - "place_only": position the side input root node only (no recursive layout).
+    - "recursive": call place_subtree() on each side input root to lay out its
+      full upstream subtree vertically above the spine node.
 
     Mask kink: when a spine node has a mask input, all spine nodes closer to root
     (downstream, i.e. lower index in the spine list) drop by the mask subtree height
-    to clear the mask subtree above that spine node.
+    to clear the mask subtree above that spine node. Kink applies regardless of
+    side_layout_mode.
 
     Coordinate system: positive X is right; positive Y is down (Nuke DAG).
 
     Args:
-        root: Rightmost node in the spine (root of the horizontal subtree).
+        root: Rightmost node in the spine.
         spine_x: X position for the root node.
         spine_y: Baseline Y position for the spine (before any kink adjustment).
         snap_threshold: DAG snap threshold in pixels.
@@ -428,6 +442,9 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
         current_prefs: Prefs singleton override; uses prefs_singleton if None.
         current_group: Current Nuke group context, or None for root context.
         memo: Shared compute_dims memo dict; created locally if None.
+        spine_set: Set of node id() values that form the spine, or None for all input[0].
+        side_layout_mode: "place_only" to reposition side input root only, or
+            "recursive" to recursively lay out each side input subtree vertically.
     """
     current_prefs = current_prefs or node_layout_prefs.prefs_singleton
     if scheme_multiplier is None:
@@ -441,10 +458,13 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
     step_x = int(current_prefs.get("horizontal_subtree_gap") * scheme_multiplier)
 
     # Build the spine list: [root, ancestor1, ancestor2, ...]
-    # root is index 0 (rightmost); last element is farthest ancestor (leftmost).
+    # root is index 0 (rightmost); last element is farthest spine ancestor (leftmost).
+    # When spine_set is provided, stop at the first input[0] not in spine_set.
     spine_nodes = []
     cursor = root
     while cursor is not None:
+        if spine_set is not None and id(cursor) not in spine_set:
+            break
         spine_nodes.append(cursor)
         cursor = cursor.input(0)
 
@@ -471,7 +491,7 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
         # the cumulative kink that will affect all nodes closer to root.
         for slot_index in range(spine_node.inputs()):
             if slot_index == 0:
-                continue  # B-spine slot, not a side/mask input
+                continue  # primary input — side-input check handled separately below
             input_node = spine_node.input(slot_index)
             if input_node is None:
                 continue
@@ -497,17 +517,45 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
         spine_node.setXpos(cur_x)
         spine_node.setYpos(cur_y)
 
-        # Place side inputs (slots 1+) above this spine node.
-        for slot_index in range(1, spine_node.inputs()):
+        # Determine the side input slots for this spine node.
+        # Slots 1+ are always side inputs.
+        # For the farthest spine node (last index), input[0] is also a side input
+        # when it is not a member of the spine (i.e. spine_set is active and the
+        # node is not selected).
+        is_last_spine_node = (index == len(spine_nodes) - 1)
+        side_slots = list(range(1, spine_node.inputs()))
+        if is_last_spine_node and spine_set is not None:
+            primary_input = spine_node.input(0)
+            if primary_input is not None and id(primary_input) not in spine_set:
+                side_slots = [0] + side_slots
+
+        # Place each side input above this spine node.
+        for slot_index in side_slots:
             side_node = spine_node.input(slot_index)
             if side_node is None:
                 continue
-            # Place above the spine node: lower Y value = higher on screen.
+            # Position above the spine node: lower Y = higher on screen.
             raw_gap = vertical_gap_between(side_node, spine_node, snap_threshold, scheme_multiplier)
             side_y = cur_y - raw_gap - side_node.screenHeight()
             side_x = _center_x(side_node.screenWidth(), cur_x, spine_node.screenWidth())
-            side_node.setXpos(side_x)
-            side_node.setYpos(side_y)
+            if side_layout_mode == "recursive":
+                side_subtree_nodes = collect_subtree_nodes(side_node)
+                side_node_count = len(side_subtree_nodes)
+                compute_dims(
+                    side_node, memo, snap_threshold, side_node_count,
+                    scheme_multiplier=scheme_multiplier,
+                    per_node_h_scale=per_node_h_scale,
+                    per_node_v_scale=per_node_v_scale,
+                )
+                place_subtree(
+                    side_node, side_x, side_y, memo, snap_threshold, side_node_count,
+                    scheme_multiplier=scheme_multiplier,
+                    per_node_h_scale=per_node_h_scale,
+                    per_node_v_scale=per_node_v_scale,
+                )
+            else:
+                side_node.setXpos(side_x)
+                side_node.setYpos(side_y)
 
         # Advance cur_x leftward for the next upstream spine node.
         if index + 1 < len(spine_nodes):
@@ -947,7 +995,19 @@ def layout_upstream(scheme_multiplier=None):
             root_stored_state = node_layout_state.read_node_state(root)
             root_mode = root_stored_state.get("mode", "vertical")
 
+            # When replaying horizontal, build the spine_set by walking input[0] and
+            # collecting consecutive nodes whose stored mode is "horizontal". The spine
+            # ends at the first node whose mode differs.
+            replay_spine_set = None
             if root_mode == "horizontal":
+                replay_spine_set = set()
+                cursor = root
+                while cursor is not None:
+                    cursor_state = node_layout_state.read_node_state(cursor)
+                    if cursor_state.get("mode") != "horizontal":
+                        break
+                    replay_spine_set.add(id(cursor))
+                    cursor = cursor.input(0)
                 place_subtree_horizontal(
                     root, root.xpos(), root.ypos(), snap_threshold, node_count,
                     scheme_multiplier=root_scheme_multiplier,
@@ -956,6 +1016,8 @@ def layout_upstream(scheme_multiplier=None):
                     current_prefs=current_prefs,
                     current_group=current_group,
                     memo=memo,
+                    spine_set=replay_spine_set,
+                    side_layout_mode="recursive",
                 )
                 _find_or_create_output_dot(root, root, 0, current_group)
             else:
@@ -967,8 +1029,9 @@ def layout_upstream(scheme_multiplier=None):
             # Capture final state (includes any newly inserted Dot nodes)
             final_subtree_nodes = collect_subtree_nodes(root)
 
-            # State write-back: record per-node scheme and mode on every layout-touched node
-            layout_mode_to_write = "horizontal" if root_mode == "horizontal" else "vertical"
+            # State write-back: record per-node scheme and mode on every layout-touched node.
+            # For horizontal replay: spine nodes keep mode="horizontal"; side input subtrees
+            # (laid out vertically) get mode="vertical".
             for state_node in final_subtree_nodes:
                 stored_state = node_layout_state.read_node_state(state_node)
                 node_scheme_multiplier = per_node_scheme.get(
@@ -977,7 +1040,10 @@ def layout_upstream(scheme_multiplier=None):
                 stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
                     node_scheme_multiplier, current_prefs
                 )
-                stored_state["mode"] = layout_mode_to_write
+                if root_mode == "horizontal":
+                    stored_state["mode"] = "horizontal" if id(state_node) in replay_spine_set else "vertical"
+                else:
+                    stored_state["mode"] = "vertical"
                 # h_scale and v_scale are NOT reset by re-layout — preserve existing values
                 node_layout_state.write_node_state(state_node, stored_state)
 
@@ -1047,18 +1113,28 @@ def layout_selected(scheme_multiplier=None):
             snap_threshold = get_dag_snap_threshold()
             memo = {}
             placed_bboxes = []  # list of (left, top, right, bottom) for already-placed trees
-            # Track which mode each root used so state write-back records the correct mode.
-            root_mode_map = {}  # maps id(root) -> "horizontal" or "vertical"
+            # Maps id(root) -> spine_set (set of node ids) for roots that replay horizontal.
+            spine_sets_by_root = {}
             for root in roots:
                 root_stored_state = node_layout_state.read_node_state(root)
                 root_mode = root_stored_state.get("mode", "vertical")
-                root_mode_map[id(root)] = root_mode
 
                 root_scheme_multiplier = per_node_scheme.get(
                     id(root), current_prefs.get("normal_multiplier")
                 )
 
                 if root_mode == "horizontal":
+                    # Build spine_set by walking input[0] and collecting consecutive
+                    # nodes whose stored mode is "horizontal".
+                    root_spine_set = set()
+                    cursor = root
+                    while cursor is not None:
+                        cursor_state = node_layout_state.read_node_state(cursor)
+                        if cursor_state.get("mode") != "horizontal":
+                            break
+                        root_spine_set.add(id(cursor))
+                        cursor = cursor.input(0)
+                    spine_sets_by_root[id(root)] = root_spine_set
                     place_subtree_horizontal(
                         root, root.xpos(), root.ypos(), snap_threshold, node_count,
                         scheme_multiplier=root_scheme_multiplier,
@@ -1067,6 +1143,8 @@ def layout_selected(scheme_multiplier=None):
                         current_prefs=current_prefs,
                         current_group=current_group,
                         memo=memo,
+                        spine_set=root_spine_set,
+                        side_layout_mode="recursive",
                     )
                     _find_or_create_output_dot(root, root, 0, current_group)
                 else:
@@ -1086,7 +1164,13 @@ def layout_selected(scheme_multiplier=None):
                     place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
                     placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
 
-            # State write-back: record per-node scheme and mode on every layout-touched node
+            # Aggregate all horizontal spine node ids across all roots.
+            all_horizontal_spine_ids = set()
+            for root_spine_set in spine_sets_by_root.values():
+                all_horizontal_spine_ids.update(root_spine_set)
+
+            # State write-back: record per-node scheme and mode on every layout-touched node.
+            # Spine nodes keep mode="horizontal"; all others get mode="vertical".
             all_touched_nodes = set()
             for state_root in roots:
                 all_touched_nodes.update(collect_subtree_nodes(state_root, node_filter=node_filter))
@@ -1098,14 +1182,7 @@ def layout_selected(scheme_multiplier=None):
                 stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
                     node_scheme_multiplier, current_prefs
                 )
-                # Determine which mode this node's root used.
-                node_layout_mode = "vertical"
-                for state_root in roots:
-                    root_subtree = collect_subtree_nodes(state_root, node_filter=node_filter)
-                    if any(id(sn) == id(state_node) for sn in root_subtree):
-                        node_layout_mode = root_mode_map.get(id(state_root), "vertical")
-                        break
-                stored_state["mode"] = node_layout_mode
+                stored_state["mode"] = "horizontal" if id(state_node) in all_horizontal_spine_ids else "vertical"
                 node_layout_state.write_node_state(state_node, stored_state)
 
             # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
@@ -1145,125 +1222,31 @@ def layout_selected_loose():
     layout_selected(scheme_multiplier=node_layout_prefs.prefs_singleton.get("loose_multiplier"))
 
 
-def layout_upstream_horizontal(scheme_multiplier=None):
-    """Layout the upstream subtree of the selected node using the horizontal B-spine algorithm.
-
-    Writes mode='horizontal' to state so that subsequent layout_upstream() calls
-    replay the horizontal layout automatically (HORIZ-03 mode replay).
-    """
-    global _TOOLBAR_FOLDER_MAP
-    _TOOLBAR_FOLDER_MAP = None
-    _clear_color_cache()
-    current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
-    root = nuke.selectedNode()
-
-    nuke.Undo.name("Layout Upstream Horizontal")
-    nuke.Undo.begin()
-    try:
-        with current_group:
-            # Capture starting state before any changes
-            original_subtree_nodes = collect_subtree_nodes(root)
-            bbox_before = compute_node_bounding_box(original_subtree_nodes)
-
-            subtree_nodes_for_count = collect_subtree_nodes(root)
-            node_count = len(subtree_nodes_for_count)
-
-            # Per-node scheme resolution — build per_node_scheme dict before place_subtree_horizontal
-            current_prefs = node_layout_prefs.prefs_singleton
-            per_node_scheme = {}  # maps id(node) -> float scheme multiplier
-            per_node_h_scale = {}  # maps id(node) -> float h_scale
-            per_node_v_scale = {}  # maps id(node) -> float v_scale
-            for subtree_node in subtree_nodes_for_count:
-                if scheme_multiplier is not None:
-                    per_node_scheme[id(subtree_node)] = scheme_multiplier
-                else:
-                    stored_state = node_layout_state.read_node_state(subtree_node)
-                    per_node_scheme[id(subtree_node)] = node_layout_state.scheme_name_to_multiplier(
-                        stored_state["scheme"], current_prefs
-                    )
-                # h_scale/v_scale always come from stored state (independent of scheme override)
-                scale_state = node_layout_state.read_node_state(subtree_node)
-                per_node_h_scale[id(subtree_node)] = scale_state["h_scale"]
-                per_node_v_scale[id(subtree_node)] = scale_state["v_scale"]
-            # Resolved multiplier for this root
-            root_scheme_multiplier = per_node_scheme.get(
-                id(root), current_prefs.get("normal_multiplier")
-            )
-
-            snap_threshold = get_dag_snap_threshold()
-            memo = {}
-
-            place_subtree_horizontal(
-                root, root.xpos(), root.ypos(), snap_threshold, node_count,
-                scheme_multiplier=root_scheme_multiplier,
-                per_node_h_scale=per_node_h_scale,
-                per_node_v_scale=per_node_v_scale,
-                current_prefs=current_prefs,
-                current_group=current_group,
-                memo=memo,
-            )
-            _find_or_create_output_dot(root, root, 0, current_group)
-
-            # Capture final state (includes any newly inserted Dot nodes)
-            final_subtree_nodes = collect_subtree_nodes(root)
-
-            # State write-back: record per-node scheme and mode='horizontal'
-            for state_node in final_subtree_nodes:
-                stored_state = node_layout_state.read_node_state(state_node)
-                node_scheme_multiplier = per_node_scheme.get(
-                    id(state_node), current_prefs.get("normal_multiplier")
-                )
-                stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
-                    node_scheme_multiplier, current_prefs
-                )
-                stored_state["mode"] = "horizontal"
-                # h_scale and v_scale are NOT reset by re-layout — preserve existing values
-                node_layout_state.write_node_state(state_node, stored_state)
-
-            final_subtree_node_ids = {id(n) for n in final_subtree_nodes}
-            bbox_after = compute_node_bounding_box(final_subtree_nodes)
-
-            if bbox_before is not None and bbox_after is not None:
-                push_nodes_to_make_room(final_subtree_node_ids, bbox_before, bbox_after,
-                                        current_group)
-    except Exception:
-        nuke.Undo.cancel()
-        raise
-    else:
-        nuke.Undo.end()
-
-
-def layout_selected_horizontal(scheme_multiplier=None):
-    """Layout the selected nodes using the horizontal B-spine algorithm for each selection root.
-
-    Writes mode='horizontal' to state so that subsequent layout_selected() calls
-    replay the horizontal layout automatically (HORIZ-03 mode replay).
-    """
+def _layout_selected_horizontal_impl(scheme_multiplier, side_layout_mode, undo_label):
+    """Shared implementation for layout_selected_horizontal and layout_selected_horizontal_place_only."""
     global _TOOLBAR_FOLDER_MAP
     _TOOLBAR_FOLDER_MAP = None
     _clear_color_cache()
     current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
     selected_nodes = nuke.selectedNodes()
-    if len(selected_nodes) < 2:
-        return  # nothing to lay out relative to each other
+    if not selected_nodes:
+        return
 
-    nuke.Undo.name("Layout Selected Horizontal")
+    nuke.Undo.name(undo_label)
     nuke.Undo.begin()
     try:
         with current_group:
-            node_filter = set(selected_nodes)
+            # The selected nodes form the horizontal spine. Their id()s make up spine_set.
+            spine_set = {id(n) for n in selected_nodes}
             roots = find_selection_roots(selected_nodes)
-            roots.sort(key=lambda n: n.xpos())
 
             bbox_before = compute_node_bounding_box(selected_nodes)
-
             node_count = len(selected_nodes)
 
-            # Per-node scheme resolution
             current_prefs = node_layout_prefs.prefs_singleton
-            per_node_scheme = {}  # maps id(node) -> float scheme multiplier
-            per_node_h_scale = {}  # maps id(node) -> float h_scale
-            per_node_v_scale = {}  # maps id(node) -> float v_scale
+            per_node_scheme = {}
+            per_node_h_scale = {}
+            per_node_v_scale = {}
             for sel_node in selected_nodes:
                 if scheme_multiplier is not None:
                     per_node_scheme[id(sel_node)] = scheme_multiplier
@@ -1272,13 +1255,13 @@ def layout_selected_horizontal(scheme_multiplier=None):
                     per_node_scheme[id(sel_node)] = node_layout_state.scheme_name_to_multiplier(
                         stored_state["scheme"], current_prefs
                     )
-                # h_scale/v_scale always come from stored state (independent of scheme override)
                 scale_state = node_layout_state.read_node_state(sel_node)
                 per_node_h_scale[id(sel_node)] = scale_state["h_scale"]
                 per_node_v_scale[id(sel_node)] = scale_state["v_scale"]
 
             snap_threshold = get_dag_snap_threshold()
             memo = {}
+
             for root in roots:
                 root_scheme_multiplier = per_node_scheme.get(
                     id(root), current_prefs.get("normal_multiplier")
@@ -1291,35 +1274,61 @@ def layout_selected_horizontal(scheme_multiplier=None):
                     current_prefs=current_prefs,
                     current_group=current_group,
                     memo=memo,
+                    spine_set=spine_set,
+                    side_layout_mode=side_layout_mode,
                 )
                 _find_or_create_output_dot(root, root, 0, current_group)
 
-            # State write-back: record per-node scheme and mode='horizontal'
-            all_touched_nodes = set()
-            for state_root in roots:
-                all_touched_nodes.update(collect_subtree_nodes(state_root, node_filter=node_filter))
-            for state_node in all_touched_nodes:
-                stored_state = node_layout_state.read_node_state(state_node)
-                node_scheme_multiplier = per_node_scheme.get(
-                    id(state_node), current_prefs.get("normal_multiplier")
-                )
-                stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
-                    node_scheme_multiplier, current_prefs
-                )
-                stored_state["mode"] = "horizontal"
-                node_layout_state.write_node_state(state_node, stored_state)
+            # State write-back: only the "recursive" variant stores mode='horizontal'.
+            # "place_only" is a cosmetic reposition and does not record mode.
+            if side_layout_mode == "recursive":
+                for state_node in selected_nodes:
+                    stored_state = node_layout_state.read_node_state(state_node)
+                    node_scheme_multiplier = per_node_scheme.get(
+                        id(state_node), current_prefs.get("normal_multiplier")
+                    )
+                    stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
+                        node_scheme_multiplier, current_prefs
+                    )
+                    stored_state["mode"] = "horizontal"
+                    # h_scale and v_scale are NOT reset by re-layout — preserve existing values
+                    node_layout_state.write_node_state(state_node, stored_state)
 
-            final_selected_ids = {id(n) for n in node_filter}
             bbox_after = compute_node_bounding_box(selected_nodes)
-
             if bbox_before and bbox_after:
-                push_nodes_to_make_room(final_selected_ids, bbox_before, bbox_after,
-                                        current_group)
+                push_nodes_to_make_room(spine_set, bbox_before, bbox_after, current_group)
     except Exception:
         nuke.Undo.cancel()
         raise
     else:
         nuke.Undo.end()
+
+
+def layout_selected_horizontal(scheme_multiplier=None):
+    """Lay out the selected nodes as a horizontal spine, recursively laying out
+    non-spine inputs vertically above each spine node.
+
+    The selected nodes form the spine (root rightmost, ordered by graph topology).
+    Any input of a spine node that is not itself a spine node has its full upstream
+    subtree laid out vertically above that spine node.
+
+    Writes mode='horizontal' to selected nodes so that subsequent layout_selected()
+    calls replay the horizontal layout automatically (HORIZ-03 mode replay).
+    """
+    _layout_selected_horizontal_impl(scheme_multiplier, "recursive", "Layout Selected Horizontal")
+
+
+def layout_selected_horizontal_place_only(scheme_multiplier=None):
+    """Lay out the selected nodes as a horizontal spine, repositioning non-spine
+    inputs in place without recursively laying out their upstream subtrees.
+
+    Identical to layout_selected_horizontal() except that side inputs are only
+    repositioned (setXpos/setYpos) rather than having their full upstream subtrees
+    laid out. Does not write mode='horizontal' — this is a cosmetic reposition only.
+    """
+    _layout_selected_horizontal_impl(
+        scheme_multiplier, "place_only", "Layout Selected Horizontal (Place Only)"
+    )
 
 
 def _scale_selected_nodes(scale_factor, axis="both"):
