@@ -7,6 +7,8 @@ _TOOLBAR_FOLDER_MAP = None
 
 _COLOR_LOOKUP_CACHE = {}  # node.Class() -> color value; valid for one layout operation only
 
+_OUTPUT_DOT_KNOB_NAME = "node_layout_output_dot"
+
 
 def _clear_color_cache():
     global _COLOR_LOOKUP_CACHE
@@ -342,6 +344,60 @@ def insert_dot_nodes(root, node_filter=None):
             parent.setInput(slot, dot)
         else:
             _claim(inp)
+
+
+def _find_or_create_output_dot(root, consumer_node, consumer_slot, current_group,
+                               snap_threshold=None, scheme_multiplier=None):
+    """Place a routing Dot below root, wired between root and consumer_node.
+
+    On replay (second call with same root and consumer), the existing Dot is
+    detected via its node_layout_output_dot knob and returned as-is — no
+    duplicate is created.
+
+    If consumer_node is None, returns None without creating a Dot.
+
+    Args:
+        root: The root node of the horizontal subtree.
+        consumer_node: The downstream node that consumes root's output.
+        consumer_slot: The input slot index on consumer_node wired to root.
+        current_group: The current Nuke group context (or None for root context).
+        snap_threshold: DAG snap threshold in pixels; defaults to 8 if None.
+        scheme_multiplier: Layout scheme multiplier; resolved from prefs if None.
+    """
+    if consumer_node is None:
+        return None
+
+    if snap_threshold is None:
+        snap_threshold = 8
+    if scheme_multiplier is None:
+        scheme_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
+
+    # Reuse check: if what is currently wired at consumer_slot is already an
+    # output Dot (has node_layout_output_dot knob), return it without creating a new one.
+    currently_wired = consumer_node.input(consumer_slot)
+    if (currently_wired is not None
+            and currently_wired.knob(_OUTPUT_DOT_KNOB_NAME) is not None):
+        return currently_wired
+
+    # Deselect all nodes before creating the Dot (anti-auto-connect guard).
+    for selected_node in nuke.selectedNodes():
+        selected_node['selected'].setValue(False)
+
+    dot = nuke.nodes.Dot()
+    dot.addKnob(nuke.Tab_Knob('node_layout_tab', 'Node Layout'))
+    dot.addKnob(nuke.Int_Knob(_OUTPUT_DOT_KNOB_NAME, 'Output Dot Marker'))
+    dot[_OUTPUT_DOT_KNOB_NAME].setValue(1)
+    dot.setInput(0, root)
+    consumer_node.setInput(consumer_slot, dot)
+
+    # Position the Dot below root — positive Y is down in Nuke DAG.
+    dot_x = root.xpos() + (root.screenWidth() - dot.screenWidth()) // 2
+    dot_y = (root.ypos() + root.screenHeight()
+             + vertical_gap_between(dot, root, snap_threshold, scheme_multiplier))
+    dot.setXpos(dot_x)
+    dot.setYpos(dot_y)
+
+    return dot
 
 
 def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None, per_node_h_scale=None, per_node_v_scale=None):
