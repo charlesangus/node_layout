@@ -124,7 +124,12 @@ Plans:
   1. Running "Layout Upstream Horizontal" on a linear chain places the root node rightmost and each upstream input(0) node one step to the left, producing a horizontal left-to-right spine
   2. Running "Layout Selected Horizontal" applies horizontal B-spine layout to the selected nodes
   3. After a horizontal layout, running the standard "Layout Upstream" or "Layout Selected" command on any node in that chain re-lays it out horizontally (replaying the stored mode) without the user specifying horizontal again
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Write RED test scaffold for horizontal spine, output Dot, mask kink, side input placement, AST checks, mode replay (10 failing tests)
+- [ ] 11-02-PLAN.md — Implement place_subtree_horizontal() core geometry and _find_or_create_output_dot()
+- [ ] 11-03-PLAN.md — Wire layout_upstream/selected horizontal entry points, mode dispatch, state write-back, compute_dims memo key, menu registration
 
 ## Progress
 
@@ -140,4 +145,4 @@ Plans:
 | 8. Dot Font-Size Margin Scaling | 2/2 | Complete   | 2026-03-11 | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | 2/2 | Complete   | 2026-03-12 | - |
 | 10. Shrink/Expand H/V/Both + Expand Push-Away | 2/2 | Complete    | 2026-03-12 | - |
-| 11. Horizontal B-Spine Layout | v1.1 | 0/? | Not started | - |
+| 11. Horizontal B-Spine Layout | v1.1 | 0/3 | Not started | - |
