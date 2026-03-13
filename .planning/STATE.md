@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: completed
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-03-12T13:11:01.805Z"
+stopped_at: Phase 11 context gathered
+last_updated: "2026-03-13T00:49:49Z"
 progress:
   total_phases: 6
   completed_phases: 5
@@ -24,11 +24,11 @@ See: .planning/PROJECT.md (updated 2026-03-05 after v1.1 start)
 
 ## Current Position
 
-Phase: 7 of 11 (Per-Node State Storage)
-Plan: 7 of 7 (completed Plan 07)
-Status: Phase 7 Complete — all 7 plans done (incl. 2 gap-closure plans)
+Phase: 11 of 11 (Horizontal B-Spine Layout)
+Plan: 1 of 3 (completed Plan 01)
+Status: Phase 11 In Progress — Plan 01 complete (RED scaffold)
 
-Progress: [██████████] 100% (10 of 10 plans in phase 7)
+Progress: [█░░] 33% (1 of 3 plans in phase 11)
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [██████████] 100% (10 of 10 plans in phase 7)
 | Phase 09-multi-input-fan-alignment-mask-side-swap P02 | 5 | 2 tasks | 1 files |
 | Phase 10-shrink-expand-h-v-both-expand-push-away P01 | 2 | 1 tasks | 1 files |
 | Phase 10-shrink-expand-h-v-both-expand-push-away P02 | 6 | 2 tasks | 3 files |
+| Phase 11-horizontal-b-spine-layout P01 | 3 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -122,6 +123,9 @@ From Phase 6, Plan 01:
 - [Phase 10-shrink-expand-h-v-both-expand-push-away]: lastHitGroup stub added to nuke stub in test file — expand wrappers call nuke.lastHitGroup() as first line, stub must expose it
 - [Phase 10]: axis parameter uses string 'both'/'h'/'v' — readable and unambiguous, gates both position changes and state write-back on the same axis conditions
 - [Phase 10]: repeat_last_scale is a no-op when _last_scale_fn is None — avoids surprising user with unexpected scale direction on first invocation
+- [Phase 11-01]: test_output_dot_reused_on_replay uses assertIs() (identity check) — prevents false pass from new Dot with matching position values
+- [Phase 11-01]: TestMaskKink uses inner class _SpineNodeWithMask with inputLabel("M") for slot 2 — triggers _is_mask_input() correctly without full Merge2 stub
+- [Phase 11-01]: TestModeReplay checks both "horizontal" string AND "place_subtree_horizontal" in layout_upstream() body — two-condition AST prevents comment-only false pass
 
 ### Pending Todos
 
@@ -134,6 +138,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-12T13:06:37.067Z
-Stopped at: Completed 10-02-PLAN.md
-Resume file: None
+Last session: 2026-03-13T00:49:49Z
+Stopped at: Completed 11-01-PLAN.md (RED scaffold)
+Resume file: .planning/phases/11-horizontal-b-spine-layout/11-01-SUMMARY.md

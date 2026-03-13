@@ -31,9 +31,9 @@ Requirements for the Layout Engine & State milestone. Each maps to roadmap phase
 
 ### Horizontal Layout
 
-- [ ] **HORIZ-01**: User can run "Layout Upstream Horizontal" to lay out the B spine right-to-left — root node is rightmost, each successive input(0) ancestor steps left; output pipe from root extends downward to parent tree
-- [ ] **HORIZ-02**: User can run "Layout Selected Horizontal" to lay out selected nodes in horizontal B-spine mode
-- [ ] **HORIZ-03**: Horizontal layout mode is stored in each node's state knob; normal "Layout Upstream/Selected" commands replay horizontal mode automatically
+- [x] **HORIZ-01**: User can run "Layout Upstream Horizontal" to lay out the B spine right-to-left — root node is rightmost, each successive input(0) ancestor steps left; output pipe from root extends downward to parent tree
+- [x] **HORIZ-02**: User can run "Layout Selected Horizontal" to lay out selected nodes in horizontal B-spine mode
+- [x] **HORIZ-03**: Horizontal layout mode is stored in each node's state knob; normal "Layout Upstream/Selected" commands replay horizontal mode automatically
 
 ### Scale Commands
 
@@ -87,9 +87,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCALE-01 | Phase 10 | Complete |
 | SCALE-02 | Phase 10 | Complete |
 | SCALE-03 | Phase 10 | Complete |
-| HORIZ-01 | Phase 11 | Pending |
-| HORIZ-02 | Phase 11 | Pending |
-| HORIZ-03 | Phase 11 | Pending |
+| HORIZ-01 | Phase 11 | Complete |
+| HORIZ-02 | Phase 11 | Complete |
+| HORIZ-03 | Phase 11 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 20 total
