@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: executing
-stopped_at: Completed 11-03-PLAN.md (layout_upstream_horizontal, layout_selected_horizontal, mode dispatch, menu registration)
-last_updated: "2026-03-13T06:32:37.262Z"
+stopped_at: Applied 3 post-UAT-pause fixes to node_layout.py; ready for live Nuke UAT (tests 2-8 pending)
+last_updated: "2026-03-13T14:00:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -144,6 +144,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-13T01:02:33.295Z
-Stopped at: Completed 11-03-PLAN.md (layout_upstream_horizontal, layout_selected_horizontal, mode dispatch, menu registration)
-Resume file: None
+Last session: 2026-03-13T14:00:00.000Z
+Stopped at: Applied 3 post-UAT-pause fixes; ready for live Nuke UAT (tests 2-8)
+Resume file: .planning/phases/11-horizontal-b-spine-layout/.continue-here.md

@@ -1,9 +1,9 @@
 ---
 phase: 11-horizontal-b-spine-layout
-verified: 2026-03-12T00:00:00Z
-status: passed
-score: 10/10 must-haves verified
-re_verification: false
+verified: 2026-03-13T00:00:00Z
+status: post-uat-fixes-applied
+score: 10/10 code truths still hold; 3 behaviour fixes applied post-UAT-pause
+re_verification: true
 ---
 
 # Phase 11: Horizontal B-Spine Layout Verification Report
