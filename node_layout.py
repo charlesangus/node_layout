@@ -518,9 +518,8 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
 def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None, per_node_h_scale=None, per_node_v_scale=None, layout_mode="vertical"):
     node_h_scale = per_node_h_scale.get(id(node), 1.0) if per_node_h_scale else 1.0
     node_v_scale = per_node_v_scale.get(id(node), 1.0) if per_node_v_scale else 1.0
-    memo_key = (id(node), scheme_multiplier, node_h_scale, node_v_scale, layout_mode)
-    if memo_key in memo:
-        return memo[memo_key]
+    if (id(node), scheme_multiplier, node_h_scale, node_v_scale, layout_mode) in memo:
+        return memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale, layout_mode)]
 
     input_slot_pairs = _get_input_slot_pairs(node, node_filter)
     all_side = _primary_slot_externally_occupied(node, node_filter)
@@ -591,7 +590,7 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
             H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_to_consumer + inter_band_gaps
         result = (W, H)
 
-    memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale, layout_mode)] = result
+    memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale, layout_mode)] = result  # noqa: E501
     return result
 
 
