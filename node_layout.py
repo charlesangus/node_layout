@@ -515,11 +515,12 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
             cur_x = cur_x - step_x - next_spine_node.screenWidth()
 
 
-def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None, per_node_h_scale=None, per_node_v_scale=None):
+def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None, per_node_h_scale=None, per_node_v_scale=None, layout_mode="vertical"):
     node_h_scale = per_node_h_scale.get(id(node), 1.0) if per_node_h_scale else 1.0
     node_v_scale = per_node_v_scale.get(id(node), 1.0) if per_node_v_scale else 1.0
-    if (id(node), scheme_multiplier, node_h_scale, node_v_scale) in memo:
-        return memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale)]
+    memo_key = (id(node), scheme_multiplier, node_h_scale, node_v_scale, layout_mode)
+    if memo_key in memo:
+        return memo[memo_key]
 
     input_slot_pairs = _get_input_slot_pairs(node, node_filter)
     all_side = _primary_slot_externally_occupied(node, node_filter)
@@ -590,7 +591,7 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
             H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_to_consumer + inter_band_gaps
         result = (W, H)
 
-    memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale)] = result
+    memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale, layout_mode)] = result
     return result
 
 
@@ -942,15 +943,33 @@ def layout_upstream(scheme_multiplier=None):
 
             memo = {}
             snap_threshold = get_dag_snap_threshold()
-            compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier,
-                         per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
-            place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count,
-                          scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
+
+            # Mode dispatch: read the root's stored mode to decide horizontal vs vertical path.
+            root_stored_state = node_layout_state.read_node_state(root)
+            root_mode = root_stored_state.get("mode", "vertical")
+
+            if root_mode == "horizontal":
+                place_subtree_horizontal(
+                    root, root.xpos(), root.ypos(), snap_threshold, node_count,
+                    scheme_multiplier=root_scheme_multiplier,
+                    per_node_h_scale=per_node_h_scale,
+                    per_node_v_scale=per_node_v_scale,
+                    current_prefs=current_prefs,
+                    current_group=current_group,
+                    memo=memo,
+                )
+                _find_or_create_output_dot(root, root, 0, current_group)
+            else:
+                compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier,
+                             per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
+                place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count,
+                              scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
 
             # Capture final state (includes any newly inserted Dot nodes)
             final_subtree_nodes = collect_subtree_nodes(root)
 
             # State write-back: record per-node scheme and mode on every layout-touched node
+            layout_mode_to_write = "horizontal" if root_mode == "horizontal" else "vertical"
             for state_node in final_subtree_nodes:
                 stored_state = node_layout_state.read_node_state(state_node)
                 node_scheme_multiplier = per_node_scheme.get(
@@ -959,7 +978,7 @@ def layout_upstream(scheme_multiplier=None):
                 stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
                     node_scheme_multiplier, current_prefs
                 )
-                stored_state["mode"] = "vertical"
+                stored_state["mode"] = layout_mode_to_write
                 # h_scale and v_scale are NOT reset by re-layout — preserve existing values
                 node_layout_state.write_node_state(state_node, stored_state)
 
@@ -1029,25 +1048,44 @@ def layout_selected(scheme_multiplier=None):
             snap_threshold = get_dag_snap_threshold()
             memo = {}
             placed_bboxes = []  # list of (left, top, right, bottom) for already-placed trees
+            # Track which mode each root used so state write-back records the correct mode.
+            root_mode_map = {}  # maps id(root) -> "horizontal" or "vertical"
             for root in roots:
-                insert_dot_nodes(root, node_filter=node_filter)
+                root_stored_state = node_layout_state.read_node_state(root)
+                root_mode = root_stored_state.get("mode", "vertical")
+                root_mode_map[id(root)] = root_mode
+
                 root_scheme_multiplier = per_node_scheme.get(
                     id(root), current_prefs.get("normal_multiplier")
                 )
-                tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
 
-                tree_bottom = root.ypos() + root.screenHeight()
-                tree_top = tree_bottom - tree_height
+                if root_mode == "horizontal":
+                    place_subtree_horizontal(
+                        root, root.xpos(), root.ypos(), snap_threshold, node_count,
+                        scheme_multiplier=root_scheme_multiplier,
+                        per_node_h_scale=per_node_h_scale,
+                        per_node_v_scale=per_node_v_scale,
+                        current_prefs=current_prefs,
+                        current_group=current_group,
+                        memo=memo,
+                    )
+                    _find_or_create_output_dot(root, root, 0, current_group)
+                else:
+                    insert_dot_nodes(root, node_filter=node_filter)
+                    tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
 
-                # Resolve start_x: push right if Y ranges overlap with any already-placed tree.
-                start_x = root.xpos()
-                for placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
-                    if tree_top < placed_bottom and tree_bottom > placed_top:  # Y overlap
-                        horizontal_clearance = current_prefs.get("horizontal_subtree_gap")
-                        start_x = max(start_x, placed_right + horizontal_clearance)
+                    tree_bottom = root.ypos() + root.screenHeight()
+                    tree_top = tree_bottom - tree_height
 
-                place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
-                placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
+                    # Resolve start_x: push right if Y ranges overlap with any already-placed tree.
+                    start_x = root.xpos()
+                    for placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
+                        if tree_top < placed_bottom and tree_bottom > placed_top:  # Y overlap
+                            horizontal_clearance = current_prefs.get("horizontal_subtree_gap")
+                            start_x = max(start_x, placed_right + horizontal_clearance)
+
+                    place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
+                    placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
 
             # State write-back: record per-node scheme and mode on every layout-touched node
             all_touched_nodes = set()
@@ -1061,7 +1099,14 @@ def layout_selected(scheme_multiplier=None):
                 stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
                     node_scheme_multiplier, current_prefs
                 )
-                stored_state["mode"] = "vertical"
+                # Determine which mode this node's root used.
+                node_layout_mode = "vertical"
+                for state_root in roots:
+                    root_subtree = collect_subtree_nodes(state_root, node_filter=node_filter)
+                    if any(id(sn) == id(state_node) for sn in root_subtree):
+                        node_layout_mode = root_mode_map.get(id(state_root), "vertical")
+                        break
+                stored_state["mode"] = node_layout_mode
                 node_layout_state.write_node_state(state_node, stored_state)
 
             # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
@@ -1099,6 +1144,183 @@ def layout_upstream_loose():
 
 def layout_selected_loose():
     layout_selected(scheme_multiplier=node_layout_prefs.prefs_singleton.get("loose_multiplier"))
+
+
+def layout_upstream_horizontal(scheme_multiplier=None):
+    """Layout the upstream subtree of the selected node using the horizontal B-spine algorithm.
+
+    Writes mode='horizontal' to state so that subsequent layout_upstream() calls
+    replay the horizontal layout automatically (HORIZ-03 mode replay).
+    """
+    global _TOOLBAR_FOLDER_MAP
+    _TOOLBAR_FOLDER_MAP = None
+    _clear_color_cache()
+    current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
+    root = nuke.selectedNode()
+
+    nuke.Undo.name("Layout Upstream Horizontal")
+    nuke.Undo.begin()
+    try:
+        with current_group:
+            # Capture starting state before any changes
+            original_subtree_nodes = collect_subtree_nodes(root)
+            bbox_before = compute_node_bounding_box(original_subtree_nodes)
+
+            subtree_nodes_for_count = collect_subtree_nodes(root)
+            node_count = len(subtree_nodes_for_count)
+
+            # Per-node scheme resolution — build per_node_scheme dict before place_subtree_horizontal
+            current_prefs = node_layout_prefs.prefs_singleton
+            per_node_scheme = {}  # maps id(node) -> float scheme multiplier
+            per_node_h_scale = {}  # maps id(node) -> float h_scale
+            per_node_v_scale = {}  # maps id(node) -> float v_scale
+            for subtree_node in subtree_nodes_for_count:
+                if scheme_multiplier is not None:
+                    per_node_scheme[id(subtree_node)] = scheme_multiplier
+                else:
+                    stored_state = node_layout_state.read_node_state(subtree_node)
+                    per_node_scheme[id(subtree_node)] = node_layout_state.scheme_name_to_multiplier(
+                        stored_state["scheme"], current_prefs
+                    )
+                # h_scale/v_scale always come from stored state (independent of scheme override)
+                scale_state = node_layout_state.read_node_state(subtree_node)
+                per_node_h_scale[id(subtree_node)] = scale_state["h_scale"]
+                per_node_v_scale[id(subtree_node)] = scale_state["v_scale"]
+            # Resolved multiplier for this root
+            root_scheme_multiplier = per_node_scheme.get(
+                id(root), current_prefs.get("normal_multiplier")
+            )
+
+            snap_threshold = get_dag_snap_threshold()
+            memo = {}
+
+            place_subtree_horizontal(
+                root, root.xpos(), root.ypos(), snap_threshold, node_count,
+                scheme_multiplier=root_scheme_multiplier,
+                per_node_h_scale=per_node_h_scale,
+                per_node_v_scale=per_node_v_scale,
+                current_prefs=current_prefs,
+                current_group=current_group,
+                memo=memo,
+            )
+            _find_or_create_output_dot(root, root, 0, current_group)
+
+            # Capture final state (includes any newly inserted Dot nodes)
+            final_subtree_nodes = collect_subtree_nodes(root)
+
+            # State write-back: record per-node scheme and mode='horizontal'
+            for state_node in final_subtree_nodes:
+                stored_state = node_layout_state.read_node_state(state_node)
+                node_scheme_multiplier = per_node_scheme.get(
+                    id(state_node), current_prefs.get("normal_multiplier")
+                )
+                stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
+                    node_scheme_multiplier, current_prefs
+                )
+                stored_state["mode"] = "horizontal"
+                # h_scale and v_scale are NOT reset by re-layout — preserve existing values
+                node_layout_state.write_node_state(state_node, stored_state)
+
+            final_subtree_node_ids = {id(n) for n in final_subtree_nodes}
+            bbox_after = compute_node_bounding_box(final_subtree_nodes)
+
+            if bbox_before is not None and bbox_after is not None:
+                push_nodes_to_make_room(final_subtree_node_ids, bbox_before, bbox_after,
+                                        current_group)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def layout_selected_horizontal(scheme_multiplier=None):
+    """Layout the selected nodes using the horizontal B-spine algorithm for each selection root.
+
+    Writes mode='horizontal' to state so that subsequent layout_selected() calls
+    replay the horizontal layout automatically (HORIZ-03 mode replay).
+    """
+    global _TOOLBAR_FOLDER_MAP
+    _TOOLBAR_FOLDER_MAP = None
+    _clear_color_cache()
+    current_group = nuke.lastHitGroup()    # MUST be the first Nuke API call
+    selected_nodes = nuke.selectedNodes()
+    if len(selected_nodes) < 2:
+        return  # nothing to lay out relative to each other
+
+    nuke.Undo.name("Layout Selected Horizontal")
+    nuke.Undo.begin()
+    try:
+        with current_group:
+            node_filter = set(selected_nodes)
+            roots = find_selection_roots(selected_nodes)
+            roots.sort(key=lambda n: n.xpos())
+
+            bbox_before = compute_node_bounding_box(selected_nodes)
+
+            node_count = len(selected_nodes)
+
+            # Per-node scheme resolution
+            current_prefs = node_layout_prefs.prefs_singleton
+            per_node_scheme = {}  # maps id(node) -> float scheme multiplier
+            per_node_h_scale = {}  # maps id(node) -> float h_scale
+            per_node_v_scale = {}  # maps id(node) -> float v_scale
+            for sel_node in selected_nodes:
+                if scheme_multiplier is not None:
+                    per_node_scheme[id(sel_node)] = scheme_multiplier
+                else:
+                    stored_state = node_layout_state.read_node_state(sel_node)
+                    per_node_scheme[id(sel_node)] = node_layout_state.scheme_name_to_multiplier(
+                        stored_state["scheme"], current_prefs
+                    )
+                # h_scale/v_scale always come from stored state (independent of scheme override)
+                scale_state = node_layout_state.read_node_state(sel_node)
+                per_node_h_scale[id(sel_node)] = scale_state["h_scale"]
+                per_node_v_scale[id(sel_node)] = scale_state["v_scale"]
+
+            snap_threshold = get_dag_snap_threshold()
+            memo = {}
+            for root in roots:
+                root_scheme_multiplier = per_node_scheme.get(
+                    id(root), current_prefs.get("normal_multiplier")
+                )
+                place_subtree_horizontal(
+                    root, root.xpos(), root.ypos(), snap_threshold, node_count,
+                    scheme_multiplier=root_scheme_multiplier,
+                    per_node_h_scale=per_node_h_scale,
+                    per_node_v_scale=per_node_v_scale,
+                    current_prefs=current_prefs,
+                    current_group=current_group,
+                    memo=memo,
+                )
+                _find_or_create_output_dot(root, root, 0, current_group)
+
+            # State write-back: record per-node scheme and mode='horizontal'
+            all_touched_nodes = set()
+            for state_root in roots:
+                all_touched_nodes.update(collect_subtree_nodes(state_root, node_filter=node_filter))
+            for state_node in all_touched_nodes:
+                stored_state = node_layout_state.read_node_state(state_node)
+                node_scheme_multiplier = per_node_scheme.get(
+                    id(state_node), current_prefs.get("normal_multiplier")
+                )
+                stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
+                    node_scheme_multiplier, current_prefs
+                )
+                stored_state["mode"] = "horizontal"
+                node_layout_state.write_node_state(state_node, stored_state)
+
+            final_selected_ids = {id(n) for n in node_filter}
+            bbox_after = compute_node_bounding_box(selected_nodes)
+
+            if bbox_before and bbox_after:
+                push_nodes_to_make_room(final_selected_ids, bbox_before, bbox_after,
+                                        current_group)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
 
 
 def _scale_selected_nodes(scale_factor, axis="both"):
