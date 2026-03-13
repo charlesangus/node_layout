@@ -26,6 +26,8 @@ layout_menu.addCommand('Layout Upstream Loose', node_layout.layout_upstream_loos
 layout_menu.addCommand('Layout Selected Loose', node_layout.layout_selected_loose)
 layout_menu.addCommand('Clear Layout State Selected', node_layout.clear_layout_state_selected)
 layout_menu.addCommand('Clear Layout State Upstream', node_layout.clear_layout_state_upstream)
+layout_menu.addCommand('Layout Upstream Horizontal', node_layout.layout_upstream_horizontal)
+layout_menu.addCommand('Layout Selected Horizontal', node_layout.layout_selected_horizontal)
 
 layout_menu.addSeparator()
 
