@@ -1,0 +1,569 @@
+"""RED test scaffold for horizontal B-spine layout in node_layout.py (11-01 TDD).
+
+These tests verify the Phase 11 contract (HORIZ-01, HORIZ-02, HORIZ-03):
+- place_subtree_horizontal() places the root rightmost and each input(0) ancestor
+  one step to the left along the X axis (B-spine = horizontal)
+- Side inputs (A inputs, mask) are placed above each spine node (lower Y — negative direction)
+- When a spine node has a mask input, the downstream spine segment kinks downward (higher Y)
+  to clear the mask subtree, accumulating a staircase as multiple mask nodes occur
+- An output Dot (node_layout_output_dot) is placed below the root node and routes leftward
+  to the downstream consumer; it is reused (not recreated) on replay
+- layout_upstream_horizontal() and layout_selected_horizontal() are entry points
+- Normal layout_upstream()/layout_selected() dispatch to the horizontal path when
+  the stored mode is "horizontal" (mode replay / HORIZ-03)
+
+Expected RED state: ALL 10 tests FAIL with AttributeError or AssertionError.
+- AttributeError: functions place_subtree_horizontal, layout_upstream_horizontal,
+  layout_selected_horizontal, _find_or_create_output_dot do not exist yet
+- AssertionError: the AST checks fail because those function names are absent from source
+"""
+import sys
+import ast
+import types
+import importlib.util
+import os
+import unittest
+
+
+NODE_LAYOUT_PATH = "/workspace/node_layout.py"
+NODE_LAYOUT_PREFS_PATH = "/workspace/node_layout_prefs.py"
+NODE_LAYOUT_STATE_PATH = "/workspace/node_layout_state.py"
+
+
+# ---------------------------------------------------------------------------
+# Stub nuke module so node_layout.py can be imported without Nuke runtime.
+# ---------------------------------------------------------------------------
+
+
+class _StubKnob:
+    def __init__(self, val=0):
+        self._val = val
+
+    def value(self):
+        return self._val
+
+    def getValue(self):
+        return self._val
+
+    def setValue(self, value):
+        self._val = value
+
+
+class _StubNode:
+    """Minimal stand-in for a nuke.Node."""
+
+    def __init__(self, width=80, height=28, xpos=0, ypos=0, node_class="Grade",
+                 knobs=None, num_inputs=0):
+        self._width = width
+        self._height = height
+        self._xpos = xpos
+        self._ypos = ypos
+        self._class = node_class
+        self._knobs = knobs if knobs is not None else {"tile_color": _StubKnob(0)}
+        self._inputs = [None] * num_inputs if num_inputs > 0 else []
+
+    def screenWidth(self):
+        return self._width
+
+    def screenHeight(self):
+        return self._height
+
+    def xpos(self):
+        return self._xpos
+
+    def ypos(self):
+        return self._ypos
+
+    def setXpos(self, value):
+        self._xpos = value
+
+    def setYpos(self, value):
+        self._ypos = value
+
+    def Class(self):
+        return self._class
+
+    def inputs(self):
+        return len(self._inputs)
+
+    def input(self, index):
+        if 0 <= index < len(self._inputs):
+            return self._inputs[index]
+        return None
+
+    def setInput(self, slot, node):
+        while len(self._inputs) <= slot:
+            self._inputs.append(None)
+        self._inputs[slot] = node
+
+    def knob(self, name):
+        return self._knobs.get(name)
+
+    def addKnob(self, knob_obj):
+        pass
+
+    def inputLabel(self, index):
+        return ""
+
+    def __getitem__(self, name):
+        if name in self._knobs:
+            return self._knobs[name]
+        knob = _StubKnob(0)
+        self._knobs[name] = knob
+        return knob
+
+
+class _StubDotNode(_StubNode):
+    """Dot node stub — 12x12, Class returns 'Dot', has node_layout_output_dot knob."""
+
+    def __init__(self, has_output_dot_knob=False, **kwargs):
+        kwargs.setdefault("width", 12)
+        kwargs.setdefault("height", 12)
+        kwargs.setdefault("node_class", "Dot")
+        super().__init__(**kwargs)
+        if has_output_dot_knob:
+            self._knobs["node_layout_output_dot"] = _StubKnob(1)
+
+    def inputLabel(self, index):
+        return ""
+
+
+def _make_preferences_node():
+    node = _StubNode(node_class="Preferences")
+    node._knobs = {
+        "dag_snap_threshold": _StubKnob(8),
+        "NodeColor": _StubKnob(0),
+    }
+    node.knobs = lambda: node._knobs
+    return node
+
+
+class _StubUndo:
+    @staticmethod
+    def name(label):
+        pass
+
+    @staticmethod
+    def begin():
+        pass
+
+    @staticmethod
+    def end():
+        pass
+
+    @staticmethod
+    def cancel():
+        pass
+
+
+class _StubTab_Knob:
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+class _StubInt_Knob:
+    def __init__(self, name, label=""):
+        self.name = name
+        self.label = label
+
+    def setValue(self, value):
+        pass
+
+
+_stub_all_nodes_list = []
+
+_nuke_stub = types.ModuleType("nuke")
+_nuke_stub.Node = _StubNode
+_nuke_stub.allNodes = lambda: list(_stub_all_nodes_list)
+_nuke_stub.selectedNodes = lambda: []
+_nuke_stub.selectedNode = lambda: _StubNode()
+_nuke_stub.toNode = lambda name: _make_preferences_node() if name == "preferences" else None
+_nuke_stub.menu = lambda name: None
+_nuke_stub.Undo = _StubUndo
+_nuke_stub.Tab_Knob = _StubTab_Knob
+_nuke_stub.Int_Knob = _StubInt_Knob
+_nuke_stub.lastHitGroup = lambda: None
+_nuke_stub.nodes = types.SimpleNamespace(
+    Dot=lambda: _StubDotNode()
+)
+
+# Load node_layout_prefs first (no Nuke dependency).
+_prefs_spec = importlib.util.spec_from_file_location("node_layout_prefs", NODE_LAYOUT_PREFS_PATH)
+_node_layout_prefs_module = importlib.util.module_from_spec(_prefs_spec)
+_prefs_spec.loader.exec_module(_node_layout_prefs_module)
+sys.modules["node_layout_prefs"] = _node_layout_prefs_module
+
+# Provide a minimal node_layout_state stub so node_layout.py can import it.
+if "node_layout_state" not in sys.modules:
+    _state_spec = importlib.util.spec_from_file_location("node_layout_state", NODE_LAYOUT_STATE_PATH)
+    _node_layout_state_module = importlib.util.module_from_spec(_state_spec)
+    sys.modules["node_layout_state"] = _node_layout_state_module
+    sys.modules["nuke"] = _nuke_stub
+    _state_spec.loader.exec_module(_node_layout_state_module)
+
+sys.modules["nuke"] = _nuke_stub
+
+# Load node_layout using a unique alias to avoid sys.modules collisions.
+_spec = importlib.util.spec_from_file_location(
+    "node_layout_horizontal", NODE_LAYOUT_PATH
+)
+nl = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(nl)
+
+
+def _reset_prefs():
+    """Restore prefs to DEFAULTS without touching any file."""
+    singleton = _node_layout_prefs_module.prefs_singleton
+    for key, default_value in _node_layout_prefs_module.DEFAULTS.items():
+        singleton.set(key, default_value)
+
+
+# ---------------------------------------------------------------------------
+# TestHorizontalAST — verifies required functions exist in node_layout.py
+# No Nuke stub needed; fails RED because functions are not yet implemented.
+# ---------------------------------------------------------------------------
+
+
+class TestHorizontalAST(unittest.TestCase):
+    """AST checks that required horizontal layout functions exist in node_layout.py.
+
+    All 3 tests fail RED: the functions are not present in the source file yet.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with open(NODE_LAYOUT_PATH, "r") as source_file:
+            source_text = source_file.read()
+        tree = ast.parse(source_text, filename=NODE_LAYOUT_PATH)
+        cls.function_names = {
+            node.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef)
+        }
+
+    def test_place_subtree_horizontal_exists(self):
+        """place_subtree_horizontal must be defined in node_layout.py."""
+        self.assertIn(
+            "place_subtree_horizontal",
+            self.function_names,
+            "place_subtree_horizontal() is missing from node_layout.py — "
+            "must be added in Phase 11 Plan 02"
+        )
+
+    def test_layout_upstream_horizontal_exists(self):
+        """layout_upstream_horizontal must be defined in node_layout.py."""
+        self.assertIn(
+            "layout_upstream_horizontal",
+            self.function_names,
+            "layout_upstream_horizontal() is missing from node_layout.py — "
+            "must be added in Phase 11 Plan 02"
+        )
+
+    def test_layout_selected_horizontal_exists(self):
+        """layout_selected_horizontal must be defined in node_layout.py."""
+        self.assertIn(
+            "layout_selected_horizontal",
+            self.function_names,
+            "layout_selected_horizontal() is missing from node_layout.py — "
+            "must be added in Phase 11 Plan 02"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestHorizontalSpine — verifies spine X placement geometry
+# ---------------------------------------------------------------------------
+
+
+class TestHorizontalSpine(unittest.TestCase):
+    """place_subtree_horizontal() places root rightmost and each input(0) one step left.
+
+    In Nuke DAG: positive X is right, negative X is left.
+    Root = rightmost (highest X). Upstream input(0) steps left (lower X).
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        self.snap_threshold = 8
+        self.node_count = 3
+
+    def test_single_node_placed_at_root_x(self):
+        """Single-node chain: place_subtree_horizontal places node at the given root_x."""
+        root = _StubNode(width=80, height=28, xpos=500, ypos=200)
+        root._inputs = []  # no inputs
+
+        nl.place_subtree_horizontal(
+            root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+        )
+
+        self.assertEqual(
+            root.xpos(), 500,
+            "single-node horizontal layout: root must be placed at spine_x=500, "
+            f"got xpos={root.xpos()}"
+        )
+
+    def test_two_node_spine_step_left(self):
+        """Root -> A chain: A must be placed to the LEFT of root (lower X) by at least step_x.
+
+        In Nuke DAG positive X is right; 'left' = lower X value.
+        step_x = horizontal_subtree_gap (default pref value) × scheme_multiplier (1.0 default).
+        """
+        ancestor = _StubNode(width=80, height=28, xpos=0, ypos=0)
+        root = _StubNode(width=80, height=28, xpos=500, ypos=200)
+        root._inputs = [ancestor]  # input(0) = ancestor
+
+        horizontal_subtree_gap = _node_layout_prefs_module.prefs_singleton.get(
+            "horizontal_subtree_gap"
+        )
+
+        nl.place_subtree_horizontal(
+            root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+        )
+
+        expected_max_x = root.xpos() - horizontal_subtree_gap
+        self.assertLess(
+            ancestor.xpos(),
+            root.xpos(),
+            "ancestor (input[0]) must be placed LEFT of root in horizontal layout — "
+            f"ancestor.xpos={ancestor.xpos()}, root.xpos={root.xpos()}"
+        )
+        self.assertLessEqual(
+            ancestor.xpos(),
+            expected_max_x,
+            "ancestor must be at least step_x to the left of root — "
+            f"ancestor.xpos={ancestor.xpos()}, expected <= {expected_max_x}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestOutputDot — verifies output Dot creation and reuse
+# ---------------------------------------------------------------------------
+
+
+class TestOutputDot(unittest.TestCase):
+    """_find_or_create_output_dot creates a Dot below root, reuses on replay.
+
+    Output Dot geometry:
+      - Dot.ypos() > root.ypos() (positive Y = below root in Nuke DAG)
+      - Dot is horizontally centered on root tile
+    """
+
+    def setUp(self):
+        _reset_prefs()
+
+    def test_output_dot_created_below_root(self):
+        """_find_or_create_output_dot must place the Dot below root (higher Y value).
+
+        In Nuke DAG positive Y is down, so Dot.ypos() > root.ypos() means below.
+        """
+        root = _StubNode(width=80, height=28, xpos=500, ypos=200, node_class="Grade")
+        consumer = _StubNode(width=80, height=28, xpos=200, ypos=200, node_class="Grade")
+        # consumer's input(0) connects to root — this is the downstream wire
+        consumer.setInput(0, root)
+
+        current_group = None
+        dot = nl._find_or_create_output_dot(root, consumer, 0, current_group)
+
+        self.assertIsNotNone(dot, "_find_or_create_output_dot must return a Dot node, got None")
+        self.assertGreater(
+            dot.ypos(),
+            root.ypos(),
+            "output Dot must be placed BELOW root (higher Y in Nuke DAG) — "
+            f"dot.ypos={dot.ypos()}, root.ypos={root.ypos()}"
+        )
+
+    def test_output_dot_reused_on_replay(self):
+        """Calling _find_or_create_output_dot twice must return the same Dot (no duplicate).
+
+        On the second call, the existing Dot (with node_layout_output_dot knob) must be
+        returned unchanged — not replaced by a new Dot.
+        """
+        root = _StubNode(width=80, height=28, xpos=500, ypos=200, node_class="Grade")
+        consumer = _StubNode(width=80, height=28, xpos=200, ypos=200, node_class="Grade")
+        consumer.setInput(0, root)
+
+        current_group = None
+        dot_first = nl._find_or_create_output_dot(root, consumer, 0, current_group)
+
+        # Simulate replay: consumer.input(0) is now the Dot (wired by first call)
+        # Second call should detect the existing Dot and return it.
+        dot_second = nl._find_or_create_output_dot(root, consumer, 0, current_group)
+
+        self.assertIs(
+            dot_first,
+            dot_second,
+            "_find_or_create_output_dot must return the SAME Dot on replay — "
+            "got two different Dot objects (creates duplicate on second call)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestMaskKink — verifies mask kink causes downstream spine Y to drop
+# ---------------------------------------------------------------------------
+
+
+class TestMaskKink(unittest.TestCase):
+    """Mask input on a spine node causes downstream spine segment's Y to be higher (lower value).
+
+    Nuke DAG: positive Y = down. 'Downstream = closer to root' in the spine walk.
+    A mask kink means the root segment sits at a HIGHER Y value (lower in screen)
+    than the spine node above it, so it clears the mask subtree overhead.
+
+    single_mask_kink_drops_downstream:
+      spine: root -> spine_a (spine_a has mask_node at its mask slot)
+      after horizontal layout:
+        root.ypos() > spine_a.ypos()   (root drops down to clear mask above spine_a)
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        self.snap_threshold = 8
+        self.node_count = 4
+
+    def test_single_mask_kink_drops_downstream(self):
+        """Mask input on spine_a causes root to sit at a higher Y (lower on screen) than spine_a.
+
+        In Nuke DAG positive Y is down. root.ypos() > spine_a.ypos() means root is
+        below spine_a on screen, which is the kink geometry.
+        """
+        mask_node = _StubNode(width=80, height=28, xpos=0, ypos=0, node_class="Grade")
+
+        # spine_a: input(0)=None (end of spine), mask slot has mask_node.
+        # Using inputLabel to signal mask slot: simulate a Merge2-style node
+        # where slot 2 is the mask.
+        class _SpineNodeWithMask(_StubNode):
+            def inputLabel(self, index):
+                return "M" if index == 2 else {0: "B", 1: "A"}.get(index, "A{}".format(index))
+
+        spine_a = _SpineNodeWithMask(width=80, height=28, xpos=0, ypos=0, node_class="Merge2")
+        spine_a.setInput(0, None)   # end of B-spine
+        spine_a.setInput(2, mask_node)
+
+        root = _StubNode(width=80, height=28, xpos=500, ypos=200, node_class="Grade")
+        root.setInput(0, spine_a)   # root's input(0) is spine_a
+
+        nl.place_subtree_horizontal(
+            root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+        )
+
+        self.assertGreater(
+            root.ypos(),
+            spine_a.ypos(),
+            "mask kink: root must sit at higher Y (further down screen) than spine_a — "
+            f"root.ypos={root.ypos()}, spine_a.ypos={spine_a.ypos()}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestSideInputPlacement — verifies A-inputs are placed above spine node
+# ---------------------------------------------------------------------------
+
+
+class TestSideInputPlacement(unittest.TestCase):
+    """Side (A) input is placed ABOVE its spine node — lower Y value in Nuke DAG.
+
+    In Nuke DAG positive Y is down, negative Y is up.
+    'Above' means A.ypos() < spine_node.ypos().
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        self.snap_threshold = 8
+        self.node_count = 3
+
+    def test_side_input_above_spine_node(self):
+        """A-input (input[1] of the spine root) must be placed above the spine node.
+
+        After horizontal layout, side_input.ypos() < spine_root.ypos().
+        'Above' in Nuke DAG = lower Y value.
+        """
+        side_input = _StubNode(width=80, height=28, xpos=0, ypos=0, node_class="Grade")
+        root = _StubNode(width=80, height=28, xpos=500, ypos=200, node_class="Grade")
+        # root has a B-spine input and a side A-input
+        root.setInput(0, None)       # no B-spine predecessor
+        root.setInput(1, side_input) # A-input (side input)
+
+        nl.place_subtree_horizontal(
+            root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+        )
+
+        self.assertLess(
+            side_input.ypos(),
+            root.ypos(),
+            "side (A) input must be placed ABOVE its spine node (lower Y in Nuke DAG) — "
+            f"side_input.ypos={side_input.ypos()}, root.ypos={root.ypos()}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestModeReplay — verifies layout_upstream() body contains horizontal dispatch
+# ---------------------------------------------------------------------------
+
+
+class TestModeReplay(unittest.TestCase):
+    """layout_upstream() must dispatch to the horizontal path when stored mode is 'horizontal'.
+
+    Verified via AST: the function body must contain a string literal "horizontal"
+    (the dispatch branch), confirming that the mode-read-and-dispatch pattern is present.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with open(NODE_LAYOUT_PATH, "r") as source_file:
+            source_text = source_file.read()
+        cls.tree = ast.parse(source_text, filename=NODE_LAYOUT_PATH)
+
+    def _get_function_body_source(self, function_name):
+        """Return the source lines for the named top-level function."""
+        with open(NODE_LAYOUT_PATH, "r") as source_file:
+            all_lines = source_file.readlines()
+        for node in ast.walk(self.tree):
+            if isinstance(node, ast.FunctionDef) and node.name == function_name:
+                start = node.lineno - 1
+                end = node.end_lineno
+                return "".join(all_lines[start:end])
+        return ""
+
+    def test_layout_upstream_reads_mode_and_dispatches(self):
+        """layout_upstream() must contain a dispatch branch for mode == 'horizontal'.
+
+        Verified by checking that the string 'horizontal' appears in the function body
+        AND that 'place_subtree_horizontal' is referenced (the dispatch call).
+        This fails RED because neither mode-read nor horizontal dispatch exists yet.
+        """
+        function_source = self._get_function_body_source("layout_upstream")
+        self.assertNotEqual(
+            function_source, "",
+            "layout_upstream() function not found in node_layout.py"
+        )
+        self.assertIn(
+            "horizontal",
+            function_source,
+            "layout_upstream() must contain a dispatch branch for mode='horizontal' — "
+            "string 'horizontal' not found in function body"
+        )
+        self.assertIn(
+            "place_subtree_horizontal",
+            function_source,
+            "layout_upstream() must call place_subtree_horizontal() in its horizontal "
+            "dispatch branch — 'place_subtree_horizontal' not found in function body"
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
