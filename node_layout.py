@@ -374,11 +374,17 @@ def _find_or_create_output_dot(root, consumer_node, consumer_slot, current_group
         scheme_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
 
     # Reuse check: if what is currently wired at consumer_slot is already an
-    # output Dot (has node_layout_output_dot knob), return it without creating a new one.
+    # output Dot (has node_layout_output_dot knob), reposition it and return it.
     currently_wired = consumer_node.input(consumer_slot)
     if (currently_wired is not None
             and currently_wired.knob(_OUTPUT_DOT_KNOB_NAME) is not None):
-        return currently_wired
+        dot = currently_wired
+        dot_x = consumer_node.xpos() + (consumer_node.screenWidth() - dot.screenWidth()) // 2
+        dot_y = (root.ypos() + root.screenHeight()
+                 + vertical_gap_between(dot, root, snap_threshold, scheme_multiplier))
+        dot.setXpos(dot_x)
+        dot.setYpos(dot_y)
+        return dot
 
     # Deselect all nodes before creating the Dot (anti-auto-connect guard).
     for selected_node in nuke.selectedNodes():
@@ -392,13 +398,76 @@ def _find_or_create_output_dot(root, consumer_node, consumer_slot, current_group
     consumer_node.setInput(consumer_slot, dot)
 
     # Position the Dot below root — positive Y is down in Nuke DAG.
-    dot_x = root.xpos() + (root.screenWidth() - dot.screenWidth()) // 2
+    # X is aligned to the consumer's centre so the wire from dot to consumer is vertical.
+    dot_x = consumer_node.xpos() + (consumer_node.screenWidth() - dot.screenWidth()) // 2
     dot_y = (root.ypos() + root.screenHeight()
              + vertical_gap_between(dot, root, snap_threshold, scheme_multiplier))
     dot.setXpos(dot_x)
     dot.setYpos(dot_y)
 
     return dot
+
+
+def _place_output_dot_for_horizontal_root(root, current_group, snap_threshold=None, scheme_multiplier=None):
+    """Place or reposition an output Dot below the horizontal section root.
+
+    Finds root's downstream consumer (a non-output-dot node whose direct input is
+    root) and inserts a routing Dot between them. If root has no downstream consumer,
+    no Dot is created.
+
+    On replay, if an existing output Dot (node_layout_output_dot) already has root as
+    its input, that Dot is repositioned below root's new coordinates rather than
+    duplicated.
+
+    Args:
+        root: The rightmost node of the horizontal spine.
+        current_group: Current Nuke group context (or None for root context).
+        snap_threshold: DAG snap threshold in pixels; defaults to 8 if None.
+        scheme_multiplier: Layout scheme multiplier; resolved from prefs if None.
+    """
+    if snap_threshold is None:
+        snap_threshold = 8
+    if scheme_multiplier is None:
+        scheme_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
+
+    if current_group is not None:
+        with current_group:
+            all_nodes = nuke.allNodes()
+    else:
+        all_nodes = nuke.allNodes()
+
+    # Scan nodes to find either an existing output dot (for repositioning on replay)
+    # or a real downstream consumer (for creating a new dot on first run).
+    existing_dot = None
+    consumer_node = None
+    consumer_slot = None
+    for node in all_nodes:
+        if node.knob(_OUTPUT_DOT_KNOB_NAME) is not None:
+            # Output dot we previously created — check if it takes root as its input.
+            if node.input(0) is root and existing_dot is None:
+                existing_dot = node
+        elif consumer_node is None:
+            for slot in range(node.inputs()):
+                if node.input(slot) is root:
+                    consumer_node = node
+                    consumer_slot = slot
+                    break
+
+    if existing_dot is not None:
+        # Reposition the existing dot directly below root's current position.
+        dot_y = (root.ypos() + root.screenHeight()
+                 + vertical_gap_between(existing_dot, root, snap_threshold, scheme_multiplier))
+        existing_dot.setYpos(dot_y)
+        return existing_dot
+
+    if consumer_node is None:
+        return None  # Root is the final output — no dot needed.
+
+    return _find_or_create_output_dot(
+        root, consumer_node, consumer_slot, current_group,
+        snap_threshold=snap_threshold,
+        scheme_multiplier=scheme_multiplier,
+    )
 
 
 def _find_or_create_leftmost_dot(leftmost_spine_node, current_group):
@@ -1223,7 +1292,7 @@ def layout_upstream(scheme_multiplier=None):
                     spine_set=replay_spine_set,
                     side_layout_mode="recursive",
                 )
-                _find_or_create_output_dot(root, root, 0, current_group)
+                _place_output_dot_for_horizontal_root(root, current_group, snap_threshold, root_scheme_multiplier)
             else:
                 compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier,
                              per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
@@ -1363,7 +1432,7 @@ def layout_selected(scheme_multiplier=None):
                         spine_set=root_spine_set,
                         side_layout_mode="recursive",
                     )
-                    _find_or_create_output_dot(root, root, 0, current_group)
+                    _place_output_dot_for_horizontal_root(root, current_group, snap_threshold, root_scheme_multiplier)
                 else:
                     insert_dot_nodes(root, node_filter=node_filter)
                     tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
@@ -1494,7 +1563,7 @@ def _layout_selected_horizontal_impl(scheme_multiplier, side_layout_mode, undo_l
                     spine_set=spine_set,
                     side_layout_mode=side_layout_mode,
                 )
-                _find_or_create_output_dot(root, root, 0, current_group)
+                _place_output_dot_for_horizontal_root(root, current_group, snap_threshold, root_scheme_multiplier)
 
             # State write-back: both recursive and place_only write mode='horizontal'
             # so that subsequent layout_upstream/layout_selected replay horizontal mode.
