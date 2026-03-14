@@ -1468,21 +1468,21 @@ def _layout_selected_horizontal_impl(scheme_multiplier, side_layout_mode, undo_l
                     spine_set=spine_set,
                     side_layout_mode=side_layout_mode,
                 )
+                _find_or_create_output_dot(root, root, 0, current_group)
 
-            # State write-back: only the "recursive" variant stores mode='horizontal'.
-            # "place_only" is a cosmetic reposition and does not record mode.
-            if side_layout_mode == "recursive":
-                for state_node in selected_nodes:
-                    stored_state = node_layout_state.read_node_state(state_node)
-                    node_scheme_multiplier = per_node_scheme.get(
-                        id(state_node), current_prefs.get("normal_multiplier")
-                    )
-                    stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
-                        node_scheme_multiplier, current_prefs
-                    )
-                    stored_state["mode"] = "horizontal"
-                    # h_scale and v_scale are NOT reset by re-layout — preserve existing values
-                    node_layout_state.write_node_state(state_node, stored_state)
+            # State write-back: both recursive and place_only write mode='horizontal'
+            # so that subsequent layout_upstream/layout_selected replay horizontal mode.
+            for state_node in selected_nodes:
+                stored_state = node_layout_state.read_node_state(state_node)
+                node_scheme_multiplier = per_node_scheme.get(
+                    id(state_node), current_prefs.get("normal_multiplier")
+                )
+                stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
+                    node_scheme_multiplier, current_prefs
+                )
+                stored_state["mode"] = "horizontal"
+                # h_scale and v_scale are NOT reset by re-layout — preserve existing values
+                node_layout_state.write_node_state(state_node, stored_state)
 
             bbox_after = compute_node_bounding_box(selected_nodes)
             if bbox_before and bbox_after:
@@ -1518,7 +1518,8 @@ def layout_selected_horizontal_place_only(scheme_multiplier=None):
     existing internal structure while snapping their roots to the correct positions
     above their respective spine nodes.
 
-    Does not write mode='horizontal' to node state.
+    Writes mode='horizontal' to the selected (spine) nodes so that subsequent
+    layout_upstream or layout_selected replays the horizontal mode automatically.
     """
     _layout_selected_horizontal_impl(
         scheme_multiplier, "place_only", "Layout Selected Horizontal (Place Only)"
