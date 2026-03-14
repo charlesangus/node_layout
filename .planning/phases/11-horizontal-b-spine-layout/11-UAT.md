@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 11-horizontal-b-spine-layout
 source: 11-01-SUMMARY.md, 11-02-SUMMARY.md, 11-03-SUMMARY.md + post-UAT redesign
 started: 2026-03-13T01:30:00Z
@@ -90,25 +90,46 @@ skipped: 0
   reason: "User reported: No dot."
   severity: major
   test: 2
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "_layout_selected_horizontal_impl calls place_subtree_horizontal for each root but never calls _find_or_create_output_dot afterward — the call both other horizontal paths make immediately after place_subtree_horizontal"
+  artifacts:
+    - path: "node_layout.py lines 1460-1470"
+      issue: "place_subtree_horizontal called for each root but _find_or_create_output_dot(root, root, 0, current_group) never called afterward"
+    - path: "node_layout.py line 1213"
+      issue: "Correct pattern exists here: layout_upstream replay path calls _find_or_create_output_dot after place_subtree_horizontal"
+    - path: "node_layout.py line 1340"
+      issue: "Correct pattern exists here: layout_selected multi-root replay path calls _find_or_create_output_dot after place_subtree_horizontal"
+  missing:
+    - "Inside the for-root loop in _layout_selected_horizontal_impl, after place_subtree_horizontal, add: _find_or_create_output_dot(root, root, 0, current_group)"
+  debug_session: ".planning/debug/no-output-dot-selected-horizontal.md"
 - truth: "Running Layout Upstream on any downstream node of a horizontal chain replays the horizontal mode, not just when selecting the exact stored root"
   status: failed
   reason: "User reported: fail - only works if you select that exact root, If you select a downstream node and run layout upstream, the horizontal mode flag is ignored."
   severity: major
   test: 7
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "layout_upstream reads root_mode only from the selected node itself; a downstream node's stored mode is 'vertical', so the horizontal replay branch is never entered — no upstream walk is done to discover that inputs carry mode='horizontal'"
+  artifacts:
+    - path: "node_layout.py:1186-1193"
+      issue: "layout_upstream reads root_mode from root (the selected node) and branches on it; downstream consumer always has mode='vertical'"
+    - path: "node_layout.py:1310-1317"
+      issue: "layout_selected has the same pattern — root_mode read from each selection root, same failure for downstream selections"
+  missing:
+    - "In layout_upstream: if root_mode is not 'horizontal', walk root.input(0) upstream to find first node with mode='horizontal'; use that ancestor as the effective horizontal replay root"
+    - "In layout_selected: same upstream scan per selection root"
+    - "Call place_subtree_horizontal with the discovered ancestor node, not the downstream selected node"
+  debug_session: ".planning/debug/horiz03-downstream-replay.md"
 - truth: "Running Layout Selected or Layout Upstream after Place Only should replay the spine nodes as horizontal (mode stored by Place Only)"
   status: failed
   reason: "User reported: fail - subsequent layout selected/upstream _should_ replay the horizontally-laid-out nodes as horizontal."
   severity: major
   test: 8
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "_layout_selected_horizontal_impl gates the mode='horizontal' state write-back behind 'if side_layout_mode == recursive', so place_only never writes mode to node state and subsequent layouts replay as vertical"
+  artifacts:
+    - path: "node_layout.py lines 1472-1485"
+      issue: "State write-back block wrapped in 'if side_layout_mode == recursive'; place_only falls through with no state write"
+    - path: "node_layout.py line 1521"
+      issue: "Docstring explicitly states 'Does not write mode=horizontal to node state' — intentional design now reversed by user spec"
+  missing:
+    - "Remove the 'if side_layout_mode == recursive:' guard on the state write-back block so mode='horizontal' is written for both recursive and place_only"
+    - "Update docstring on layout_selected_horizontal_place_only to reflect that it does write mode='horizontal'"
+    - "Remove/update inline comment at lines 1472-1473"
   debug_session: ""
