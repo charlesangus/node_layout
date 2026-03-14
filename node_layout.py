@@ -493,6 +493,8 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
     # Applied incrementally: after placing spine[i], the next node to the left
     # starts at cur_x - step_x - upstream_node.screenWidth().
     step_x = int(current_prefs.get("horizontal_subtree_gap") * scheme_multiplier)
+    # Fixed vertical gap between spine and first node of each side subtree.
+    horizontal_side_gap = current_prefs.get("horizontal_side_vertical_gap")
 
     # Build the spine list: [root, ancestor1, ancestor2, ...]
     # root is index 0 (rightmost); last element is farthest spine ancestor (leftmost).
@@ -542,6 +544,35 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                 effective_widths[i] = max(effective_widths[i], right_extent)
                 if centering_offset < 0:
                     left_extents[i] = max(left_extents[i], -centering_offset)
+    else:
+        # place_only: measure the actual current bounding box of each side subtree.
+        # The subtree is translated as a rigid unit, so relative node positions are
+        # preserved.  We compute how far the bbox extends right and left of the spine
+        # node's left edge after the centered placement, so the advance formula uses
+        # real subtree extents rather than just the spine node's own width.
+        for i, spine_node in enumerate(spine_nodes):
+            for slot_index in range(1, spine_node.inputs()):
+                side_node = spine_node.input(slot_index)
+                if side_node is None:
+                    continue
+                subtree_nodes = collect_subtree_nodes(side_node)
+                if not subtree_nodes:
+                    continue
+                subtree_min_x = min(n.xpos() for n in subtree_nodes)
+                subtree_max_x = max(n.xpos() + n.screenWidth() for n in subtree_nodes)
+                # centering_offset: how far right from the spine node's left edge the
+                # side root will land when centered above the spine node.
+                centering_offset = (spine_node.screenWidth() - side_node.screenWidth()) // 2
+                # right_extent_from_root: how far right the subtree bbox extends from
+                # the side root's left edge (preserved under rigid translation).
+                right_extent_from_root = subtree_max_x - side_node.xpos()
+                effective_widths[i] = max(effective_widths[i], centering_offset + right_extent_from_root)
+                # left_extent_from_root: how far left the subtree bbox extends from
+                # the side root's left edge.
+                left_extent_from_root = side_node.xpos() - subtree_min_x
+                leftward_past_spine = left_extent_from_root - centering_offset
+                if leftward_past_spine > 0:
+                    left_extents[i] = max(left_extents[i], leftward_past_spine)
 
     # --- First pass: walk spine from farthest ancestor toward root (reverse order).
     # Accumulate cumulative_kink_y from mask inputs encountered on each spine node.
@@ -604,8 +635,7 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
             side_node = spine_node.input(slot_index)
             if side_node is None:
                 continue
-            raw_gap = vertical_gap_between(side_node, spine_node, snap_threshold, scheme_multiplier)
-            side_y = cur_y - raw_gap - side_node.screenHeight()
+            side_y = cur_y - horizontal_side_gap - side_node.screenHeight()
             side_x = _center_x(side_node.screenWidth(), cur_x, spine_node.screenWidth())
             if side_layout_mode == "recursive":
                 side_count = side_input_counts.get(
@@ -637,7 +667,14 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
         if is_last_spine_node and spine_set is not None:
             raw_primary = spine_node.input(0)
             # Detect whether a leftmost Dot was already inserted by a prior recursive run.
+            # Also treat any pre-existing plain Dot as a reusable leftmost dot to avoid
+            # stacking a new Dot in front of one that already exists.
             if raw_primary is not None and raw_primary.knob(_LEFTMOST_DOT_KNOB_NAME) is not None:
+                leftmost_dot = raw_primary
+                upstream_root = raw_primary.input(0)
+            elif (raw_primary is not None
+                    and raw_primary.Class() == "Dot"
+                    and id(raw_primary) not in spine_set):
                 leftmost_dot = raw_primary
                 upstream_root = raw_primary.input(0)
             elif raw_primary is not None and id(raw_primary) not in spine_set:
@@ -648,31 +685,44 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                 upstream_root = None
 
             if upstream_root is not None:
+                # Create the leftmost Dot if one does not already exist.
+                # This must happen in BOTH recursive and place_only modes so that
+                # the B-side wire always has a horizontal routing Dot at spine Y.
+                if leftmost_dot is None:
+                    leftmost_dot = _find_or_create_leftmost_dot(spine_node, current_group)
+
+                # Position the Dot at spine Y, one step to the LEFT of the spine node.
+                # dot_x = one step_x gap left of cur_x, accounting for the Dot's own width.
+                # dot_y = vertically centered on the spine node tile.
+                if leftmost_dot is not None:
+                    dot_x = cur_x - step_x - leftmost_dot.screenWidth()
+                    dot_y = cur_y + (spine_node.screenHeight() - leftmost_dot.screenHeight()) // 2
+                    leftmost_dot.setXpos(dot_x)
+                    leftmost_dot.setYpos(dot_y)
+
+                # Compute the target position for the upstream (A) subtree root.
+                # upstream_root is placed directly above the Dot's X column.
+                # upstream_x: centered on dot_x so the wire drops vertically from
+                #   upstream_root to the Dot before turning horizontal to the spine.
+                # upstream_y: above the spine by horizontal_side_gap + node height.
+                if leftmost_dot is not None:
+                    upstream_x = dot_x + (leftmost_dot.screenWidth() - upstream_root.screenWidth()) // 2
+                else:
+                    # Fallback (no Dot possible — spine node has no input[0]): place A
+                    # to the left of the spine using the upstream root's own width.
+                    upstream_x = cur_x - step_x - upstream_root.screenWidth()
+                upstream_y = cur_y - horizontal_side_gap - upstream_root.screenHeight()
+
                 if side_layout_mode == "recursive":
-                    # Compute upstream subtree dimensions so we can position both it
-                    # and the leftmost Dot before any nodes are moved.
+                    # Recursive: compute full subtree dims, then recursively place
+                    # the upstream subtree at the pre-computed target position.
                     upstream_count = len(collect_subtree_nodes(upstream_root))
-                    upstream_w, _ = compute_dims(
+                    compute_dims(
                         upstream_root, memo, snap_threshold, upstream_count,
                         scheme_multiplier=scheme_multiplier,
                         per_node_h_scale=per_node_h_scale,
                         per_node_v_scale=per_node_v_scale,
                     )
-                    # Upstream root sits to the left, above spine level.
-                    # The leftmost Dot is placed at spine Y, X-centered under the
-                    # upstream root, so the wire routes: upstream → Dot (vertical
-                    # drop) → spine (horizontal run).
-                    upstream_x = cur_x - step_x - upstream_w
-                    gap = vertical_gap_between(upstream_root, spine_node, snap_threshold, scheme_multiplier)
-                    upstream_y = cur_y - gap - upstream_root.screenHeight()
-
-                    if leftmost_dot is None:
-                        leftmost_dot = _find_or_create_leftmost_dot(spine_node, current_group)
-                    if leftmost_dot is not None:
-                        dot_x = upstream_x + (upstream_root.screenWidth() - leftmost_dot.screenWidth()) // 2
-                        dot_y = cur_y + (spine_node.screenHeight() - leftmost_dot.screenHeight()) // 2
-                        leftmost_dot.setXpos(dot_x)
-                        leftmost_dot.setYpos(dot_y)
 
                     place_subtree(
                         upstream_root, upstream_x, upstream_y, memo,
@@ -682,22 +732,15 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                         per_node_v_scale=per_node_v_scale,
                     )
                 else:
-                    # place_only: translate the entire upstream subtree above the
-                    # leftmost spine node (centered on it), preserving internal layout.
-                    raw_gap = vertical_gap_between(upstream_root, spine_node, snap_threshold, scheme_multiplier)
-                    target_x = _center_x(upstream_root.screenWidth(), cur_x, spine_node.screenWidth())
-                    target_y = cur_y - raw_gap - upstream_root.screenHeight()
-                    delta_x = target_x - upstream_root.xpos()
-                    delta_y = target_y - upstream_root.ypos()
-                    for translated_node in collect_subtree_nodes(upstream_root):
+                    # place_only: translate the entire A upstream subtree as a unit
+                    # so that the subtree root lands at (upstream_x, upstream_y),
+                    # preserving the internal layout of the subtree.
+                    upstream_subtree_nodes = collect_subtree_nodes(upstream_root)
+                    delta_x = upstream_x - upstream_root.xpos()
+                    delta_y = upstream_y - upstream_root.ypos()
+                    for translated_node in upstream_subtree_nodes:
                         translated_node.setXpos(translated_node.xpos() + delta_x)
                         translated_node.setYpos(translated_node.ypos() + delta_y)
-                    # Reposition any existing leftmost Dot to match.
-                    if leftmost_dot is not None:
-                        dot_x = target_x + (upstream_root.screenWidth() - leftmost_dot.screenWidth()) // 2
-                        dot_y = cur_y + (spine_node.screenHeight() - leftmost_dot.screenHeight()) // 2
-                        leftmost_dot.setXpos(dot_x)
-                        leftmost_dot.setYpos(dot_y)
 
         # Advance cur_x leftward for the next upstream spine node.
         # Formula ensures a full step_x gap between the bounding boxes of adjacent
@@ -1425,7 +1468,6 @@ def _layout_selected_horizontal_impl(scheme_multiplier, side_layout_mode, undo_l
                     spine_set=spine_set,
                     side_layout_mode=side_layout_mode,
                 )
-                _find_or_create_output_dot(root, root, 0, current_group)
 
             # State write-back: only the "recursive" variant stores mode='horizontal'.
             # "place_only" is a cosmetic reposition and does not record mode.

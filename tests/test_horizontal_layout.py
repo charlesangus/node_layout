@@ -689,16 +689,19 @@ class TestHighestSubtreePlacement(unittest.TestCase):
         )
 
     def test_recursive_upstream_x_near_dot_x(self):
-        """Recursive mode: upstream_root X must be centered above the Dot, not far left.
+        """Recursive mode: upstream_root center X must align with Dot center X.
 
         The correct formula is:
             upstream_x = dot_x + (dot.screenWidth() - upstream_root.screenWidth()) // 2
 
+        This centers the upstream node horizontally over the Dot, so the vertical wire
+        from upstream_root drops straight down to the Dot.
+
         The old broken formula was:
             upstream_x = cur_x - step_x - upstream_w   (places A far left of the Dot)
 
-        Verification: |upstream_root.xpos() - dot.xpos()| <= dot.screenWidth()
-        (upstream root is within one Dot-width of the Dot's X column).
+        Verification: the center X of upstream_root must equal the center X of the Dot
+        within 1 pixel (integer arithmetic may cause off-by-one).
         """
         spine_root, upstream_node, spine_set = self._build_spine_with_upstream()
 
@@ -715,14 +718,15 @@ class TestHighestSubtreePlacement(unittest.TestCase):
 
         dot = spine_root.input(0)
         self.assertIsNotNone(dot, "Dot must be created for X-alignment check")
-        distance_from_dot = abs(upstream_node.xpos() - dot.xpos())
-        dot_width = dot.screenWidth()
+        upstream_center_x = upstream_node.xpos() + upstream_node.screenWidth() // 2
+        dot_center_x = dot.xpos() + dot.screenWidth() // 2
+        center_offset = abs(upstream_center_x - dot_center_x)
         self.assertLessEqual(
-            distance_from_dot,
-            dot_width,
-            "upstream_root.xpos() must be within one dot.screenWidth() of dot.xpos() — "
-            f"upstream_node.xpos={upstream_node.xpos()}, dot.xpos={dot.xpos()}, "
-            f"distance={distance_from_dot}, dot_width={dot_width}"
+            center_offset,
+            1,
+            "upstream_root center X must align with Dot center X (within 1 px) — "
+            f"upstream center={upstream_center_x}, dot center={dot_center_x}, "
+            f"offset={center_offset}"
         )
 
     def test_recursive_upstream_y_above_spine(self):
@@ -823,19 +827,18 @@ class TestHighestSubtreePlacement(unittest.TestCase):
         )
 
     def test_place_only_upstream_x_near_dot_x(self):
-        """place_only mode: upstream_root X must be near the Dot X column, not far left.
+        """place_only mode: upstream_root center X must align with Dot center X.
 
-        After the fix, upstream_x is derived from dot_x (centered on Dot width).
+        After the fix, upstream_x is derived from dot_x (centered on Dot width):
+            upstream_x = dot_x + (dot.screenWidth() - upstream_root.screenWidth()) // 2
+
         The broken implementation places A at cur_x - step_x - upstream_right_extent
         which is far left of the Dot.
 
-        Verification: the upstream node X must be to the RIGHT of spine_root.xpos() - 3*step_x.
-        (The broken code puts it further left than that.)
+        Verification: the center X of upstream_root must equal the center X of the Dot
+        within 1 pixel (integer arithmetic may cause off-by-one).
         """
         spine_root, upstream_node, spine_set = self._build_spine_with_upstream()
-        step_x = int(
-            _node_layout_prefs_module.prefs_singleton.get("horizontal_subtree_gap")
-        )
 
         nl.place_subtree_horizontal(
             spine_root,
@@ -848,9 +851,6 @@ class TestHighestSubtreePlacement(unittest.TestCase):
             current_group=self.current_group,
         )
 
-        # After fix: upstream_x is at dot_x ± dot_width (just left of spine node).
-        # After the fix, a Dot is created and upstream is placed above the Dot.
-        # We test that upstream is near the Dot by checking it has a Dot first.
         dot = spine_root.input(0)
         if dot is None or dot.knob(nl._LEFTMOST_DOT_KNOB_NAME) is None:
             self.fail(
@@ -858,14 +858,15 @@ class TestHighestSubtreePlacement(unittest.TestCase):
                 "Fix Dot creation first."
             )
 
-        distance_from_dot = abs(upstream_node.xpos() - dot.xpos())
-        dot_width = dot.screenWidth()
+        upstream_center_x = upstream_node.xpos() + upstream_node.screenWidth() // 2
+        dot_center_x = dot.xpos() + dot.screenWidth() // 2
+        center_offset = abs(upstream_center_x - dot_center_x)
         self.assertLessEqual(
-            distance_from_dot,
-            dot_width,
-            "place_only: upstream_root.xpos() must be within one dot.screenWidth() of dot.xpos() — "
-            f"upstream_node.xpos={upstream_node.xpos()}, dot.xpos={dot.xpos()}, "
-            f"distance={distance_from_dot}, dot_width={dot_width}"
+            center_offset,
+            1,
+            "place_only: upstream_root center X must align with Dot center X (within 1 px) — "
+            f"upstream center={upstream_center_x}, dot center={dot_center_x}, "
+            f"offset={center_offset}"
         )
 
     def test_place_only_upstream_y_above_spine(self):
