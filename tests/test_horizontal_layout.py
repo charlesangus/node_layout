@@ -564,5 +564,367 @@ class TestModeReplay(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# TestHighestSubtreePlacement — verifies A/B placement geometry for the
+# leftmost spine node (is_last_spine_node block in place_subtree_horizontal)
+# ---------------------------------------------------------------------------
+
+
+class _StubContextManager:
+    """Minimal context manager so `with current_group:` works with a non-None stub."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+
+class TestHighestSubtreePlacement(unittest.TestCase):
+    """Geometry tests for A-subtree and leftmost Dot placement at the farthest spine node.
+
+    Nuke DAG coordinate system:
+      - Positive Y is DOWN; negative Y is UP.
+      - Upstream nodes (input[0]) appear at lower Y values (higher on screen).
+      - Positive X is right; spine extends leftward (lower X from root).
+
+    The leftmost spine node's input[0] (the A/upstream subtree) must be placed
+    DIRECTLY ABOVE the Dot, not diagonally upper-left.  The Dot sits at spine Y,
+    to the left of the leftmost spine node.
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        self.snap_threshold = 8
+        self.node_count = 3
+        self.current_group = _StubContextManager()
+        # Read the gap pref used by the implementation.
+        self.horizontal_side_gap = _node_layout_prefs_module.prefs_singleton.get(
+            "horizontal_side_vertical_gap"
+        )
+        self.horizontal_subtree_gap = _node_layout_prefs_module.prefs_singleton.get(
+            "horizontal_subtree_gap"
+        )
+
+    # ------------------------------------------------------------------
+    # Helper: build a 1-node spine with an upstream A node (no prior Dot).
+    # The upstream node is connected as input[0] of the spine node, and
+    # spine_set excludes the upstream so it is treated as the A subtree.
+    # ------------------------------------------------------------------
+
+    def _build_spine_with_upstream(self):
+        """Return (spine_root, upstream_node, spine_set).
+
+        spine_root: single-node spine placed at (500, 200).
+        upstream_node: input[0] of spine_root, not in spine_set.
+        spine_set: {id(spine_root)}, causing upstream_node to be treated as A.
+        """
+        upstream_node = _StubNode(width=80, height=28, xpos=0, ypos=0, node_class="Grade")
+        spine_root = _StubNode(width=80, height=28, xpos=500, ypos=200, node_class="Grade")
+        spine_root.setInput(0, upstream_node)
+        spine_set = {id(spine_root)}
+        return spine_root, upstream_node, spine_set
+
+    # ------------------------------------------------------------------
+    # Recursive mode tests
+    # ------------------------------------------------------------------
+
+    def test_recursive_creates_leftmost_dot(self):
+        """Recursive mode must create a leftmost Dot when none exists.
+
+        After calling place_subtree_horizontal with side_layout_mode='recursive',
+        spine_root.input(0) should be a Dot with _LEFTMOST_DOT_KNOB_NAME knob,
+        or the upstream node's parent should be a Dot. The Dot must exist.
+        """
+        spine_root, upstream_node, spine_set = self._build_spine_with_upstream()
+
+        nl.place_subtree_horizontal(
+            spine_root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+            spine_set=spine_set,
+            side_layout_mode="recursive",
+            current_group=self.current_group,
+        )
+
+        # After recursive run, spine_root.input(0) should be the Dot.
+        primary = spine_root.input(0)
+        self.assertIsNotNone(
+            primary,
+            "After recursive layout, spine_root.input(0) must not be None — expected Dot"
+        )
+        self.assertIsNotNone(
+            primary.knob(nl._LEFTMOST_DOT_KNOB_NAME),
+            "spine_root.input(0) must have _LEFTMOST_DOT_KNOB_NAME knob — "
+            f"got knob={primary.knob(nl._LEFTMOST_DOT_KNOB_NAME)} on node class={primary.Class()}"
+        )
+
+    def test_recursive_dot_x_left_of_spine_node(self):
+        """Recursive mode: leftmost Dot must be placed to the LEFT of the spine node.
+
+        dot.xpos() < spine_root.xpos() because the Dot is a step left in the X axis.
+        """
+        spine_root, upstream_node, spine_set = self._build_spine_with_upstream()
+
+        nl.place_subtree_horizontal(
+            spine_root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+            spine_set=spine_set,
+            side_layout_mode="recursive",
+            current_group=self.current_group,
+        )
+
+        dot = spine_root.input(0)
+        self.assertIsNotNone(dot, "Dot must be created")
+        self.assertLess(
+            dot.xpos(),
+            spine_root.xpos(),
+            "leftmost Dot must have xpos < spine_root.xpos() — "
+            f"dot.xpos={dot.xpos()}, spine_root.xpos={spine_root.xpos()}"
+        )
+
+    def test_recursive_upstream_x_near_dot_x(self):
+        """Recursive mode: upstream_root X must be centered above the Dot, not far left.
+
+        The correct formula is:
+            upstream_x = dot_x + (dot.screenWidth() - upstream_root.screenWidth()) // 2
+
+        The old broken formula was:
+            upstream_x = cur_x - step_x - upstream_w   (places A far left of the Dot)
+
+        Verification: |upstream_root.xpos() - dot.xpos()| <= dot.screenWidth()
+        (upstream root is within one Dot-width of the Dot's X column).
+        """
+        spine_root, upstream_node, spine_set = self._build_spine_with_upstream()
+
+        nl.place_subtree_horizontal(
+            spine_root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+            spine_set=spine_set,
+            side_layout_mode="recursive",
+            current_group=self.current_group,
+        )
+
+        dot = spine_root.input(0)
+        self.assertIsNotNone(dot, "Dot must be created for X-alignment check")
+        distance_from_dot = abs(upstream_node.xpos() - dot.xpos())
+        dot_width = dot.screenWidth()
+        self.assertLessEqual(
+            distance_from_dot,
+            dot_width,
+            "upstream_root.xpos() must be within one dot.screenWidth() of dot.xpos() — "
+            f"upstream_node.xpos={upstream_node.xpos()}, dot.xpos={dot.xpos()}, "
+            f"distance={distance_from_dot}, dot_width={dot_width}"
+        )
+
+    def test_recursive_upstream_y_above_spine(self):
+        """Recursive mode: upstream_root Y must be above the spine (lower Y value).
+
+        upstream_root.ypos() < spine_root.ypos() because in Nuke DAG positive Y is down.
+        """
+        spine_root, upstream_node, spine_set = self._build_spine_with_upstream()
+
+        nl.place_subtree_horizontal(
+            spine_root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+            spine_set=spine_set,
+            side_layout_mode="recursive",
+            current_group=self.current_group,
+        )
+
+        self.assertLess(
+            upstream_node.ypos(),
+            spine_root.ypos(),
+            "upstream_root must be above spine (lower Y in Nuke DAG) — "
+            f"upstream_node.ypos={upstream_node.ypos()}, spine_root.ypos={spine_root.ypos()}"
+        )
+
+    def test_recursive_no_overlap_upstream_and_spine(self):
+        """Recursive mode: upstream_root and spine_root must not overlap.
+
+        Overlap check: either
+          - upstream_root.xpos() + upstream_root.screenWidth() <= spine_root.xpos(), OR
+          - upstream_root.xpos() >= spine_root.xpos() + spine_root.screenWidth(), OR
+          - upstream_root.ypos() + upstream_root.screenHeight() <= spine_root.ypos()
+        At least one condition must hold.
+        """
+        spine_root, upstream_node, spine_set = self._build_spine_with_upstream()
+
+        nl.place_subtree_horizontal(
+            spine_root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+            spine_set=spine_set,
+            side_layout_mode="recursive",
+            current_group=self.current_group,
+        )
+
+        no_horizontal_overlap = (
+            upstream_node.xpos() + upstream_node.screenWidth() <= spine_root.xpos()
+            or upstream_node.xpos() >= spine_root.xpos() + spine_root.screenWidth()
+        )
+        no_vertical_overlap = (
+            upstream_node.ypos() + upstream_node.screenHeight() <= spine_root.ypos()
+        )
+        self.assertTrue(
+            no_horizontal_overlap or no_vertical_overlap,
+            "upstream_root and spine_root must not overlap — "
+            f"upstream: ({upstream_node.xpos()}, {upstream_node.ypos()}, "
+            f"w={upstream_node.screenWidth()}, h={upstream_node.screenHeight()}), "
+            f"spine: ({spine_root.xpos()}, {spine_root.ypos()}, "
+            f"w={spine_root.screenWidth()}, h={spine_root.screenHeight()})"
+        )
+
+    # ------------------------------------------------------------------
+    # place_only mode tests
+    # ------------------------------------------------------------------
+
+    def test_place_only_creates_leftmost_dot(self):
+        """place_only mode must create a leftmost Dot when none exists.
+
+        The current implementation never calls _find_or_create_leftmost_dot in
+        place_only mode — so this test fails RED until the fix is applied.
+        """
+        spine_root, upstream_node, spine_set = self._build_spine_with_upstream()
+
+        nl.place_subtree_horizontal(
+            spine_root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+            spine_set=spine_set,
+            side_layout_mode="place_only",
+            current_group=self.current_group,
+        )
+
+        primary = spine_root.input(0)
+        self.assertIsNotNone(
+            primary,
+            "After place_only layout, spine_root.input(0) must not be None — expected Dot"
+        )
+        self.assertIsNotNone(
+            primary.knob(nl._LEFTMOST_DOT_KNOB_NAME),
+            "place_only mode must create a Dot with _LEFTMOST_DOT_KNOB_NAME when none exists — "
+            f"got knob={primary.knob(nl._LEFTMOST_DOT_KNOB_NAME)}"
+        )
+
+    def test_place_only_upstream_x_near_dot_x(self):
+        """place_only mode: upstream_root X must be near the Dot X column, not far left.
+
+        After the fix, upstream_x is derived from dot_x (centered on Dot width).
+        The broken implementation places A at cur_x - step_x - upstream_right_extent
+        which is far left of the Dot.
+
+        Verification: the upstream node X must be to the RIGHT of spine_root.xpos() - 3*step_x.
+        (The broken code puts it further left than that.)
+        """
+        spine_root, upstream_node, spine_set = self._build_spine_with_upstream()
+        step_x = int(
+            _node_layout_prefs_module.prefs_singleton.get("horizontal_subtree_gap")
+        )
+
+        nl.place_subtree_horizontal(
+            spine_root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+            spine_set=spine_set,
+            side_layout_mode="place_only",
+            current_group=self.current_group,
+        )
+
+        # After fix: upstream_x is at dot_x ± dot_width (just left of spine node).
+        # After the fix, a Dot is created and upstream is placed above the Dot.
+        # We test that upstream is near the Dot by checking it has a Dot first.
+        dot = spine_root.input(0)
+        if dot is None or dot.knob(nl._LEFTMOST_DOT_KNOB_NAME) is None:
+            self.fail(
+                "place_only mode must create a Dot — cannot verify upstream X without Dot. "
+                "Fix Dot creation first."
+            )
+
+        distance_from_dot = abs(upstream_node.xpos() - dot.xpos())
+        dot_width = dot.screenWidth()
+        self.assertLessEqual(
+            distance_from_dot,
+            dot_width,
+            "place_only: upstream_root.xpos() must be within one dot.screenWidth() of dot.xpos() — "
+            f"upstream_node.xpos={upstream_node.xpos()}, dot.xpos={dot.xpos()}, "
+            f"distance={distance_from_dot}, dot_width={dot_width}"
+        )
+
+    def test_place_only_upstream_y_above_spine(self):
+        """place_only mode: upstream_root Y must be above the spine (lower Y value).
+
+        upstream_root.ypos() < spine_root.ypos() — negative Y direction = up.
+        """
+        spine_root, upstream_node, spine_set = self._build_spine_with_upstream()
+
+        nl.place_subtree_horizontal(
+            spine_root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+            spine_set=spine_set,
+            side_layout_mode="place_only",
+            current_group=self.current_group,
+        )
+
+        self.assertLess(
+            upstream_node.ypos(),
+            spine_root.ypos(),
+            "place_only: upstream_root must be above spine (lower Y in Nuke DAG) — "
+            f"upstream_node.ypos={upstream_node.ypos()}, spine_root.ypos={spine_root.ypos()}"
+        )
+
+    def test_place_only_dot_x_left_of_spine_node(self):
+        """place_only mode: Dot must be placed to the LEFT of the spine node.
+
+        dot.xpos() < spine_root.xpos() — Dot is one step left of the spine node.
+        """
+        spine_root, upstream_node, spine_set = self._build_spine_with_upstream()
+
+        nl.place_subtree_horizontal(
+            spine_root,
+            spine_x=500,
+            spine_y=200,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+            spine_set=spine_set,
+            side_layout_mode="place_only",
+            current_group=self.current_group,
+        )
+
+        dot = spine_root.input(0)
+        if dot is None or dot.knob(nl._LEFTMOST_DOT_KNOB_NAME) is None:
+            self.fail(
+                "place_only mode must create a Dot — cannot verify Dot X without Dot. "
+                "Fix Dot creation first."
+            )
+
+        self.assertLess(
+            dot.xpos(),
+            spine_root.xpos(),
+            "place_only: leftmost Dot must have xpos < spine_root.xpos() — "
+            f"dot.xpos={dot.xpos()}, spine_root.xpos={spine_root.xpos()}"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
