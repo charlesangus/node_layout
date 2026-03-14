@@ -137,6 +137,12 @@ From Phase 6, Plan 01:
 
 None.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing | 2026-03-14 | c557afe | [1-fix-highest-subtree-placement-in-horizon](.planning/quick/1-fix-highest-subtree-placement-in-horizon/) |
+
 ### Blockers/Concerns
 
 - Phase 7 (State Storage): Knob serialization mechanism (TCL addUserKnob vs addOnCreate) must be empirically verified in the target Nuke version before committing. Save a test script, close Nuke, reopen, confirm knobs survive.
@@ -144,6 +150,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-13T14:00:00.000Z
-Stopped at: Applied 3 post-UAT-pause fixes; ready for live Nuke UAT (tests 2-8)
+Last session: 2026-03-14
+Last activity: 2026-03-14 - Completed quick task 1: Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing
 Resume file: .planning/phases/11-horizontal-b-spine-layout/.continue-here.md
