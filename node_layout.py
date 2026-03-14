@@ -373,15 +373,19 @@ def _find_or_create_output_dot(root, consumer_node, consumer_slot, current_group
     if scheme_multiplier is None:
         scheme_multiplier = node_layout_prefs.prefs_singleton.get("normal_multiplier")
 
+    # Compute dot gap: always use loose gap so the dot is clearly below root and not
+    # collapsed to a near-zero gap by the same-tile-color compact rule.
+    loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
+    dot_gap = int(loose_gap_multiplier * scheme_multiplier * snap_threshold)
+
     # Reuse check: if what is currently wired at consumer_slot is already an
     # output Dot (has node_layout_output_dot knob), reposition it and return it.
     currently_wired = consumer_node.input(consumer_slot)
     if (currently_wired is not None
             and currently_wired.knob(_OUTPUT_DOT_KNOB_NAME) is not None):
         dot = currently_wired
-        dot_x = consumer_node.xpos() + (consumer_node.screenWidth() - dot.screenWidth()) // 2
-        dot_y = (root.ypos() + root.screenHeight()
-                 + vertical_gap_between(dot, root, snap_threshold, scheme_multiplier))
+        dot_x = root.xpos() + (root.screenWidth() - dot.screenWidth()) // 2
+        dot_y = root.ypos() + root.screenHeight() + dot_gap
         dot.setXpos(dot_x)
         dot.setYpos(dot_y)
         return dot
@@ -397,11 +401,9 @@ def _find_or_create_output_dot(root, consumer_node, consumer_slot, current_group
     dot.setInput(0, root)
     consumer_node.setInput(consumer_slot, dot)
 
-    # Position the Dot below root — positive Y is down in Nuke DAG.
-    # X is aligned to the consumer's centre so the wire from dot to consumer is vertical.
-    dot_x = consumer_node.xpos() + (consumer_node.screenWidth() - dot.screenWidth()) // 2
-    dot_y = (root.ypos() + root.screenHeight()
-             + vertical_gap_between(dot, root, snap_threshold, scheme_multiplier))
+    # Position the Dot directly below root — positive Y is down in Nuke DAG.
+    dot_x = root.xpos() + (root.screenWidth() - dot.screenWidth()) // 2
+    dot_y = root.ypos() + root.screenHeight() + dot_gap
     dot.setXpos(dot_x)
     dot.setYpos(dot_y)
 
@@ -455,9 +457,11 @@ def _place_output_dot_for_horizontal_root(root, current_group, snap_threshold=No
 
     if existing_dot is not None:
         # Reposition the existing dot directly below root's current position.
-        dot_y = (root.ypos() + root.screenHeight()
-                 + vertical_gap_between(existing_dot, root, snap_threshold, scheme_multiplier))
-        existing_dot.setYpos(dot_y)
+        # Use loose gap so the dot is clearly below root regardless of tile colour.
+        loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
+        dot_gap = int(loose_gap_multiplier * scheme_multiplier * snap_threshold)
+        existing_dot.setXpos(root.xpos() + (root.screenWidth() - existing_dot.screenWidth()) // 2)
+        existing_dot.setYpos(root.ypos() + root.screenHeight() + dot_gap)
         return existing_dot
 
     if consumer_node is None:
@@ -1255,6 +1259,10 @@ def layout_upstream(scheme_multiplier=None):
             root_stored_state = node_layout_state.read_node_state(root)
             root_mode = root_stored_state.get("mode", "vertical")
 
+            # Save the originally selected node before the ancestor walk may rebind root.
+            # Used to anchor the horizontal chain above the downstream consumer.
+            original_selected_root = root
+
             # If the selected node is downstream of a horizontal chain (its own mode is
             # vertical), walk input(0) upstream to find the first ancestor stored as
             # horizontal. That ancestor becomes the effective replay root.
@@ -1273,6 +1281,10 @@ def layout_upstream(scheme_multiplier=None):
             # ends at the first node whose mode differs.
             replay_spine_set = None
             if root_mode == "horizontal":
+                # Recompute scheme multiplier for the (possibly rebound) horizontal root.
+                root_scheme_multiplier = per_node_scheme.get(
+                    id(root), current_prefs.get("normal_multiplier")
+                )
                 replay_spine_set = set()
                 cursor = root
                 while cursor is not None:
@@ -1281,8 +1293,24 @@ def layout_upstream(scheme_multiplier=None):
                         break
                     replay_spine_set.add(id(cursor))
                     cursor = cursor.input(0)
+                # Compute starting position for the chain.
+                # If the ancestor walk found a different (upstream) root, anchor the chain
+                # above the originally selected downstream node so the layout is
+                # positioned correctly relative to the consumer, not D's scrambled coords.
+                if root is not original_selected_root:
+                    loose_gap_multiplier = current_prefs.get("loose_gap_multiplier")
+                    loose_gap = int(loose_gap_multiplier * root_scheme_multiplier * snap_threshold)
+                    _DOT_TILE_HEIGHT = 12  # standard Nuke Dot tile height
+                    spine_x = (original_selected_root.xpos()
+                               + (original_selected_root.screenWidth() - root.screenWidth()) // 2)
+                    spine_y = (original_selected_root.ypos()
+                               - loose_gap - _DOT_TILE_HEIGHT - loose_gap
+                               - root.screenHeight())
+                else:
+                    spine_x = root.xpos()
+                    spine_y = root.ypos()
                 place_subtree_horizontal(
-                    root, root.xpos(), root.ypos(), snap_threshold, node_count,
+                    root, spine_x, spine_y, snap_threshold, node_count,
                     scheme_multiplier=root_scheme_multiplier,
                     per_node_h_scale=per_node_h_scale,
                     per_node_v_scale=per_node_v_scale,
