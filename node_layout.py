@@ -1186,6 +1186,19 @@ def layout_upstream(scheme_multiplier=None):
             root_stored_state = node_layout_state.read_node_state(root)
             root_mode = root_stored_state.get("mode", "vertical")
 
+            # If the selected node is downstream of a horizontal chain (its own mode is
+            # vertical), walk input(0) upstream to find the first ancestor stored as
+            # horizontal. That ancestor becomes the effective replay root.
+            if root_mode != "horizontal":
+                ancestor_cursor = root.input(0)
+                while ancestor_cursor is not None:
+                    ancestor_state = node_layout_state.read_node_state(ancestor_cursor)
+                    if ancestor_state.get("mode") == "horizontal":
+                        root = ancestor_cursor
+                        root_mode = "horizontal"
+                        break
+                    ancestor_cursor = ancestor_cursor.input(0)
+
             # When replaying horizontal, build the spine_set by walking input[0] and
             # collecting consecutive nodes whose stored mode is "horizontal". The spine
             # ends at the first node whose mode differs.
@@ -1309,6 +1322,19 @@ def layout_selected(scheme_multiplier=None):
             for root in roots:
                 root_stored_state = node_layout_state.read_node_state(root)
                 root_mode = root_stored_state.get("mode", "vertical")
+
+                # If the selected node is downstream of a horizontal chain (its own mode is
+                # vertical), walk input(0) upstream to find the first ancestor stored as
+                # horizontal. That ancestor becomes the effective replay root.
+                if root_mode != "horizontal":
+                    ancestor_cursor = root.input(0)
+                    while ancestor_cursor is not None:
+                        ancestor_state = node_layout_state.read_node_state(ancestor_cursor)
+                        if ancestor_state.get("mode") == "horizontal":
+                            root = ancestor_cursor
+                            root_mode = "horizontal"
+                            break
+                        ancestor_cursor = ancestor_cursor.input(0)
 
                 root_scheme_multiplier = per_node_scheme.get(
                     id(root), current_prefs.get("normal_multiplier")
