@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: executing
-last_updated: "2026-03-15T16:17:40.289Z"
+last_updated: "2026-03-15T16:24:03.074Z"
 last_activity: "2026-03-14 - Completed quick task 1: Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 23
-  completed_plans: 22
+  completed_plans: 23
   percent: 33
 ---
 
@@ -59,6 +59,7 @@ Progress: [█░░] 33% (1 of 3 plans in phase 11)
 | Phase 11-horizontal-b-spine-layout P02 | 3 | 2 tasks | 1 files |
 | Phase 11-horizontal-b-spine-layout P03 | 6 | 2 tasks | 2 files |
 | Phase 11-horizontal-b-spine-layout P04 | 2 | 3 tasks | 1 files |
+| Phase 11-horizontal-b-spine-layout P05 | 10 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -135,6 +136,9 @@ From Phase 6, Plan 01:
 - [Phase 11]: layout_selected() mode dispatch is per-root — each root reads its own stored mode independently; roots in same selection can mix horizontal and vertical
 - [Phase 11-horizontal-b-spine-layout]: Unconditional mode write-back in _layout_selected_horizontal_impl: guard on side_layout_mode=='recursive' removed; both recursive and place_only write mode='horizontal' to spine nodes
 - [Phase 11-horizontal-b-spine-layout]: _place_output_dot_for_horizontal_root used at all horizontal layout entry points; _find_or_create_output_dot(root, root, ...) would create circular wiring and was removed
+- [Phase 11]: id() with is not None guards used for Nuke node identity in _place_output_dot_for_horizontal_root — prevents proxy wrapper false-negatives
+- [Phase 11]: layout_selected saves original_selected_root before BFS walk; right-of-consumer anchor applied when BFS rebinds root — mirrors layout_upstream pattern
+- [Phase 11]: Horizontal chain downstream anchor formula: spine_x = consumer.xpos() + consumer.screenWidth() + horizontal_gap; spine_y = consumer.ypos()
 
 ### Pending Todos
 
@@ -153,6 +157,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T16:17:40.285Z
+Last session: 2026-03-15T16:24:03.071Z
 Last activity: 2026-03-14 - Completed quick task 1: Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing
 Resume file: None
