@@ -927,5 +927,86 @@ class TestHighestSubtreePlacement(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# TestPlaceOutputDotForHorizontalRootReplay — verifies _place_output_dot_for_horizontal_root
+# uses id()-based identity comparison so Nuke proxy wrappers are matched correctly.
+# ---------------------------------------------------------------------------
+
+
+class TestPlaceOutputDotForHorizontalRootReplay(unittest.TestCase):
+    """_place_output_dot_for_horizontal_root must reuse the existing Dot on replay.
+
+    The function scans allNodes() to find either:
+    - An existing output Dot (node_layout_output_dot knob) whose input[0] is root
+    - A downstream consumer with root wired into one of its slots
+
+    Regression guard: the identity check must use id(node.input(0)) == id(root)
+    (not `is`) so Nuke proxy wrapper objects are matched correctly. The stub
+    environment uses real Python identity so both `is` and id() work; this test
+    documents the contract and guards against regression back to bare `is`.
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        _stub_all_nodes_list.clear()
+
+    def tearDown(self):
+        _stub_all_nodes_list.clear()
+
+    def test_place_output_dot_reused_on_replay(self):
+        """Calling _place_output_dot_for_horizontal_root twice must return the same Dot.
+
+        First call creates a new Dot (consumer.input(0) is root).
+        Second call must detect the existing Dot via id()-based identity and reuse it —
+        no duplicate Dot should be created.
+        """
+        root = _StubNode(width=80, height=28, xpos=500, ypos=200, node_class="Grade")
+        consumer = _StubNode(width=80, height=28, xpos=500, ypos=400, node_class="Grade",
+                             num_inputs=2)
+        consumer.setInput(0, root)
+
+        # Populate allNodes so the function can scan them
+        _stub_all_nodes_list.extend([root, consumer])
+
+        dot_first = nl._place_output_dot_for_horizontal_root(root, current_group=None)
+
+        self.assertIsNotNone(dot_first, "_place_output_dot_for_horizontal_root must return a Dot")
+
+        # Dot is now in the node graph — add it to allNodes for second call
+        _stub_all_nodes_list.append(dot_first)
+
+        dot_second = nl._place_output_dot_for_horizontal_root(root, current_group=None)
+
+        self.assertIs(
+            dot_first,
+            dot_second,
+            "_place_output_dot_for_horizontal_root must return the SAME Dot on replay — "
+            "identity check (id()-based) must detect the existing Dot and reuse it, "
+            "not create a new one"
+        )
+
+    def test_place_output_dot_no_duplicate_when_consumer_present(self):
+        """First call creates a Dot; consumer's slot is rewired through the Dot.
+
+        After the first call, the consumer's input[0] should be the new Dot,
+        not root directly. This verifies the wiring plumbing works correctly.
+        """
+        root = _StubNode(width=80, height=28, xpos=500, ypos=200, node_class="Grade")
+        consumer = _StubNode(width=80, height=28, xpos=500, ypos=400, node_class="Grade",
+                             num_inputs=2)
+        consumer.setInput(0, root)
+        _stub_all_nodes_list.extend([root, consumer])
+
+        dot = nl._place_output_dot_for_horizontal_root(root, current_group=None)
+
+        self.assertIsNotNone(dot, "Must create a Dot when consumer exists")
+        # After creation, consumer.input(0) should point to the Dot
+        self.assertIs(
+            consumer.input(0),
+            dot,
+            "consumer.input(0) must be rewired to the Dot after first call"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

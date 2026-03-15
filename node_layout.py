@@ -446,11 +446,11 @@ def _place_output_dot_for_horizontal_root(root, current_group, snap_threshold=No
     for node in all_nodes:
         if node.knob(_OUTPUT_DOT_KNOB_NAME) is not None:
             # Output dot we previously created — check if it takes root as its input.
-            if node.input(0) is root and existing_dot is None:
+            if node.input(0) is not None and id(node.input(0)) == id(root) and existing_dot is None:
                 existing_dot = node
         elif consumer_node is None:
             for slot in range(node.inputs()):
-                if node.input(slot) is root:
+                if node.input(slot) is not None and id(node.input(slot)) == id(root):
                     consumer_node = node
                     consumer_slot = slot
                     break
@@ -1264,17 +1264,30 @@ def layout_upstream(scheme_multiplier=None):
             original_selected_root = root
 
             # If the selected node is downstream of a horizontal chain (its own mode is
-            # vertical), walk input(0) upstream to find the first ancestor stored as
-            # horizontal. That ancestor becomes the effective replay root.
+            # vertical), BFS across all input slots to find the most-downstream ancestor
+            # stored as horizontal. That ancestor becomes the effective replay root.
+            # BFS (not input(0)-only walk) is required because the horizontal root may
+            # be wired to any input slot of the selected node (e.g. input(1) foreground
+            # on a Merge node).
             if root_mode != "horizontal":
-                ancestor_cursor = root.input(0)
-                while ancestor_cursor is not None:
-                    ancestor_state = node_layout_state.read_node_state(ancestor_cursor)
-                    if ancestor_state.get("mode") == "horizontal":
-                        root = ancestor_cursor
+                bfs_queue = [root.input(slot) for slot in range(root.inputs())
+                             if root.input(slot) is not None]
+                bfs_visited = {id(root)}
+                bfs_index = 0
+                while bfs_index < len(bfs_queue):
+                    bfs_cursor = bfs_queue[bfs_index]
+                    bfs_index += 1
+                    if id(bfs_cursor) in bfs_visited:
+                        continue
+                    bfs_visited.add(id(bfs_cursor))
+                    if node_layout_state.read_node_state(bfs_cursor).get("mode") == "horizontal":
+                        root = bfs_cursor
                         root_mode = "horizontal"
                         break
-                    ancestor_cursor = ancestor_cursor.input(0)
+                    for bfs_slot in range(bfs_cursor.inputs()):
+                        bfs_inp = bfs_cursor.input(bfs_slot)
+                        if bfs_inp is not None and id(bfs_inp) not in bfs_visited:
+                            bfs_queue.append(bfs_inp)
 
             # When replaying horizontal, build the spine_set by walking input[0] and
             # collecting consecutive nodes whose stored mode is "horizontal". The spine
@@ -1421,17 +1434,27 @@ def layout_selected(scheme_multiplier=None):
                 root_mode = root_stored_state.get("mode", "vertical")
 
                 # If the selected node is downstream of a horizontal chain (its own mode is
-                # vertical), walk input(0) upstream to find the first ancestor stored as
-                # horizontal. That ancestor becomes the effective replay root.
+                # vertical), BFS across all input slots to find the most-downstream ancestor
+                # stored as horizontal. That ancestor becomes the effective replay root.
                 if root_mode != "horizontal":
-                    ancestor_cursor = root.input(0)
-                    while ancestor_cursor is not None:
-                        ancestor_state = node_layout_state.read_node_state(ancestor_cursor)
-                        if ancestor_state.get("mode") == "horizontal":
-                            root = ancestor_cursor
+                    bfs_queue = [root.input(slot) for slot in range(root.inputs())
+                                 if root.input(slot) is not None]
+                    bfs_visited = {id(root)}
+                    bfs_index = 0
+                    while bfs_index < len(bfs_queue):
+                        bfs_cursor = bfs_queue[bfs_index]
+                        bfs_index += 1
+                        if id(bfs_cursor) in bfs_visited:
+                            continue
+                        bfs_visited.add(id(bfs_cursor))
+                        if node_layout_state.read_node_state(bfs_cursor).get("mode") == "horizontal":
+                            root = bfs_cursor
                             root_mode = "horizontal"
                             break
-                        ancestor_cursor = ancestor_cursor.input(0)
+                        for bfs_slot in range(bfs_cursor.inputs()):
+                            bfs_inp = bfs_cursor.input(bfs_slot)
+                            if bfs_inp is not None and id(bfs_inp) not in bfs_visited:
+                                bfs_queue.append(bfs_inp)
 
                 root_scheme_multiplier = per_node_scheme.get(
                     id(root), current_prefs.get("normal_multiplier")
