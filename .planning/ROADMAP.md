@@ -145,4 +145,4 @@ Plans:
 | 8. Dot Font-Size Margin Scaling | 2/2 | Complete   | 2026-03-11 | - |
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | 2/2 | Complete   | 2026-03-12 | - |
 | 10. Shrink/Expand H/V/Both + Expand Push-Away | 2/2 | Complete    | 2026-03-12 | - |
-| 11. Horizontal B-Spine Layout | 3/3 | Complete    | 2026-03-13 | - |
+| 11. Horizontal B-Spine Layout | 4/5 | In Progress|  | - |

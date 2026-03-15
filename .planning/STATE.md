@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: executing
-stopped_at: Applied 3 post-UAT-pause fixes to node_layout.py; ready for live Nuke UAT (tests 2-8 pending)
-last_updated: "2026-03-13T14:00:00.000Z"
+last_updated: "2026-03-15T16:17:40.289Z"
+last_activity: "2026-03-14 - Completed quick task 1: Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing"
 progress:
   total_phases: 6
-  completed_phases: 6
-  total_plans: 21
-  completed_plans: 21
+  completed_phases: 5
+  total_plans: 23
+  completed_plans: 22
   percent: 33
 ---
 
@@ -58,6 +58,7 @@ Progress: [█░░] 33% (1 of 3 plans in phase 11)
 | Phase 11-horizontal-b-spine-layout P01 | 3 | 1 tasks | 1 files |
 | Phase 11-horizontal-b-spine-layout P02 | 3 | 2 tasks | 1 files |
 | Phase 11-horizontal-b-spine-layout P03 | 6 | 2 tasks | 2 files |
+| Phase 11-horizontal-b-spine-layout P04 | 2 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,8 @@ From Phase 6, Plan 01:
 - [Phase 11-02]: Two-pass spine walk: first pass accumulates mask kink Y (ancestor-first), second pass places spine nodes — clean cumulative kink without backward reference
 - [Phase 11]: compute_dims memo key uses inline tuple syntax (not memo_key variable) — AST test checks for 'node_h_scale' within 80 chars of 'memo['; named variable breaks test
 - [Phase 11]: layout_selected() mode dispatch is per-root — each root reads its own stored mode independently; roots in same selection can mix horizontal and vertical
+- [Phase 11-horizontal-b-spine-layout]: Unconditional mode write-back in _layout_selected_horizontal_impl: guard on side_layout_mode=='recursive' removed; both recursive and place_only write mode='horizontal' to spine nodes
+- [Phase 11-horizontal-b-spine-layout]: _place_output_dot_for_horizontal_root used at all horizontal layout entry points; _find_or_create_output_dot(root, root, ...) would create circular wiring and was removed
 
 ### Pending Todos
 
@@ -150,6 +153,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14
+Last session: 2026-03-15T16:17:40.285Z
 Last activity: 2026-03-14 - Completed quick task 1: Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing
-Resume file: .planning/phases/11-horizontal-b-spine-layout/.continue-here.md
+Resume file: None
