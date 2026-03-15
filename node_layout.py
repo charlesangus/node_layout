@@ -1311,14 +1311,9 @@ def layout_upstream(scheme_multiplier=None):
                 # above the originally selected downstream node so the layout is
                 # positioned correctly relative to the consumer, not D's scrambled coords.
                 if root is not original_selected_root:
-                    loose_gap_multiplier = current_prefs.get("loose_gap_multiplier")
-                    loose_gap = int(loose_gap_multiplier * root_scheme_multiplier * snap_threshold)
-                    _DOT_TILE_HEIGHT = 12  # standard Nuke Dot tile height
-                    spine_x = (original_selected_root.xpos()
-                               + (original_selected_root.screenWidth() - root.screenWidth()) // 2)
-                    spine_y = (original_selected_root.ypos()
-                               - loose_gap - _DOT_TILE_HEIGHT - loose_gap
-                               - root.screenHeight())
+                    horizontal_gap = current_prefs.get("horizontal_subtree_gap")
+                    spine_x = original_selected_root.xpos() + original_selected_root.screenWidth() + horizontal_gap
+                    spine_y = original_selected_root.ypos()
                 else:
                     spine_x = root.xpos()
                     spine_y = root.ypos()
@@ -1430,6 +1425,7 @@ def layout_selected(scheme_multiplier=None):
             # Maps id(root) -> spine_set (set of node ids) for roots that replay horizontal.
             spine_sets_by_root = {}
             for root in roots:
+                original_selected_root = root
                 root_stored_state = node_layout_state.read_node_state(root)
                 root_mode = root_stored_state.get("mode", "vertical")
 
@@ -1472,8 +1468,18 @@ def layout_selected(scheme_multiplier=None):
                         root_spine_set.add(id(cursor))
                         cursor = cursor.input(0)
                     spine_sets_by_root[id(root)] = root_spine_set
+                    # Compute anchor position: if the ancestor walk rebound root to an
+                    # upstream horizontal node, place the chain to the RIGHT of the
+                    # originally selected downstream consumer at the consumer's Y level.
+                    if root is not original_selected_root:
+                        horizontal_gap = current_prefs.get("horizontal_subtree_gap")
+                        spine_x = original_selected_root.xpos() + original_selected_root.screenWidth() + horizontal_gap
+                        spine_y = original_selected_root.ypos()
+                    else:
+                        spine_x = root.xpos()
+                        spine_y = root.ypos()
                     place_subtree_horizontal(
-                        root, root.xpos(), root.ypos(), snap_threshold, node_count,
+                        root, spine_x, spine_y, snap_threshold, node_count,
                         scheme_multiplier=root_scheme_multiplier,
                         per_node_h_scale=per_node_h_scale,
                         per_node_v_scale=per_node_v_scale,

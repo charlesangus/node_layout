@@ -928,6 +928,113 @@ class TestHighestSubtreePlacement(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# TestDownstreamReplayAnchor — verifies layout_upstream horizontal anchor places
+# the chain to the RIGHT of the downstream consumer (not above it).
+# ---------------------------------------------------------------------------
+
+
+class TestDownstreamReplayAnchor(unittest.TestCase):
+    """layout_upstream horizontal anchor must place the chain to the RIGHT of the consumer.
+
+    When the ancestor walk finds a different upstream root (root is not original_selected_root),
+    the spine_x formula must be:
+        spine_x = original_selected_root.xpos() + original_selected_root.screenWidth() + horizontal_gap
+        spine_y = original_selected_root.ypos()
+
+    The old vertical formula (placing above with loose_gap) must be replaced.
+
+    Test approach: AST inspection of layout_upstream() body. The horizontal anchor block
+    must contain the corrected right-of-consumer formula pattern. This detects regression
+    without needing to call layout_upstream() in the stub environment.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        with open(NODE_LAYOUT_PATH, "r") as source_file:
+            cls.source_text = source_file.read()
+        cls.tree = ast.parse(cls.source_text, filename=NODE_LAYOUT_PATH)
+
+    def _get_layout_upstream_source(self):
+        """Extract the source text of the layout_upstream function body."""
+        for node in ast.walk(self.tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "layout_upstream":
+                # Extract lines corresponding to this function
+                lines = self.source_text.splitlines()
+                start_line = node.lineno - 1
+                end_line = node.end_lineno
+                return "\n".join(lines[start_line:end_line])
+        return ""
+
+    def test_horizontal_replay_placed_right_of_consumer(self):
+        """layout_upstream horizontal anchor must use screenWidth() + horizontal_gap formula.
+
+        The corrected spine_x formula places the horizontal chain to the RIGHT of the
+        downstream consumer node:
+            spine_x = original_selected_root.xpos() + original_selected_root.screenWidth() + horizontal_gap
+
+        This test confirms the vertical formula has been replaced. It fails RED when the
+        old 'above consumer' formula (using loose_gap / _DOT_TILE_HEIGHT) is present.
+        """
+        fn_source = self._get_layout_upstream_source()
+        self.assertNotEqual(fn_source, "", "layout_upstream() not found in source")
+
+        # The corrected formula must reference screenWidth() followed by horizontal_gap
+        # within the spine_x assignment in the horizontal anchor block.
+        # We check for the key pattern: screenWidth() used in spine_x with a gap addition.
+        has_right_of_consumer_formula = (
+            "screenWidth() + horizontal_gap" in fn_source
+        )
+        self.assertTrue(
+            has_right_of_consumer_formula,
+            "layout_upstream() horizontal anchor block must use right-of-consumer formula:\n"
+            "  spine_x = original_selected_root.xpos() + original_selected_root.screenWidth() + horizontal_gap\n"
+            "Found old vertical formula instead (loose_gap / _DOT_TILE_HEIGHT). "
+            "Fix: replace the above-consumer anchor with right-of-consumer anchor in layout_upstream()."
+        )
+
+    def test_vertical_formula_removed_from_horizontal_anchor(self):
+        """The old vertical formula using _DOT_TILE_HEIGHT must be removed from layout_upstream.
+
+        The old buggy code used:
+            spine_y = original_selected_root.ypos() - loose_gap - _DOT_TILE_HEIGHT - loose_gap - root.screenHeight()
+        This formula placed the chain ABOVE the consumer (vertical semantics).
+        After the fix, _DOT_TILE_HEIGHT must not appear in the horizontal anchor block.
+        """
+        fn_source = self._get_layout_upstream_source()
+        self.assertNotEqual(fn_source, "", "layout_upstream() not found in source")
+
+        self.assertNotIn(
+            "_DOT_TILE_HEIGHT",
+            fn_source,
+            "layout_upstream() horizontal anchor block must NOT contain _DOT_TILE_HEIGHT — "
+            "this is a sign the old vertical formula (above-consumer placement) is still present. "
+            "Replace it with the right-of-consumer formula: "
+            "spine_x = original_selected_root.xpos() + original_selected_root.screenWidth() + horizontal_gap"
+        )
+
+    def test_spine_y_equals_consumer_ypos(self):
+        """After the fix, spine_y must be original_selected_root.ypos() (same Y as consumer).
+
+        The corrected anchor places the horizontal chain at the consumer's Y level
+        (extending to the right), not above it. The formula must be:
+            spine_y = original_selected_root.ypos()
+        """
+        fn_source = self._get_layout_upstream_source()
+        self.assertNotEqual(fn_source, "", "layout_upstream() not found in source")
+
+        # Check that spine_y = original_selected_root.ypos() pattern exists
+        # in the horizontal anchor block (not the else branch)
+        has_consumer_y_formula = (
+            "spine_y = original_selected_root.ypos()" in fn_source
+        )
+        self.assertTrue(
+            has_consumer_y_formula,
+            "layout_upstream() horizontal anchor must set spine_y = original_selected_root.ypos()\n"
+            "to place the chain at the same Y level as the consumer (not above it)."
+        )
+
+
+# ---------------------------------------------------------------------------
 # TestPlaceOutputDotForHorizontalRootReplay — verifies _place_output_dot_for_horizontal_root
 # uses id()-based identity comparison so Nuke proxy wrappers are matched correctly.
 # ---------------------------------------------------------------------------
