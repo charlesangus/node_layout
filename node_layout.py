@@ -385,7 +385,10 @@ def _find_or_create_output_dot(root, consumer_node, consumer_slot, current_group
             and currently_wired.knob(_OUTPUT_DOT_KNOB_NAME) is not None):
         dot = currently_wired
         dot_x = root.xpos() + (root.screenWidth() - dot.screenWidth()) // 2
-        dot_y = root.ypos() + root.screenHeight() + dot_gap
+        if consumer_node is not None:
+            dot_y = consumer_node.ypos() + (consumer_node.screenHeight() - dot.screenHeight()) // 2
+        else:
+            dot_y = root.ypos() + root.screenHeight() + dot_gap
         dot.setXpos(dot_x)
         dot.setYpos(dot_y)
         return dot
@@ -401,9 +404,15 @@ def _find_or_create_output_dot(root, consumer_node, consumer_slot, current_group
     dot.setInput(0, root)
     consumer_node.setInput(consumer_slot, dot)
 
-    # Position the Dot directly below root — positive Y is down in Nuke DAG.
+    # Position the Dot: centred horizontally on root, Y aligned to consumer when present.
+    # When a downstream consumer exists, the dot sits at the consumer's Y level so the
+    # wire from consumer to dot is strictly horizontal (positive Y is down in Nuke DAG).
+    # When no consumer is known (standalone chain), place below root at loose gap.
     dot_x = root.xpos() + (root.screenWidth() - dot.screenWidth()) // 2
-    dot_y = root.ypos() + root.screenHeight() + dot_gap
+    if consumer_node is not None:
+        dot_y = consumer_node.ypos() + (consumer_node.screenHeight() - dot.screenHeight()) // 2
+    else:
+        dot_y = root.ypos() + root.screenHeight() + dot_gap
     dot.setXpos(dot_x)
     dot.setYpos(dot_y)
 
@@ -461,7 +470,10 @@ def _place_output_dot_for_horizontal_root(root, current_group, snap_threshold=No
         loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
         dot_gap = int(loose_gap_multiplier * scheme_multiplier * snap_threshold)
         existing_dot.setXpos(root.xpos() + (root.screenWidth() - existing_dot.screenWidth()) // 2)
-        existing_dot.setYpos(root.ypos() + root.screenHeight() + dot_gap)
+        if consumer_node is not None:
+            existing_dot.setYpos(consumer_node.ypos() + (consumer_node.screenHeight() - existing_dot.screenHeight()) // 2)
+        else:
+            existing_dot.setYpos(root.ypos() + root.screenHeight() + dot_gap)
         return existing_dot
 
     if consumer_node is None:
