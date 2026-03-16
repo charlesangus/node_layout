@@ -1414,14 +1414,58 @@ def layout_upstream(scheme_multiplier=None):
                     side_layout_mode="recursive",
                 )
                 _place_output_dot_for_horizontal_root(root, current_group, snap_threshold, root_scheme_multiplier)
+
+                # Phase 2: when a vertical consumer (original_selected_root) triggered the
+                # horizontal layout above, also run the standard vertical layout on that
+                # consumer to correctly position any non-horizontal inputs it may have.
+                # The horizontal block nodes are excluded from the vertical pass so they
+                # are not moved from the positions set by Phase 1.
+                if root is not original_selected_root:
+                    horizontal_block_node_ids = {id(n) for n in collect_subtree_nodes(root)}
+                    # Include the output dot in the exclusion set so place_subtree does
+                    # not recurse into the horizontal chain through it.
+                    for _slot in range(original_selected_root.inputs()):
+                        _inp = original_selected_root.input(_slot)
+                        if _inp is not None and _inp.knob(_OUTPUT_DOT_KNOB_NAME) is not None:
+                            horizontal_block_node_ids.add(id(_inp))
+                    # vertical_filter = every node in the original upstream tree that is
+                    # NOT part of the horizontal block.
+                    vertical_filter = set(
+                        n for n in subtree_nodes_for_count
+                        if id(n) not in horizontal_block_node_ids
+                    )
+                    consumer_scheme_multiplier = per_node_scheme.get(
+                        id(original_selected_root), current_prefs.get("normal_multiplier")
+                    )
+                    if vertical_filter:
+                        memo_phase2 = {}
+                        compute_dims(
+                            original_selected_root, memo_phase2, snap_threshold, node_count,
+                            node_filter=vertical_filter,
+                            scheme_multiplier=consumer_scheme_multiplier,
+                            per_node_h_scale=per_node_h_scale,
+                            per_node_v_scale=per_node_v_scale,
+                        )
+                        place_subtree(
+                            original_selected_root,
+                            original_selected_root.xpos(), original_selected_root.ypos(),
+                            memo_phase2, snap_threshold, node_count,
+                            node_filter=vertical_filter,
+                            scheme_multiplier=consumer_scheme_multiplier,
+                            per_node_h_scale=per_node_h_scale,
+                            per_node_v_scale=per_node_v_scale,
+                        )
             else:
                 compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier,
                              per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
                 place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count,
                               scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
 
-            # Capture final state (includes any newly inserted Dot nodes)
-            final_subtree_nodes = collect_subtree_nodes(root)
+            # Capture final state from the originally selected node so all touched nodes
+            # (horizontal chain, output dot, and consumer's vertical inputs) are included.
+            final_subtree_nodes = collect_subtree_nodes(
+                original_selected_root if root_mode == "horizontal" else root
+            )
 
             # State write-back: record per-node scheme and mode on every layout-touched node.
             # For horizontal replay: spine nodes keep mode="horizontal"; side input subtrees
@@ -1434,7 +1478,7 @@ def layout_upstream(scheme_multiplier=None):
                 stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
                     node_scheme_multiplier, current_prefs
                 )
-                if root_mode == "horizontal":
+                if root_mode == "horizontal" and replay_spine_set is not None:
                     stored_state["mode"] = "horizontal" if id(state_node) in replay_spine_set else "vertical"
                 else:
                     stored_state["mode"] = "vertical"
@@ -1632,6 +1676,41 @@ def layout_selected(scheme_multiplier=None):
                         side_layout_mode="recursive",
                     )
                     _place_output_dot_for_horizontal_root(root, current_group, snap_threshold, root_scheme_multiplier)
+
+                    # Phase 2: when a vertical consumer triggered the horizontal layout,
+                    # also run the standard vertical layout on that consumer so that any
+                    # non-horizontal inputs are correctly positioned.
+                    if root is not original_selected_root:
+                        horizontal_block_node_ids = {id(n) for n in collect_subtree_nodes(root)}
+                        for _slot in range(original_selected_root.inputs()):
+                            _inp = original_selected_root.input(_slot)
+                            if _inp is not None and _inp.knob(_OUTPUT_DOT_KNOB_NAME) is not None:
+                                horizontal_block_node_ids.add(id(_inp))
+                        vertical_filter = set(
+                            n for n in node_filter
+                            if id(n) not in horizontal_block_node_ids
+                        )
+                        consumer_scheme_multiplier = per_node_scheme.get(
+                            id(original_selected_root), current_prefs.get("normal_multiplier")
+                        )
+                        if vertical_filter:
+                            memo_phase2 = {}
+                            compute_dims(
+                                original_selected_root, memo_phase2, snap_threshold, node_count,
+                                node_filter=vertical_filter,
+                                scheme_multiplier=consumer_scheme_multiplier,
+                                per_node_h_scale=per_node_h_scale,
+                                per_node_v_scale=per_node_v_scale,
+                            )
+                            place_subtree(
+                                original_selected_root,
+                                original_selected_root.xpos(), original_selected_root.ypos(),
+                                memo_phase2, snap_threshold, node_count,
+                                node_filter=vertical_filter,
+                                scheme_multiplier=consumer_scheme_multiplier,
+                                per_node_h_scale=per_node_h_scale,
+                                per_node_v_scale=per_node_v_scale,
+                            )
                 else:
                     insert_dot_nodes(root, node_filter=node_filter)
                     tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
