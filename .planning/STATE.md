@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: executing
-last_updated: "2026-03-15T16:29:21.986Z"
+last_updated: "2026-03-16T10:13:32.558Z"
 last_activity: "2026-03-14 - Completed quick task 1: Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing"
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
-  total_plans: 23
-  completed_plans: 23
+  total_plans: 26
+  completed_plans: 24
   percent: 33
 ---
 
@@ -24,11 +24,11 @@ See: .planning/PROJECT.md (updated 2026-03-05 after v1.1 start)
 
 ## Current Position
 
-Phase: 11 of 11 (Horizontal B-Spine Layout)
+Phase: 11.1 of 11.1 (Fix Horizontal Layout Functionality)
 Plan: 1 of 3 (completed Plan 01)
-Status: Phase 11 In Progress — Plan 01 complete (RED scaffold)
+Status: Phase 11.1 In Progress — Plan 01 complete (RED scaffold: TestLeftExtentOverlap + TestDotYAlignment)
 
-Progress: [█░░] 33% (1 of 3 plans in phase 11)
+Progress: [█████████░] 92% (24 of 26 plans complete)
 
 ## Performance Metrics
 
@@ -60,8 +60,13 @@ Progress: [█░░] 33% (1 of 3 plans in phase 11)
 | Phase 11-horizontal-b-spine-layout P03 | 6 | 2 tasks | 2 files |
 | Phase 11-horizontal-b-spine-layout P04 | 2 | 3 tasks | 1 files |
 | Phase 11-horizontal-b-spine-layout P05 | 10 | 2 tasks | 2 files |
+| Phase 11.1-fix-horizontal-layout-functionality P01 | 8 | 2 tasks | 1 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 11.1 inserted after Phase 11: fix horizontal layout functionality (URGENT)
 
 ### Decisions
 
@@ -139,6 +144,8 @@ From Phase 6, Plan 01:
 - [Phase 11]: id() with is not None guards used for Nuke node identity in _place_output_dot_for_horizontal_root — prevents proxy wrapper false-negatives
 - [Phase 11]: layout_selected saves original_selected_root before BFS walk; right-of-consumer anchor applied when BFS rebinds root — mirrors layout_upstream pattern
 - [Phase 11]: Horizontal chain downstream anchor formula: spine_x = consumer.xpos() + consumer.screenWidth() + horizontal_gap; spine_y = consumer.ypos()
+- [Phase 11.1-01]: TestLeftExtentOverlap calls place_subtree_horizontal directly with broken spine_x to avoid full-stack call complexity while exercising the actual geometry bug
+- [Phase 11.1-01]: test_no_consumer_returns_none PASSES RED by design — regression guard for the consumer=None early-return path that must not change after Bug 2 fix
 
 ### Pending Todos
 
@@ -157,6 +164,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T16:24:03.071Z
+Last session: 2026-03-16T10:13:32.556Z
 Last activity: 2026-03-14 - Completed quick task 1: Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing
 Resume file: None

@@ -152,7 +152,7 @@ Plans:
 **Goal:** Fix two geometry bugs when a horizontal B-spine chain is embedded in a vertical tree: leftmost spine node overlaps the consumer (Bug 1) and output dot Y is misaligned causing a diagonal wire (Bug 2); also close 4 stale debug documents.
 **Requirements**: none (bug-fix insertion)
 **Depends on:** Phase 11
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 11.1-01-PLAN.md — Add RED regression tests: TestLeftExtentOverlap and TestDotYAlignment
