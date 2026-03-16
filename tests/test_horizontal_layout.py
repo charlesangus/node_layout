@@ -1265,5 +1265,128 @@ class TestLeftExtentOverlap(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# TestDotYAlignment — RED regression tests for Bug 2
+# When a downstream consumer exists, the output dot's Y must be centred on
+# the consumer's Y so the wire from consumer to dot is horizontal.
+# Currently FAILS because dot is placed at root.ypos() + root.screenHeight() + dot_gap.
+# ---------------------------------------------------------------------------
+
+
+class TestDotYAlignment(unittest.TestCase):
+    """Output dot Y must be centred on consumer node Y when consumer is known.
+
+    Bug 2: All three dot-positioning code paths in _find_or_create_output_dot
+    place the dot at root.ypos() + root.screenHeight() + dot_gap (below root).
+    The dot should sit at consumer's Y level so the wire from consumer to dot
+    is horizontal (same Y), matching the target geometry:
+
+        m1-------.
+                 |  (horizontal wire at m1's Y)
+                 .  <- output dot, Y centred on m1
+
+    Fix: dot_y = consumer_node.ypos() + (consumer_node.screenHeight() - dot.screenHeight()) // 2
+
+    Tests test_new_dot_y_aligned_with_consumer and test_reuse_check_dot_y_aligned_with_consumer
+    FAIL RED against unmodified node_layout.py.
+    Test test_no_consumer_returns_none PASSES (regression guard for the no-consumer path).
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        _stub_all_nodes_list.clear()
+
+    def tearDown(self):
+        _stub_all_nodes_list.clear()
+
+    def test_new_dot_y_aligned_with_consumer(self):
+        """New dot creation path: dot Y must be centred on consumer Y, not below root.
+
+        Calls _find_or_create_output_dot when no dot exists yet (new-dot creation path,
+        lines ~404-408 in node_layout.py). Currently dot_y = root.ypos() + root.screenHeight()
+        + dot_gap, which places the dot below root. The fix changes this to:
+            dot_y = consumer_node.ypos() + (consumer_node.screenHeight() - dot.screenHeight()) // 2
+
+        This test FAILS RED because current code gives dot_y=192 (below root)
+        but the assertion requires dot_y=308 (centred on consumer at y=300).
+        """
+        root = _StubNode(width=80, height=28, xpos=200, ypos=100, node_class="Grade")
+        consumer = _StubNode(width=80, height=28, xpos=500, ypos=300, node_class="Grade")
+        _stub_all_nodes_list.extend([root, consumer])
+
+        # Wire consumer's slot 0 to root (standard horizontal chain downstream wiring).
+        consumer.setInput(0, root)
+
+        dot = nl._find_or_create_output_dot(root, consumer, 0, None)
+
+        self.assertIsNotNone(dot, "_find_or_create_output_dot must return a Dot node")
+
+        expected_dot_y = consumer.ypos() + (consumer.screenHeight() - dot.screenHeight()) // 2
+        self.assertEqual(
+            dot.ypos(),
+            expected_dot_y,
+            "Bug 2: output dot Y must be centred on consumer Y so the consumer-to-dot wire "
+            f"is horizontal — dot.ypos()={dot.ypos()}, expected={expected_dot_y} "
+            f"(consumer.ypos={consumer.ypos()}, consumer.screenHeight={consumer.screenHeight()}, "
+            f"dot.screenHeight={dot.screenHeight()}). "
+            f"Current broken value: root.ypos + root.screenHeight + dot_gap = "
+            f"{root.ypos()} + {root.screenHeight()} + dot_gap"
+        )
+
+    def test_reuse_check_dot_y_aligned_with_consumer(self):
+        """Reuse-check path: repositioned dot Y must be centred on consumer Y.
+
+        When consumer_node.input(consumer_slot) already has the node_layout_output_dot
+        knob, _find_or_create_output_dot repositions the existing dot (lines ~387-390).
+        Currently it uses the same broken formula (below root). The fix must also apply
+        here:
+            dot_y = consumer_node.ypos() + (consumer_node.screenHeight() - dot.screenHeight()) // 2
+
+        This test FAILS RED because current code gives the below-root Y instead of
+        the consumer-centred Y.
+        """
+        root = _StubNode(width=80, height=28, xpos=200, ypos=100, node_class="Grade")
+        consumer = _StubNode(width=80, height=28, xpos=500, ypos=300, node_class="Grade")
+        existing_dot = _StubDotNode(has_output_dot_knob=True, xpos=0, ypos=0)
+        _stub_all_nodes_list.extend([root, consumer, existing_dot])
+
+        # Pre-wire: existing_dot takes root as its input; consumer's slot 0 is the dot.
+        existing_dot.setInput(0, root)
+        consumer.setInput(0, existing_dot)
+
+        returned_dot = nl._find_or_create_output_dot(root, consumer, 0, None)
+
+        self.assertIsNotNone(returned_dot, "Must return existing dot on reuse-check path")
+
+        expected_dot_y = consumer.ypos() + (consumer.screenHeight() - returned_dot.screenHeight()) // 2
+        self.assertEqual(
+            returned_dot.ypos(),
+            expected_dot_y,
+            "Bug 2 (reuse-check path): repositioned dot Y must be centred on consumer Y — "
+            f"dot.ypos()={returned_dot.ypos()}, expected={expected_dot_y} "
+            f"(consumer.ypos={consumer.ypos()}). "
+            "Current broken code uses root.ypos + root.screenHeight + dot_gap instead."
+        )
+
+    def test_no_consumer_returns_none(self):
+        """When consumer_node is None, _find_or_create_output_dot must return None.
+
+        This is the no-consumer guard (standalone horizontal chain with no downstream
+        node). No dot should be created; the function returns None immediately.
+
+        This test PASSES RED (regression guard — must still pass after the Bug 2 fix).
+        """
+        root = _StubNode(width=80, height=28, xpos=200, ypos=100, node_class="Grade")
+        _stub_all_nodes_list.append(root)
+
+        result = nl._find_or_create_output_dot(root, None, 0, None)
+
+        self.assertIsNone(
+            result,
+            "_find_or_create_output_dot must return None when consumer_node is None — "
+            f"got {result!r} instead"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
