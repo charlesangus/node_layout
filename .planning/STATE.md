@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: executing
-last_updated: "2026-03-16T10:13:32.558Z"
+last_updated: "2026-03-16T10:22:17.338Z"
 last_activity: "2026-03-14 - Completed quick task 1: Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing"
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 26
-  completed_plans: 24
-  percent: 33
+  completed_plans: 25
+  percent: 92
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-05 after v1.1 start)
 ## Current Position
 
 Phase: 11.1 of 11.1 (Fix Horizontal Layout Functionality)
-Plan: 1 of 3 (completed Plan 01)
-Status: Phase 11.1 In Progress — Plan 01 complete (RED scaffold: TestLeftExtentOverlap + TestDotYAlignment)
+Plan: 2 of 3 (completed Plan 02)
+Status: Phase 11.1 In Progress — Plan 02 complete (Bug 1 spine_x leftward extent + Bug 2 dot Y consumer-aligned)
 
-Progress: [█████████░] 92% (24 of 26 plans complete)
+Progress: [██████████] 96% (25 of 26 plans complete)
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [█████████░] 92% (24 of 26 plans complete)
 | Phase 11-horizontal-b-spine-layout P04 | 2 | 3 tasks | 1 files |
 | Phase 11-horizontal-b-spine-layout P05 | 10 | 2 tasks | 2 files |
 | Phase 11.1-fix-horizontal-layout-functionality P01 | 8 | 2 tasks | 1 files |
+| Phase 11.1-fix-horizontal-layout-functionality P02 | 6 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -146,6 +147,9 @@ From Phase 6, Plan 01:
 - [Phase 11]: Horizontal chain downstream anchor formula: spine_x = consumer.xpos() + consumer.screenWidth() + horizontal_gap; spine_y = consumer.ypos()
 - [Phase 11.1-01]: TestLeftExtentOverlap calls place_subtree_horizontal directly with broken spine_x to avoid full-stack call complexity while exercising the actual geometry bug
 - [Phase 11.1-01]: test_no_consumer_returns_none PASSES RED by design — regression guard for the consumer=None early-return path that must not change after Bug 2 fix
+- [Phase 11.1-fix-horizontal-layout-functionality]: [Phase 11.1-02]: Bug 1 spine_x uses leftward_extent = sum(step_x + node.screenWidth()) for each spine node except root — ensures leftmost node clears consumer regardless of node widths
+- [Phase 11.1-fix-horizontal-layout-functionality]: [Phase 11.1-02]: Bug 2 dot_y conditional: consumer_node.ypos() + (consumer_node.screenHeight() - dot.screenHeight()) // 2 when consumer_node is not None; else keep below-root formula for standalone chains
+- [Phase 11.1-fix-horizontal-layout-functionality]: [Phase 11.1-02]: RED scaffold tests rewritten as GREEN regression tests — fixed spine_x value passed to place_subtree_horizontal; AST pattern strings updated to match new code
 
 ### Pending Todos
 
@@ -164,6 +168,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T10:13:32.556Z
+Last session: 2026-03-16T10:22:17.335Z
 Last activity: 2026-03-14 - Completed quick task 1: Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing
 Resume file: None
