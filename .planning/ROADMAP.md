@@ -146,3 +146,15 @@ Plans:
 | 9. Multi-Input Fan Alignment + Mask Side-Swap | 2/2 | Complete   | 2026-03-12 | - |
 | 10. Shrink/Expand H/V/Both + Expand Push-Away | 2/2 | Complete    | 2026-03-12 | - |
 | 11. Horizontal B-Spine Layout | 5/5 | Complete    | 2026-03-15 | - |
+
+### Phase 11.1: fix horizontal layout functionality (INSERTED)
+
+**Goal:** Fix two geometry bugs when a horizontal B-spine chain is embedded in a vertical tree: leftmost spine node overlaps the consumer (Bug 1) and output dot Y is misaligned causing a diagonal wire (Bug 2); also close 4 stale debug documents.
+**Requirements**: none (bug-fix insertion)
+**Depends on:** Phase 11
+**Plans:** 3 plans
+
+Plans:
+- [ ] 11.1-01-PLAN.md — Add RED regression tests: TestLeftExtentOverlap and TestDotYAlignment
+- [ ] 11.1-02-PLAN.md — Fix Bug 1 (spine_x left-extent) and Bug 2 (dot Y consumer alignment) in node_layout.py
+- [ ] 11.1-03-PLAN.md — Close 4 stale debug documents (status: resolved + fix commit)
