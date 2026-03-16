@@ -3,7 +3,7 @@ status: diagnosed
 phase: 11-horizontal-b-spine-layout
 source: 11-01-SUMMARY.md, 11-02-SUMMARY.md, 11-03-SUMMARY.md + post-UAT redesign
 started: 2026-03-13T01:30:00Z
-updated: 2026-03-14T13:30:00Z
+updated: 2026-03-16T00:00:00Z
 ---
 
 ## Current Test
@@ -86,7 +86,7 @@ skipped: 0
 ## Gaps
 
 - truth: "An output Dot appears below the root (rightmost) spine node after Layout Selected Horizontal"
-  status: failed
+  status: resolved
   reason: "User reported: No dot."
   severity: major
   test: 2
@@ -102,7 +102,7 @@ skipped: 0
     - "Inside the for-root loop in _layout_selected_horizontal_impl, after place_subtree_horizontal, add: _find_or_create_output_dot(root, root, 0, current_group)"
   debug_session: ".planning/debug/no-output-dot-selected-horizontal.md"
 - truth: "Running Layout Upstream on any downstream node of a horizontal chain replays the horizontal mode, not just when selecting the exact stored root"
-  status: failed
+  status: resolved
   reason: "User reported: fail - only works if you select that exact root, If you select a downstream node and run layout upstream, the horizontal mode flag is ignored."
   severity: major
   test: 7
