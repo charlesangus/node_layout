@@ -1,5 +1,5 @@
 ---
-status: diagnosed
+status: verified
 trigger: "Investigate three bugs in horizontal layout — Bug 1 left-edge overlap, Bug 2 output dot Y alignment, Bug 3 vertical layout on m1 broken by 11.1"
 created: 2026-03-16T00:00:00Z
 updated: 2026-03-16T00:00:00Z
@@ -7,10 +7,10 @@ updated: 2026-03-16T00:00:00Z
 
 ## Current Focus
 
-hypothesis: confirmed (both bugs diagnosed)
-test: full code trace + test analysis complete
-expecting: n/a
-next_action: present diagnosis to user
+hypothesis: confirmed and verified via end-to-end tests
+test: 4 end-to-end layout_upstream() tests added to TestLayoutUpstreamEndToEnd
+expecting: all 4 tests pass (confirmed)
+next_action: close debug session — all 3 bugs verified fixed by existing code
 
 ## Symptoms
 

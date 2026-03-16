@@ -48,6 +48,9 @@ class _StubKnob:
     def setValue(self, value):
         self._val = value
 
+    def setFlag(self, flag):
+        pass
+
 
 class _StubNode:
     """Minimal stand-in for a nuke.Node."""
@@ -160,6 +163,9 @@ class _StubTab_Knob:
     def __init__(self, *args, **kwargs):
         pass
 
+    def setFlag(self, flag):
+        pass
+
 
 class _StubInt_Knob:
     def __init__(self, name, label=""):
@@ -186,6 +192,9 @@ _nuke_stub.lastHitGroup = lambda: None
 _nuke_stub.nodes = types.SimpleNamespace(
     Dot=lambda: _StubDotNode()
 )
+# write_node_state (node_layout_state.py) needs String_Knob and INVISIBLE.
+_nuke_stub.String_Knob = lambda name='', label='': _StubKnob(0)
+_nuke_stub.INVISIBLE = 0x01
 
 # Load node_layout_prefs first (no Nuke dependency).
 _prefs_spec = importlib.util.spec_from_file_location("node_layout_prefs", NODE_LAYOUT_PREFS_PATH)
@@ -571,13 +580,20 @@ class TestModeReplay(unittest.TestCase):
 
 
 class _StubContextManager:
-    """Minimal context manager so `with current_group:` works with a non-None stub."""
+    """Minimal context manager so `with current_group:` works with a non-None stub.
+
+    Also exposes nodes() so that layout_upstream()'s consumer-finding scan
+    (current_group.nodes() if current_group is not None) returns the test node list.
+    """
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False
+
+    def nodes(self):
+        return list(_stub_all_nodes_list)
 
 
 class TestHighestSubtreePlacement(unittest.TestCase):
@@ -1592,6 +1608,258 @@ class TestSpineYAboveConsumer(unittest.TestCase):
             expected_gap,
             f"Gap between root bottom ({root_bottom}) and consumer Y ({consumer.ypos()}) "
             f"must equal dot_gap={expected_gap}, got {actual_gap}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestLayoutUpstreamEndToEnd — full-stack tests through layout_upstream()
+# ---------------------------------------------------------------------------
+
+
+class TestLayoutUpstreamEndToEnd(unittest.TestCase):
+    """End-to-end tests: verify bug-prone code paths via layout_upstream().
+
+    These tests call layout_upstream() through the full call stack to catch
+    bugs that are not visible in place_subtree_horizontal tests, which use
+    hard-coded spine_x/spine_y values and bypass the consumer-finding logic.
+
+    Bug 1: Leftmost spine node overlaps consumer when horizontal root is
+           directly selected (not found via downstream-consumer BFS).
+    Bug 2: Output dot Y placed below root instead of centred on consumer on
+           replay (existing dot found but consumer_node stays None).
+    Bug 3: Phase 2 (vertical inputs of consumer) must run after Phase 1
+           (horizontal layout) so non-horizontal inputs are correctly placed.
+
+    Nuke DAG coordinate system: positive Y is DOWN; negative Y is UP.
+    Upstream nodes (inputs) sit at lower Y (higher on screen).
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        _stub_all_nodes_list.clear()
+        self._stub_ctx = _StubContextManager()
+        self._saved_selectedNode = _nuke_stub.selectedNode
+        self._saved_lastHitGroup = _nuke_stub.lastHitGroup
+        self._saved_nodes_Dot = _nuke_stub.nodes.Dot
+        # Pin sys.modules["nuke"] to _nuke_stub for the duration of each test.
+        # In discover mode, other test files may have replaced sys.modules["nuke"]
+        # with a minimal stub that lacks Tab_Knob (needed by write_node_state).
+        self._saved_sys_nuke = sys.modules.get("nuke")
+        sys.modules["nuke"] = _nuke_stub
+        _nuke_stub.lastHitGroup = lambda: self._stub_ctx
+
+        # Patch Dot factory to automatically register created dots in
+        # _stub_all_nodes_list so they are visible to allNodes() on replay.
+        def _tracked_dot():
+            dot = _StubDotNode()
+            _stub_all_nodes_list.append(dot)
+            return dot
+
+        _nuke_stub.nodes = types.SimpleNamespace(Dot=_tracked_dot)
+
+    def tearDown(self):
+        _stub_all_nodes_list.clear()
+        _nuke_stub.selectedNode = self._saved_selectedNode
+        _nuke_stub.lastHitGroup = self._saved_lastHitGroup
+        _nuke_stub.nodes = types.SimpleNamespace(Dot=self._saved_nodes_Dot)
+        if self._saved_sys_nuke is not None:
+            sys.modules["nuke"] = self._saved_sys_nuke
+
+    def _set_state_horizontal(self, node):
+        """Store mode='horizontal' in node stub (simulates a prior horizontal layout run)."""
+        node._knobs["node_layout_state"] = _StubKnob(
+            '{"scheme": "normal", "mode": "horizontal", "h_scale": 1.0, "v_scale": 1.0}'
+        )
+
+    def _find_output_dot(self):
+        """Return the first output dot in _stub_all_nodes_list, or None."""
+        for candidate in _stub_all_nodes_list:
+            if candidate.knob(nl._OUTPUT_DOT_KNOB_NAME) is not None:
+                return candidate
+        return None
+
+    # -------------------------------------------------------------------
+    # Test 1: First run — consumer (m1) selected; dot created centred on m1
+    # -------------------------------------------------------------------
+
+    def test_first_run_dot_y_centred_on_consumer(self):
+        """First run: output dot Y must be centred on the consumer (m1).
+
+        Topology: n → m2 → m1 (consumer, selected).
+        m2 and n have mode=horizontal stored.  Selected node = m1 (vertical).
+
+        BFS from m1 finds m2 as horizontal root.  Phase 1 places the chain to
+        the right of m1 and calls _place_output_dot_for_horizontal_root, which
+        creates an output dot wired m2 → dot → m1.  Dot Y must align with m1's
+        vertical centre so the wire from m1 to dot is horizontal.
+        """
+        n = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=0)
+        m2 = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=1)
+        m2.setInput(0, n)
+        m1 = _StubNode(width=80, height=28, xpos=800, ypos=400, num_inputs=1)
+        m1.setInput(0, m2)
+
+        self._set_state_horizontal(m2)
+        self._set_state_horizontal(n)
+
+        _stub_all_nodes_list.extend([m1, m2, n])
+        _nuke_stub.selectedNode = lambda: m1
+
+        nl.layout_upstream()
+
+        dot = self._find_output_dot()
+        self.assertIsNotNone(
+            dot,
+            "First run: output dot must be created and visible in allNodes(). "
+            "Dot should be wired between m2 (root) and m1 (consumer)."
+        )
+        expected_dot_y = m1.ypos() + (m1.screenHeight() - dot.screenHeight()) // 2
+        self.assertEqual(
+            dot.ypos(), expected_dot_y,
+            f"First run: dot Y must be centred on consumer (m1). "
+            f"m1.ypos={m1.ypos()}, m1.height={m1.screenHeight()}, "
+            f"dot.height={dot.screenHeight()}, expected dot_y={expected_dot_y}, "
+            f"got {dot.ypos()}."
+        )
+
+    # -------------------------------------------------------------------
+    # Test 2: Replay — dot Y stays centred on m1 when dot already wired
+    # -------------------------------------------------------------------
+
+    def test_replay_dot_y_stays_centred_on_consumer(self):
+        """Replay: output dot Y must remain centred on m1 on the second layout run.
+
+        Replay wiring: m1 → existing_dot → m2 → n.
+        existing_dot has node_layout_output_dot knob.  Selected node = m1.
+
+        _place_output_dot_for_horizontal_root finds existing_dot via the first
+        scan (existing_dot.input(0) == root), then locates m1 as consumer via
+        a second scan (m1.input(0) == existing_dot).  Dot must be repositioned
+        centred on m1.
+
+        Bug 2 (before fix): consumer_node was always None on replay because no
+        node had root as its direct input — so dot fell back to
+        root.ypos() + root.screenHeight() + dot_gap (well below root).
+        """
+        n = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=0)
+        m2 = _StubNode(width=80, height=28, xpos=100, ypos=300, num_inputs=1)
+        m2.setInput(0, n)
+        existing_dot = _StubDotNode(has_output_dot_knob=True, xpos=0, ypos=0)
+        m1 = _StubNode(width=80, height=28, xpos=800, ypos=400, num_inputs=1)
+        # Replay wiring: m1 → existing_dot → m2 → n
+        existing_dot.setInput(0, m2)
+        m1.setInput(0, existing_dot)
+
+        self._set_state_horizontal(m2)
+        self._set_state_horizontal(n)
+
+        _stub_all_nodes_list.extend([m1, m2, n, existing_dot])
+        _nuke_stub.selectedNode = lambda: m1
+
+        nl.layout_upstream()
+
+        expected_dot_y = m1.ypos() + (m1.screenHeight() - existing_dot.screenHeight()) // 2
+        self.assertEqual(
+            existing_dot.ypos(), expected_dot_y,
+            f"Replay: dot Y must be centred on consumer (m1). "
+            f"m1.ypos={m1.ypos()}, m1.height={m1.screenHeight()}, "
+            f"dot.height={existing_dot.screenHeight()}, "
+            f"expected {expected_dot_y}, got {existing_dot.ypos()}. "
+            "Bug 2: on replay consumer_node=None → dot placed below root."
+        )
+
+    # -------------------------------------------------------------------
+    # Test 3: Phase 2 — vertical slot-0 input placed above consumer
+    # -------------------------------------------------------------------
+
+    def test_phase2_vertical_slot0_placed_above_consumer(self):
+        """Phase 2: vertical input in slot 0 of consumer is placed above consumer.
+
+        Topology:
+          m1.input(0) = v1  (vertical Grade — primary B input)
+          m1.input(1) = m2  (horizontal chain root)
+          m2.input(0) = n   (also horizontal)
+
+        layout_upstream(m1):
+          Phase 1 — BFS finds m2 (mode=horizontal) in m1's input(1).
+                    m2 + n placed to the right of m1.
+                    Output dot inserted at m1.input(1).
+          Phase 2 — runs place_subtree on m1 with node_filter={m1, v1}.
+                    m1.input(0) = v1 is in filter; primary slot not externally
+                    occupied; v1 placed directly ABOVE m1 (lower Y in Nuke DAG).
+
+        Assert: v1.ypos() < m1.ypos() after the call.
+        """
+        n = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=0)
+        m2 = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=1)
+        m2.setInput(0, n)
+        v1 = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=0)
+        m1 = _StubNode(width=80, height=28, xpos=800, ypos=400, num_inputs=2)
+        m1.setInput(0, v1)   # vertical in slot 0
+        m1.setInput(1, m2)   # horizontal chain in slot 1
+
+        self._set_state_horizontal(m2)
+        self._set_state_horizontal(n)
+
+        _stub_all_nodes_list.extend([m1, m2, n, v1])
+        _nuke_stub.selectedNode = lambda: m1
+
+        nl.layout_upstream()
+
+        self.assertLess(
+            v1.ypos(), m1.ypos(),
+            f"Phase 2: v1 (vertical slot-0 input of m1) must be placed above m1 "
+            f"(lower Y in Nuke DAG). "
+            f"v1.ypos()={v1.ypos()}, m1.ypos()={m1.ypos()}. "
+            "Bug 3: without Phase 2, layout_upstream only ran horizontal layout "
+            "and never called place_subtree on m1, so v1 was not moved."
+        )
+
+    # -------------------------------------------------------------------
+    # Test 4: Bug 1 — horizontal root directly selected; chain right of consumer
+    # -------------------------------------------------------------------
+
+    def test_horizontal_root_selected_chain_right_of_consumer(self):
+        """Bug 1: selecting the horizontal root itself places chain right of consumer.
+
+        Topology: m1 (consumer, vertical) ← m2 (horizontal root, selected).
+        m2.input(0) = n (also horizontal).
+
+        When the user selects m2 directly (root IS original_selected_root), the
+        else-branch consumer scan finds m1 as downstream consumer and computes
+        the correct spine_x so the entire chain (m2 + n) clears m1's right edge.
+
+        Before the fix, spine_x = root.xpos() with no leftward correction, so n
+        could land at m2.xpos - step_x - n.width, potentially overlapping m1.
+
+        Assert: m2.xpos() > m1.xpos() + m1.screenWidth() after the call.
+        """
+        # Position m2 and n far to the RIGHT of m1 (pre-layout coords that look like a
+        # stale/wrong position).  After layout, they will be moved leftward to just right
+        # of m1.  This ensures push_nodes_to_make_room sees a leftward shift (not rightward)
+        # and does NOT move m1, so the assert can compare against the fixed m1 position.
+        n = _StubNode(width=80, height=28, xpos=3000, ypos=400, num_inputs=0)
+        m2 = _StubNode(width=80, height=28, xpos=3000, ypos=400, num_inputs=1)
+        m2.setInput(0, n)
+        m1 = _StubNode(width=80, height=28, xpos=800, ypos=400, num_inputs=1)
+        m1.setInput(0, m2)
+
+        self._set_state_horizontal(m2)
+        self._set_state_horizontal(n)
+
+        _stub_all_nodes_list.extend([m1, m2, n])
+        _nuke_stub.selectedNode = lambda: m2  # select horizontal root directly
+
+        nl.layout_upstream()
+
+        consumer_right_edge = m1.xpos() + m1.screenWidth()  # 880
+        self.assertGreater(
+            m2.xpos(), consumer_right_edge,
+            f"Bug 1: m2 (horizontal root) must be placed to the right of m1 "
+            f"(consumer). m1 right edge={consumer_right_edge}, "
+            f"m2.xpos()={m2.xpos()}. "
+            "Old code: spine_x = root.xpos() ignores consumer position — chain "
+            "lands at m2's pre-layout xpos, potentially overlapping consumer."
         )
 
 
