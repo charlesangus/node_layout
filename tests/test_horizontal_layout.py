@@ -1405,5 +1405,195 @@ class TestDotYAlignment(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# TestPlaceOutputDotReplay — regression tests for _place_output_dot_for_horizontal_root
+# On a second layout run, m1 is wired to the existing dot (not root), so the original
+# consumer scan misses it.  The dot must still be Y-centred on the consumer.
+# ---------------------------------------------------------------------------
+
+
+class TestPlaceOutputDotReplay(unittest.TestCase):
+    """_place_output_dot_for_horizontal_root must find the consumer on replay.
+
+    First run: m1.input(0) = root → consumer found directly, dot created/placed.
+    Second run: m1.input(0) = dot, dot.input(0) = root → original scan sees
+    existing_dot but consumer_node stays None → dot falls back to below-root Y.
+
+    Fix: after finding existing_dot with consumer_node=None, do a second scan for
+    any non-dot node wired to existing_dot.  Then use consumer Y for dot placement.
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        _stub_all_nodes_list.clear()
+
+    def tearDown(self):
+        _stub_all_nodes_list.clear()
+
+    def test_replay_dot_y_centred_on_consumer(self):
+        """On second run (m1 → dot → root), dot Y must be centred on consumer.
+
+        Before the fix, consumer_node was always None on replay so the dot landed at
+        root.ypos() + root.screenHeight() + dot_gap (well below root / consumer).
+        """
+        root = _StubNode(width=80, height=28, xpos=200, ypos=300, node_class="Grade")
+        consumer = _StubNode(width=80, height=28, xpos=800, ypos=400, node_class="Grade")
+        existing_dot = _StubDotNode(has_output_dot_knob=True, xpos=0, ypos=0)
+
+        # Replay wiring: m1 → dot → root
+        existing_dot.setInput(0, root)
+        consumer.setInput(0, existing_dot)
+
+        _stub_all_nodes_list.extend([root, consumer, existing_dot])
+
+        nl._place_output_dot_for_horizontal_root(root, None, snap_threshold=8,
+                                                 scheme_multiplier=1.0)
+
+        expected_dot_y = consumer.ypos() + (consumer.screenHeight() - existing_dot.screenHeight()) // 2
+        self.assertEqual(
+            existing_dot.ypos(),
+            expected_dot_y,
+            "Replay path: dot Y must be centred on consumer Y (consumer.ypos="
+            f"{consumer.ypos()}, expected dot_y={expected_dot_y}), "
+            f"got {existing_dot.ypos()}. "
+            "Before fix: dot was placed at root.ypos + root.screenHeight + dot_gap "
+            f"= {root.ypos()} + {root.screenHeight()} + dot_gap."
+        )
+
+    def test_replay_dot_x_centred_on_root(self):
+        """On replay, dot X must remain X-centred on root (unchanged from first run)."""
+        root = _StubNode(width=80, height=28, xpos=200, ypos=300, node_class="Grade")
+        consumer = _StubNode(width=80, height=28, xpos=800, ypos=400, node_class="Grade")
+        existing_dot = _StubDotNode(has_output_dot_knob=True, xpos=0, ypos=0)
+
+        existing_dot.setInput(0, root)
+        consumer.setInput(0, existing_dot)
+
+        _stub_all_nodes_list.extend([root, consumer, existing_dot])
+
+        nl._place_output_dot_for_horizontal_root(root, None, snap_threshold=8,
+                                                 scheme_multiplier=1.0)
+
+        expected_dot_x = root.xpos() + (root.screenWidth() - existing_dot.screenWidth()) // 2
+        self.assertEqual(
+            existing_dot.xpos(),
+            expected_dot_x,
+            f"Replay path: dot X must be X-centred on root — "
+            f"expected {expected_dot_x}, got {existing_dot.xpos()}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestSpineYAboveConsumer — regression test for spine_y in layout_upstream/selected
+# When a consumer is found, the horizontal chain must be placed ABOVE (lower Y than)
+# the consumer so a vertical wire from root down to the output dot is possible.
+# spine_y = consumer.ypos() (old) put root at the same Y as the consumer.
+# spine_y = consumer.ypos() - dot_gap - root.screenHeight() (fix) puts root above.
+# ---------------------------------------------------------------------------
+
+
+class TestSpineYAboveConsumer(unittest.TestCase):
+    """After place_subtree_horizontal, root (m2) must be above the consumer (lower Y).
+
+    The fix computes spine_y = consumer.ypos() - dot_gap - root.screenHeight().
+    This ensures the output dot (at consumer's Y) is strictly below root in Y,
+    creating the vertical wire from root down to the dot.
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        _stub_all_nodes_list.clear()
+        self.snap_threshold = 8
+        self.scheme_multiplier = _node_layout_prefs_module.prefs_singleton.get("normal_multiplier")
+        self.loose_gap_multiplier = _node_layout_prefs_module.prefs_singleton.get("loose_gap_multiplier")
+        self.dot_gap = int(self.loose_gap_multiplier * self.scheme_multiplier * self.snap_threshold)
+
+    def tearDown(self):
+        _stub_all_nodes_list.clear()
+
+    def test_root_placed_above_consumer(self):
+        """root (m2) Y must be strictly less than consumer Y after spine_y computation.
+
+        The fixed formula: spine_y = consumer.ypos() - dot_gap - root.screenHeight()
+        places root so its bottom edge is dot_gap pixels above the consumer's Y level.
+        Before the fix, spine_y = consumer.ypos() put root at the same Y as consumer.
+        """
+        consumer = _StubNode(width=80, height=28, xpos=500, ypos=400, node_class="Grade")
+        n = _StubNode(width=80, height=28, xpos=0, ypos=0, node_class="Grade")
+        m = _StubNode(width=80, height=28, xpos=0, ypos=0, node_class="Grade")
+        root = _StubNode(width=80, height=28, xpos=0, ypos=0, node_class="Grade")
+
+        m.setInput(0, n)
+        root.setInput(0, m)
+        consumer.setInput(0, root)
+
+        spine_set = {id(root), id(m), id(n)}
+        step_x = int(_node_layout_prefs_module.prefs_singleton.get("horizontal_subtree_gap")
+                     * self.scheme_multiplier)
+
+        spine_nodes_ordered = [root, m, n]
+        leftward_extent = sum(
+            step_x + spine_nodes_ordered[i].screenWidth()
+            for i in range(1, len(spine_nodes_ordered))
+        )
+        fixed_spine_x = consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
+        fixed_spine_y = consumer.ypos() - self.dot_gap - root.screenHeight()
+
+        nl.place_subtree_horizontal(
+            root,
+            spine_x=fixed_spine_x,
+            spine_y=fixed_spine_y,
+            snap_threshold=self.snap_threshold,
+            node_count=3,
+            spine_set=spine_set,
+            side_layout_mode="place_only",
+        )
+
+        self.assertLess(
+            root.ypos(),
+            consumer.ypos(),
+            f"root (m2) must be placed strictly above consumer (lower Y) — "
+            f"root.ypos()={root.ypos()}, consumer.ypos()={consumer.ypos()}. "
+            f"spine_y formula gives {fixed_spine_y} which is "
+            f"{consumer.ypos() - root.ypos()} px above consumer."
+        )
+
+    def test_root_bottom_clears_consumer_by_dot_gap(self):
+        """root's bottom edge must be exactly dot_gap above consumer's Y.
+
+        spine_y = consumer.ypos() - dot_gap - root.screenHeight()
+        → root.ypos() + root.screenHeight() = consumer.ypos() - dot_gap
+        So the gap between root's bottom and consumer's top-Y is dot_gap pixels.
+        """
+        consumer = _StubNode(width=80, height=28, xpos=500, ypos=400, node_class="Grade")
+        root = _StubNode(width=80, height=28, xpos=0, ypos=0, node_class="Grade")
+        consumer.setInput(0, root)
+
+        fixed_spine_y = consumer.ypos() - self.dot_gap - root.screenHeight()
+
+        nl.place_subtree_horizontal(
+            root,
+            spine_x=consumer.xpos() + consumer.screenWidth() + int(
+                _node_layout_prefs_module.prefs_singleton.get("horizontal_subtree_gap")
+                * self.scheme_multiplier
+            ),
+            spine_y=fixed_spine_y,
+            snap_threshold=self.snap_threshold,
+            node_count=1,
+            spine_set={id(root)},
+            side_layout_mode="place_only",
+        )
+
+        root_bottom = root.ypos() + root.screenHeight()
+        expected_gap = self.dot_gap
+        actual_gap = consumer.ypos() - root_bottom
+        self.assertEqual(
+            actual_gap,
+            expected_gap,
+            f"Gap between root bottom ({root_bottom}) and consumer Y ({consumer.ypos()}) "
+            f"must equal dot_gap={expected_gap}, got {actual_gap}"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

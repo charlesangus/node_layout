@@ -464,15 +464,30 @@ def _place_output_dot_for_horizontal_root(root, current_group, snap_threshold=No
                     consumer_slot = slot
                     break
 
+    # On replay, m1 is wired to the existing dot (not to root directly): m1 → dot → root.
+    # The first scan above finds existing_dot but misses consumer_node because no node has
+    # root as its input.  Do a second pass looking for a non-dot node wired to the dot.
+    if existing_dot is not None and consumer_node is None:
+        for node in all_nodes:
+            if consumer_node is not None:
+                break
+            if node.knob(_OUTPUT_DOT_KNOB_NAME) is None:
+                for slot in range(node.inputs()):
+                    if node.input(slot) is not None and id(node.input(slot)) == id(existing_dot):
+                        consumer_node = node
+                        consumer_slot = slot
+                        break
+
     if existing_dot is not None:
-        # Reposition the existing dot directly below root's current position.
-        # Use loose gap so the dot is clearly below root regardless of tile colour.
-        loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
-        dot_gap = int(loose_gap_multiplier * scheme_multiplier * snap_threshold)
+        # Reposition the existing dot: X centred on root, Y centred on the consumer.
+        # The consumer is found either via direct connection to root (first run) or via
+        # connection to the dot itself (replay, after the second scan above).
         existing_dot.setXpos(root.xpos() + (root.screenWidth() - existing_dot.screenWidth()) // 2)
         if consumer_node is not None:
             existing_dot.setYpos(consumer_node.ypos() + (consumer_node.screenHeight() - existing_dot.screenHeight()) // 2)
         else:
+            loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
+            dot_gap = int(loose_gap_multiplier * scheme_multiplier * snap_threshold)
             existing_dot.setYpos(root.ypos() + root.screenHeight() + dot_gap)
         return existing_dot
 
@@ -1341,11 +1356,52 @@ def layout_upstream(scheme_multiplier=None):
                         for i in range(1, len(spine_nodes_ordered))
                     )
                     consumer = original_selected_root
+                    loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
+                    dot_gap = int(loose_gap_multiplier * root_scheme_multiplier * snap_threshold)
                     spine_x = consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
-                    spine_y = consumer.ypos()
+                    spine_y = consumer.ypos() - dot_gap - root.screenHeight()
                 else:
-                    spine_x = root.xpos()
-                    spine_y = root.ypos()
+                    # root IS the originally selected node.  Find its downstream consumer
+                    # (the node wired to root, or — on replay — wired to the output dot that
+                    # sits between root and the consumer) so the chain can be anchored at the
+                    # correct position relative to the consumer.
+                    step_x = int(current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier)
+                    loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
+                    dot_gap = int(loose_gap_multiplier * root_scheme_multiplier * snap_threshold)
+                    all_group_nodes = current_group.nodes() if current_group is not None else nuke.allNodes()
+                    downstream_consumer = None
+                    replay_output_dot = None
+                    for _candidate in all_group_nodes:
+                        if _candidate.knob(_OUTPUT_DOT_KNOB_NAME) is not None:
+                            if _candidate.input(0) is not None and id(_candidate.input(0)) == id(root):
+                                replay_output_dot = _candidate
+                        elif downstream_consumer is None:
+                            for _slot in range(_candidate.inputs()):
+                                if _candidate.input(_slot) is not None and id(_candidate.input(_slot)) == id(root):
+                                    downstream_consumer = _candidate
+                                    break
+                    if downstream_consumer is None and replay_output_dot is not None:
+                        for _candidate in all_group_nodes:
+                            if _candidate.knob(_OUTPUT_DOT_KNOB_NAME) is None and downstream_consumer is None:
+                                for _slot in range(_candidate.inputs()):
+                                    if _candidate.input(_slot) is not None and id(_candidate.input(_slot)) == id(replay_output_dot):
+                                        downstream_consumer = _candidate
+                                        break
+                    if downstream_consumer is not None:
+                        spine_nodes_ordered = []
+                        cursor = root
+                        while cursor is not None and id(cursor) in replay_spine_set:
+                            spine_nodes_ordered.append(cursor)
+                            cursor = cursor.input(0)
+                        leftward_extent = sum(
+                            step_x + spine_nodes_ordered[i].screenWidth()
+                            for i in range(1, len(spine_nodes_ordered))
+                        )
+                        spine_x = downstream_consumer.xpos() + downstream_consumer.screenWidth() + step_x + leftward_extent
+                        spine_y = downstream_consumer.ypos() - dot_gap - root.screenHeight()
+                    else:
+                        spine_x = root.xpos()
+                        spine_y = root.ypos()
                 place_subtree_horizontal(
                     root, spine_x, spine_y, snap_threshold, node_count,
                     scheme_multiplier=root_scheme_multiplier,
@@ -1519,11 +1575,51 @@ def layout_selected(scheme_multiplier=None):
                             for i in range(1, len(spine_nodes_ordered))
                         )
                         consumer = original_selected_root
+                        loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
+                        dot_gap = int(loose_gap_multiplier * root_scheme_multiplier * snap_threshold)
                         spine_x = consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
-                        spine_y = consumer.ypos()
+                        spine_y = consumer.ypos() - dot_gap - root.screenHeight()
                     else:
-                        spine_x = root.xpos()
-                        spine_y = root.ypos()
+                        # root IS the originally selected node.  Find its downstream consumer
+                        # (wired to root directly, or — on replay — wired to the output dot)
+                        # so the chain can be anchored correctly relative to the consumer.
+                        step_x = int(current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier)
+                        loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
+                        dot_gap = int(loose_gap_multiplier * root_scheme_multiplier * snap_threshold)
+                        all_group_nodes = current_group.nodes() if current_group is not None else nuke.allNodes()
+                        downstream_consumer = None
+                        replay_output_dot = None
+                        for _candidate in all_group_nodes:
+                            if _candidate.knob(_OUTPUT_DOT_KNOB_NAME) is not None:
+                                if _candidate.input(0) is not None and id(_candidate.input(0)) == id(root):
+                                    replay_output_dot = _candidate
+                            elif downstream_consumer is None:
+                                for _slot in range(_candidate.inputs()):
+                                    if _candidate.input(_slot) is not None and id(_candidate.input(_slot)) == id(root):
+                                        downstream_consumer = _candidate
+                                        break
+                        if downstream_consumer is None and replay_output_dot is not None:
+                            for _candidate in all_group_nodes:
+                                if _candidate.knob(_OUTPUT_DOT_KNOB_NAME) is None and downstream_consumer is None:
+                                    for _slot in range(_candidate.inputs()):
+                                        if _candidate.input(_slot) is not None and id(_candidate.input(_slot)) == id(replay_output_dot):
+                                            downstream_consumer = _candidate
+                                            break
+                        if downstream_consumer is not None:
+                            spine_nodes_ordered = []
+                            cursor = root
+                            while cursor is not None and id(cursor) in root_spine_set:
+                                spine_nodes_ordered.append(cursor)
+                                cursor = cursor.input(0)
+                            leftward_extent = sum(
+                                step_x + spine_nodes_ordered[i].screenWidth()
+                                for i in range(1, len(spine_nodes_ordered))
+                            )
+                            spine_x = downstream_consumer.xpos() + downstream_consumer.screenWidth() + step_x + leftward_extent
+                            spine_y = downstream_consumer.ypos() - dot_gap - root.screenHeight()
+                        else:
+                            spine_x = root.xpos()
+                            spine_y = root.ypos()
                     place_subtree_horizontal(
                         root, spine_x, spine_y, snap_threshold, node_count,
                         scheme_multiplier=root_scheme_multiplier,
