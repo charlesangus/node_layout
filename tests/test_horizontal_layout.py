@@ -1115,5 +1115,155 @@ class TestPlaceOutputDotForHorizontalRootReplay(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# TestLeftExtentOverlap — RED regression tests for Bug 1
+# The horizontal chain's leftmost node must not overlap the consumer node.
+# Currently FAILS because spine_x only accounts for root (m2) clearance,
+# not the full leftward extent of the chain.
+# ---------------------------------------------------------------------------
+
+
+class TestLeftExtentOverlap(unittest.TestCase):
+    """Leftmost spine node must clear the consumer's right edge by at least step_x.
+
+    Bug 1: When a horizontal chain (n, m, m2) is placed right of consumer m1,
+    the current spine_x formula only ensures root (m2) clears m1. Each additional
+    spine node steps further left by (step_x + node.screenWidth()), so n can
+    end up to the left of (or overlapping) m1.
+
+    Fix: spine_x must be shifted right by the full leftward extent so the
+    leftmost node lands right of consumer with a clean step_x gap.
+
+    All test methods here FAIL RED against unmodified node_layout.py.
+    They go GREEN after the Bug 1 fix is applied in Plan 11.1-02.
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        _stub_all_nodes_list.clear()
+        self.snap_threshold = 8
+        self.node_count = 3
+        self.step_x = int(
+            _node_layout_prefs_module.prefs_singleton.get("horizontal_subtree_gap")
+            * _node_layout_prefs_module.prefs_singleton.get("normal_multiplier")
+        )
+        self.horizontal_gap = _node_layout_prefs_module.prefs_singleton.get(
+            "horizontal_subtree_gap"
+        )
+
+    def tearDown(self):
+        _stub_all_nodes_list.clear()
+
+    def _build_three_node_chain(self):
+        """Return (m2, m, n, consumer, spine_set).
+
+        m2 = root (rightmost), m = m2.input(0), n = m.input(0).
+        consumer = downstream node placed at xpos=500, width=80.
+        spine_set = {id(m2), id(m), id(n)}.
+        spine_x_broken = consumer.xpos() + consumer.screenWidth() + horizontal_gap
+        (the current bug: only clears m2, not n).
+        """
+        consumer = _StubNode(width=80, height=28, xpos=500, ypos=400, node_class="Grade")
+        n = _StubNode(width=80, height=28, xpos=0, ypos=0, node_class="Grade")
+        m = _StubNode(width=80, height=28, xpos=0, ypos=0, node_class="Grade")
+        m2 = _StubNode(width=80, height=28, xpos=0, ypos=0, node_class="Grade")
+
+        m.setInput(0, n)
+        m2.setInput(0, m)
+        consumer.setInput(0, m2)
+
+        spine_set = {id(m2), id(m), id(n)}
+        return m2, m, n, consumer, spine_set
+
+    def test_layout_upstream_variant_leftmost_clears_consumer(self):
+        """Leftmost spine node (n) must not overlap consumer after layout_upstream anchor.
+
+        layout_upstream computes spine_x as:
+            spine_x = consumer.xpos() + consumer.screenWidth() + horizontal_gap
+
+        This places only root (m2) right of consumer. Nodes m and n step further
+        left, potentially overlapping consumer.
+
+        Verification: call place_subtree_horizontal with the broken spine_x and assert
+            n.xpos() >= consumer.xpos() + consumer.screenWidth() + step_x
+        This assertion FAILS because the current formula places n too far left.
+        """
+        m2, m, n, consumer, spine_set = self._build_three_node_chain()
+        _stub_all_nodes_list.extend([n, m, m2, consumer])
+
+        # Replicate the current (broken) spine_x formula from layout_upstream:
+        broken_spine_x = (
+            consumer.xpos() + consumer.screenWidth() + self.horizontal_gap
+        )
+        spine_y = consumer.ypos()
+
+        nl.place_subtree_horizontal(
+            m2,
+            spine_x=broken_spine_x,
+            spine_y=spine_y,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+            spine_set=spine_set,
+            side_layout_mode="place_only",
+        )
+
+        consumer_right_edge = consumer.xpos() + consumer.screenWidth()
+        minimum_clearance = consumer_right_edge + self.step_x
+        self.assertGreaterEqual(
+            n.xpos(),
+            minimum_clearance,
+            "Bug 1: leftmost spine node (n) must clear consumer right edge by at least "
+            f"step_x={self.step_x}px — "
+            f"n.xpos={n.xpos()}, consumer_right={consumer_right_edge}, "
+            f"required >= {minimum_clearance}. "
+            "The current broken formula only anchors m2 (root) right of consumer; "
+            "n steps {}-{}={} px further left.".format(
+                broken_spine_x,
+                2 * (self.step_x + n.screenWidth()),
+                broken_spine_x - 2 * (self.step_x + n.screenWidth()),
+            )
+        )
+
+    def test_layout_selected_variant_leftmost_clears_consumer(self):
+        """layout_selected also uses the broken spine_x formula — same overlap bug.
+
+        layout_selected's `root is not original_selected_root` branch mirrors
+        layout_upstream's branch with the identical formula. This test verifies
+        the same overlap occurs when entered via that path, using the same
+        place_subtree_horizontal call pattern as layout_selected would produce.
+
+        This assertion FAILS RED until the Bug 1 fix is applied to layout_selected.
+        """
+        m2, m, n, consumer, spine_set = self._build_three_node_chain()
+        _stub_all_nodes_list.extend([n, m, m2, consumer])
+
+        # Same broken formula from layout_selected's horizontal anchor block.
+        broken_spine_x = (
+            consumer.xpos() + consumer.screenWidth() + self.horizontal_gap
+        )
+        spine_y = consumer.ypos()
+
+        nl.place_subtree_horizontal(
+            m2,
+            spine_x=broken_spine_x,
+            spine_y=spine_y,
+            snap_threshold=self.snap_threshold,
+            node_count=self.node_count,
+            spine_set=spine_set,
+            side_layout_mode="place_only",
+        )
+
+        consumer_right_edge = consumer.xpos() + consumer.screenWidth()
+        minimum_clearance = consumer_right_edge + self.step_x
+        self.assertGreaterEqual(
+            n.xpos(),
+            minimum_clearance,
+            "Bug 1 (layout_selected path): leftmost spine node (n) must clear consumer "
+            f"right edge by at least step_x={self.step_x}px — "
+            f"n.xpos={n.xpos()}, consumer_right={consumer_right_edge}, "
+            f"required >= {minimum_clearance}."
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
