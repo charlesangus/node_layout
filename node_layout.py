@@ -1311,9 +1311,26 @@ def layout_upstream(scheme_multiplier=None):
                 # above the originally selected downstream node so the layout is
                 # positioned correctly relative to the consumer, not D's scrambled coords.
                 if root is not original_selected_root:
-                    horizontal_gap = current_prefs.get("horizontal_subtree_gap")
-                    spine_x = original_selected_root.xpos() + original_selected_root.screenWidth() + horizontal_gap
-                    spine_y = original_selected_root.ypos()
+                    step_x = int(current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier)
+                    # Walk the already-built replay_spine_set to compute full leftward extent.
+                    # Each spine node beyond the root (index 1 onward) advances the chain left by
+                    # step_x + that node's width.  spine_x must account for this entire extent so
+                    # the leftmost spine node still clears the consumer's right edge with a clean gap.
+                    # Note: left_extents (side-subtree widths) are treated as out-of-scope here —
+                    # this fix addresses primary spine-node overlap; side-subtree overlap is a
+                    # secondary edge case.
+                    spine_nodes_ordered = []
+                    cursor = root
+                    while cursor is not None and id(cursor) in replay_spine_set:
+                        spine_nodes_ordered.append(cursor)
+                        cursor = cursor.input(0)
+                    leftward_extent = sum(
+                        step_x + spine_nodes_ordered[i].screenWidth()
+                        for i in range(1, len(spine_nodes_ordered))
+                    )
+                    consumer = original_selected_root
+                    spine_x = consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
+                    spine_y = consumer.ypos()
                 else:
                     spine_x = root.xpos()
                     spine_y = root.ypos()
@@ -1472,9 +1489,26 @@ def layout_selected(scheme_multiplier=None):
                     # upstream horizontal node, place the chain to the RIGHT of the
                     # originally selected downstream consumer at the consumer's Y level.
                     if root is not original_selected_root:
-                        horizontal_gap = current_prefs.get("horizontal_subtree_gap")
-                        spine_x = original_selected_root.xpos() + original_selected_root.screenWidth() + horizontal_gap
-                        spine_y = original_selected_root.ypos()
+                        step_x = int(current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier)
+                        # Walk the already-built root_spine_set to compute full leftward extent.
+                        # Each spine node beyond the root (index 1 onward) advances the chain left by
+                        # step_x + that node's width.  spine_x must account for this entire extent so
+                        # the leftmost spine node still clears the consumer's right edge with a clean gap.
+                        # Note: left_extents (side-subtree widths) are treated as out-of-scope here —
+                        # this fix addresses primary spine-node overlap; side-subtree overlap is a
+                        # secondary edge case.
+                        spine_nodes_ordered = []
+                        cursor = root
+                        while cursor is not None and id(cursor) in root_spine_set:
+                            spine_nodes_ordered.append(cursor)
+                            cursor = cursor.input(0)
+                        leftward_extent = sum(
+                            step_x + spine_nodes_ordered[i].screenWidth()
+                            for i in range(1, len(spine_nodes_ordered))
+                        )
+                        consumer = original_selected_root
+                        spine_x = consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
+                        spine_y = consumer.ypos()
                     else:
                         spine_x = root.xpos()
                         spine_y = root.ypos()
