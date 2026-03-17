@@ -169,3 +169,14 @@ Plans:
 Plans:
 - [ ] 11.2-01-PLAN.md — Add RED end-to-end tests for BUG-A (chain clearance) and BUG-B (Phase 2 no cross-chain)
 - [ ] 11.2-02-PLAN.md — Implement Fix A (place-then-measure-then-shift) and Fix B (Phase 2 anchor clamped to chain bbox) in node_layout.py
+
+### Phase 12: fix fan layout logic
+
+**Goal:** Fan layout geometry is correct: Dot rows land in the reserved gap above the consumer (not on the consumer tile), A1/A2 inputs clear B's subtree right edge when B is wide, and compute_dims reports the correct fan bbox width.
+**Requirements**: none (bug-fix insertion)
+**Depends on:** Phase 11
+**Plans:** 2 plans
+
+Plans:
+- [ ] 12-01-PLAN.md — Write RED regression tests for Bug 1 (Dot row Y), Bug 2 (A1 X), and compute_dims W overhang
+- [ ] 12-02-PLAN.md — Apply 3 arithmetic fixes in node_layout.py; turn all 3 RED tests GREEN
