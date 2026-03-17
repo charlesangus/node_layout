@@ -1,15 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Layout Engine & State
-current_phase: complete
-status: milestone_complete
-last_updated: "2026-03-17"
+milestone: v1.2
+milestone_name: CI/CD
+status: planning
+stopped_at: Completed 13-01-PLAN.md
+last_updated: "2026-03-17T13:19:42.546Z"
+last_activity: 2026-03-17 — v1.2 roadmap created; phases 13-14 defined
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 30
-  completed_plans: 30
+  total_phases: 2
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 0
 ---
 
 # Session State
@@ -19,13 +21,52 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-17)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave.
-**Current focus:** Planning next milestone
+**Current focus:** Phase 13 — Tooling + CI
 
-## Position
+## Current Position
 
-**Milestone:** v1.1 Layout Engine & State — ✅ SHIPPED 2026-03-17
-**Status:** Milestone complete — ready for `/gsd:new-milestone`
+Phase: 13 of 14 (Tooling + CI)
+Plan: 0 of ? in current phase
+Status: Ready to plan
+Last activity: 2026-03-17 — v1.2 roadmap created; phases 13-14 defined
 
-## Session Log
+Progress: [░░░░░░░░░░] 0%
 
-- 2026-03-17: v1.1 milestone archived and completed
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 0 (this milestone)
+- Average duration: — (no plans yet)
+- Total execution time: —
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+*Updated after each plan completion*
+| Phase 13 P01 | 8m | 2 tasks | 15 files |
+
+## Accumulated Context
+
+### Decisions
+
+Recent decisions affecting current work:
+- All decisions in PROJECT.md Key Decisions table
+- [Phase 13]: pyproject.toml contains only Ruff config sections — no [project] or per-file-ignores
+- [Phase 13]: Test paths use os.path.join(__file__-relative) pattern matching existing test_center_x.py convention
+
+### Pending Todos
+
+None.
+
+### Blockers/Concerns
+
+- Sibling project anchors (charlesangus/anchors) has the reference CI/CD pattern — inspect before writing workflows
+
+## Session Continuity
+
+Last session: 2026-03-17T13:19:42.544Z
+Stopped at: Completed 13-01-PLAN.md
+Resume file: None
