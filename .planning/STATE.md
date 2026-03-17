@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: "Phase 11.2 open — horizontal layout still broken: spine_x clearance mismatch + Phase 2 overlap"
-last_updated: "2026-03-17T05:49:20.613Z"
+last_updated: "2026-03-17T10:51:57.986Z"
 last_activity: "2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance. Root causes identified: spine_x mismatch vs effective_widths, Phase 2 ignores horizontal chain bbox."
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 8
-  total_plans: 28
-  completed_plans: 28
+  total_plans: 30
+  completed_plans: 29
   percent: 93
 ---
 
@@ -65,6 +65,7 @@ Progress: [█████████░] 93% (26 of 26 plans complete, phase 1
 | Phase 11.1-fix-horizontal-layout-functionality P03 | 3 | 1 tasks | 4 files |
 | Phase 11.2 P01 | 526652 | 2 tasks | 1 files |
 | Phase 11.2-fix-horizontal-layout-bbox P02 | 14 | 2 tasks | 1 files |
+| Phase 12-fix-fan-layout-logic P01 | 5 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,7 @@ Progress: [█████████░] 93% (26 of 26 plans complete, phase 1
 
 - Phase 11.1 inserted after Phase 11: fix horizontal layout functionality (URGENT)
 - Phase 11.2 inserted after Phase 11.1: horizontal layout STILL broken — spine_x clearance mismatch + Phase 2 vertical subtrees overlapping horizontal chain bbox
+- Phase 12 added: fix fan layout logic
 
 ### Decisions
 
@@ -159,6 +161,8 @@ From Phase 6, Plan 01:
 - [Phase 11.2]: Fix B rightmost formula: phase2_anchor_x + phase2_w (not centering formula) — place_subtree all_side places root at anchor; side inputs step rightward; total width = phase2_w
 - [Phase 11.2]: Fix B clamp uses >= + subtract 1px from anchor to satisfy assertLess (strict <) in BUG-B test
 - [Phase 11.2]: Fix A + Fix B applied symmetrically to layout_upstream and layout_selected replay branches
+- [Phase 12-fix-fan-layout-logic]: Set horizontal_subtree_gap=10 in Bug 2 tests to expose margin-sensitive overlap — default 250px gap masks the bug
+- [Phase 12-fix-fan-layout-logic]: TestComputeDimsFanWidth is a separate class from TestPlaceSubtreeFanRoots — compute_dims W is a distinct concern
 
 ### Pending Todos
 
@@ -177,6 +181,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T05:49:20.610Z
+Last session: 2026-03-17T10:51:57.983Z
 Last activity: 2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance. Root causes identified: spine_x mismatch vs effective_widths, Phase 2 ignores horizontal chain bbox.
 Resume file: None

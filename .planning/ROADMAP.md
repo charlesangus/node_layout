@@ -175,7 +175,7 @@ Plans:
 **Goal:** Fan layout geometry is correct: Dot rows land in the reserved gap above the consumer (not on the consumer tile), A1/A2 inputs clear B's subtree right edge when B is wide, and compute_dims reports the correct fan bbox width.
 **Requirements**: none (bug-fix insertion)
 **Depends on:** Phase 11
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 12-01-PLAN.md — Write RED regression tests for Bug 1 (Dot row Y), Bug 2 (A1 X), and compute_dims W overhang
