@@ -2,7 +2,7 @@
 
 ## What This Is
 
-node_layout is a Nuke plugin that automatically lays out DAG node trees with intelligent spacing: related nodes (same tile color and toolbar category) are placed tightly, while unrelated nodes get more breathing room. The plugin is reliable, fully undoable, and user-configurable — users can adjust spacing values via a persistent preferences file and PySide6 dialog, and apply compact, normal, or loose layout schemes.
+node_layout is a Nuke plugin that automatically lays out DAG node trees with intelligent spacing and persistent state. Related nodes are placed tightly while unrelated nodes get breathing room. The plugin supports vertical stacking, horizontal B-spine mode, multi-input fan alignment, and axis-specific scale commands. It is fully undoable, user-configurable via a PySide6 preferences dialog, and stores per-node layout state in hidden knobs that survive script save/reload and auto-replay on re-layout.
 
 ## Core Value
 
@@ -40,19 +40,18 @@ Layout operations must be reliable, undoable, and configurable — users need to
 - ✓ Subtree margin scales with node count via sqrt formula — v1.0
 - ✓ Shrink/Expand Selected scales spacing centered on root node — v1.0
 - ✓ Scale Upstream applies shrink/expand to all upstream nodes — v1.0
+- ✓ Horizontal/mask gap prefs configurable via dialog; defaults rebalanced (less vertical cramping) — v1.1
+- ✓ Dot font-size drives subtree margin scaling (section-boundary signal) — v1.1
+- ✓ Scheme commands renamed: scheme name at end (tab-menu discoverability) — v1.1
+- ✓ Group context: Dot nodes created inside Group, push-away scoped to Group — v1.1
+- ✓ Per-node hidden state (mode, scheme, scale) persistent across save/reload and auto-replayed on re-layout — v1.1
+- ✓ Multi-input fan alignment: 2+ non-mask inputs at same Y; mask placed left of all non-mask inputs — v1.1
+- ✓ Shrink/Expand H/V/Both axis modes; Expand pushes surrounding nodes away — v1.1
+- ✓ Horizontal B-spine layout (Layout Selected Horizontal); stored in state, auto-replayed by normal layout — v1.1
 
 ### Active
 
-- [ ] Rebalance default spacing (less vertical, more horizontal) and add horizontal spacing preferences
-- [ ] Differentiate horizontal gap for secondary vs mask inputs; mask input goes left when 2+ non-mask inputs present
-- [ ] Subtree margin scales with font size of Dot at subtree root (section boundary signal)
-- [ ] Rename Compact/Loose commands to put scheme name at end (tab-menu discoverability)
-- [ ] Multi-input fan alignment: 2+ non-mask inputs have subtree roots at same Y, spread left-to-right
-- [ ] Expand Selected/Upstream push surrounding nodes away (same push logic as regular layout)
-- [ ] Shrink/Expand H/V/Both modes via separate commands and modifier keys
-- [ ] Per-node hidden tab/knobs storing layout mode, scheme, and scale factor; replayed on re-layout
-- [ ] Horizontal B-spine layout command (left→right); stored in knobs, replayed by normal layout
-- [ ] Fix: Dot nodes created in correct Group context when running inside a Nuke Group
+(None — all v1.1 requirements shipped. Define v1.2 requirements via `/gsd:new-milestone`.)
 
 ### Out of Scope
 
@@ -61,14 +60,14 @@ Layout operations must be reliable, undoable, and configurable — users need to
 - Spatial indexing / quadtree for large DAGs — performance acceptable up to ~500 nodes; over-engineering for now
 - Nuke version compatibility layer — current users are on Nuke 11+; not worth abstracting now
 - Error dialogs for empty selection — fail silently; no dialog noise
-- Layout scheme tag on individual nodes — moved to v1.1 as part of node state storage
+- Layout scheme tag on individual nodes — delivered in v1.1 as per-node state storage
 
 ## Context
 
-**Shipped:** v1.0 Quality & Preferences (2026-03-05)
-**Codebase:** ~4,095 LOC Python across node_layout.py, util.py, node_layout_prefs.py, node_layout_prefs_dialog.py, menu.py, and test suite
-**Tech stack:** Python, PySide6; JSON prefs at `~/.nuke/`; AST-based structural tests (Nuke unavailable in CI)
-**Test suite:** 121 tests (test_prefs_integration.py, test_node_layout_prefs.py, test_undo_wrapping.py, test_scale_nodes.py, test_layout_core.py)
+**Shipped:** v1.1 Layout Engine & State (2026-03-17)
+**Codebase:** ~2,900 LOC Python source (node_layout.py, node_layout_state.py, util.py, node_layout_prefs.py, node_layout_prefs_dialog.py, menu.py); ~11,100 LOC total incl. tests
+**Tech stack:** Python, PySide6; JSON prefs at `~/.nuke/`; AST-based structural tests + Nuke-stub unit tests (Nuke unavailable in CI)
+**Test suite:** 276 tests spanning prefs, state, layout core, fan alignment, horizontal spine, and scale commands
 
 Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py` (JSON-backed singleton at `~/.nuke/labelmaker_prefs.json`) + `labelmaker_prefs_dialog.py`. node_layout follows the same structure.
 
@@ -95,20 +94,18 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 | Anchor tiebreaker key=(n.ypos(), -n.xpos()) for scale commands | Deterministic anchor selection on Y tie | ✓ Good |
 | base_subtree_margin default 300 (backward-compatible) | At reference_count=150, sqrt formula returns exactly 300; small subtrees receive tighter spacing dynamically | ✓ Good — intentional design |
 | No preset selector in dialog; no tight gap field | Compact/Normal/Loose are menu commands (Phase 5 design); tight gap removed in favor of multiplier scheme | ✓ Good |
+| node_layout_state.py as separate module | Clean separation; state helpers importable without full layout engine | ✓ Good |
+| Hidden tab knobs (not visible knobs) for per-node state | No clutter in node parameter panel; state is implementation detail | ✓ Good |
+| compute_dims memo key extended to 5-tuple (id, scheme, h_scale, v_scale, mode) | Correctly invalidates cache when any layout parameter changes | ✓ Good |
+| Horizontal mode stored per-node, replayed via BFS scan | Normal Layout Upstream auto-dispatches without requiring explicit Horizontal command — least-surprise UX | ✓ Good |
+| Layout Selected Horizontal sets mode; no Layout Upstream Horizontal command | Post-UAT redesign: upstream horizontal is triggered by stored mode replay, not a separate command | ✓ Good — cleaner than two entry points |
+| Fan layout: _is_fan_active() threshold is 2+ non-mask inputs | Matches actual compositor usage; 2-input trees use original stacking | ✓ Good |
+| Inserted phases use decimal numbering (11.1, 11.2, 12) | Clear insertion semantics; avoids renumbering existing phases | ✓ Good |
+| Phase 2 vertical pass for consumer when horizontal chain detected | Lets normal vertical tree sit correctly above/below horizontal spine without overlap | ✓ Good |
 
-## Current Milestone: v1.1 Layout Engine & State
+## Next Milestone
 
-**Goal:** Improve layout quality through spacing rebalance, multi-input fan alignment, horizontal B-spine mode, and per-node state memory for least-surprise re-layout.
-
-**Target features:**
-- Spacing rebalance + horizontal preferences
-- Multi-input fan alignment + mask side-swap
-- Node state storage (hidden tab/knobs)
-- Horizontal B-spine layout command
-- Shrink/Expand H/V/Both modes
-- Expand push-away
-- Command renames
-- Group context bug fix
+Run `/gsd:new-milestone` to define v1.2 goals, requirements, and roadmap.
 
 ---
-*Last updated: 2026-03-05 after v1.1 milestone start*
+*Last updated: 2026-03-17 after v1.1 milestone*
