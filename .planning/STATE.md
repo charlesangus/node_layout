@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: "Phase 11.2 open — horizontal layout still broken: spine_x clearance mismatch + Phase 2 overlap"
-last_updated: "2026-03-17T10:51:57.986Z"
+last_updated: "2026-03-17T10:55:41.501Z"
 last_activity: "2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance. Root causes identified: spine_x mismatch vs effective_widths, Phase 2 ignores horizontal chain bbox."
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 30
-  completed_plans: 29
+  completed_plans: 30
   percent: 93
 ---
 
@@ -66,6 +66,7 @@ Progress: [█████████░] 93% (26 of 26 plans complete, phase 1
 | Phase 11.2 P01 | 526652 | 2 tasks | 1 files |
 | Phase 11.2-fix-horizontal-layout-bbox P02 | 14 | 2 tasks | 1 files |
 | Phase 12-fix-fan-layout-logic P01 | 5 | 2 tasks | 1 files |
+| Phase 12-fix-fan-layout-logic P02 | 8 | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -163,6 +164,9 @@ From Phase 6, Plan 01:
 - [Phase 11.2]: Fix A + Fix B applied symmetrically to layout_upstream and layout_selected replay branches
 - [Phase 12-fix-fan-layout-logic]: Set horizontal_subtree_gap=10 in Bug 2 tests to expose margin-sensitive overlap — default 250px gap masks the bug
 - [Phase 12-fix-fan-layout-logic]: TestComputeDimsFanWidth is a separate class from TestPlaceSubtreeFanRoots — compute_dims W is a distinct concern
+- [Phase 12-fix-fan-layout-logic]: dot_row_y = y - (snap_threshold - 1) - inp.screenHeight(): Dot bottom clears consumer top by snap_threshold-1; subtracting moves upward in positive-down Nuke Y axis
+- [Phase 12-fix-fan-layout-logic]: A1 current_x uses max(consumer right, B subtree right) so A1 clears B when B is wider than consumer
+- [Phase 12-fix-fan-layout-logic]: b_right_overhang uses // to match _center_x integer division — keeps overhang symmetric and consistent in compute_dims W
 
 ### Pending Todos
 
@@ -181,6 +185,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T10:51:57.983Z
+Last session: 2026-03-17T10:55:41.498Z
 Last activity: 2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance. Root causes identified: spine_x mismatch vs effective_widths, Phase 2 ignores horizontal chain bbox.
 Resume file: None
