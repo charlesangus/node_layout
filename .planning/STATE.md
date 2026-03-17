@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: "Phase 11.2 open — horizontal layout still broken: spine_x clearance mismatch + Phase 2 overlap"
-last_updated: "2026-03-17T10:55:41.501Z"
+last_updated: "2026-03-17T10:59:31.901Z"
 last_activity: "2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance. Root causes identified: spine_x mismatch vs effective_widths, Phase 2 ignores horizontal chain bbox."
 progress:
   total_phases: 9
