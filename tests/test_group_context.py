@@ -12,10 +12,11 @@ node_layout.py to verify that:
 - push_nodes_to_make_room() still has nuke.allNodes() as the fallback branch
 """
 import ast
+import os
 import unittest
 
 
-NODE_LAYOUT_PATH = "/workspace/node_layout.py"
+NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 
 
 def _get_function_source(source, function_name):

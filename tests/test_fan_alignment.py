@@ -19,9 +19,9 @@ import os
 import unittest
 
 
-NODE_LAYOUT_PATH = "/workspace/node_layout.py"
-NODE_LAYOUT_PREFS_PATH = "/workspace/node_layout_prefs.py"
-NODE_LAYOUT_STATE_PATH = "/workspace/node_layout_state.py"
+NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
+NODE_LAYOUT_PREFS_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
+NODE_LAYOUT_STATE_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_state.py")
 
 
 # ---------------------------------------------------------------------------

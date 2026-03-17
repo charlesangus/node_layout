@@ -6,11 +6,12 @@ is used because the code imports `nuke` which is only available inside Nuke.
 """
 
 import ast
+import os
 import sys
 import unittest
 
 
-MAKE_ROOM_PATH = "/workspace/make_room.py"
+MAKE_ROOM_PATH = os.path.join(os.path.dirname(__file__), "..", "make_room.py")
 
 
 def _get_make_room_function_body():

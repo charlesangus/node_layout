@@ -15,7 +15,7 @@ import os
 import unittest
 
 
-DIALOG_PATH = "/workspace/node_layout_prefs_dialog.py"
+DIALOG_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs_dialog.py")
 
 
 def _load_dialog_source():

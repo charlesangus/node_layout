@@ -26,8 +26,8 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 
-NODE_LAYOUT_PATH = "/workspace/node_layout.py"
-NODE_LAYOUT_PREFS_PATH = "/workspace/node_layout_prefs.py"
+NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
+NODE_LAYOUT_PREFS_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
 
 EXPAND_FACTOR = 1.25  # matches EXPAND_FACTOR in node_layout.py
 
