@@ -326,6 +326,49 @@ class TestPlaceSubtreeFanRoots(unittest.TestCase):
             f"got dot_y_values={dot_y_values}"
         )
 
+    def test_fan_dot_row_y_in_gap_not_on_consumer(self):
+        """Fan routing Dots must sit in the gap ABOVE the consumer, not on it.
+
+        In Nuke's DAG positive Y is down, so 'above' means lower Y value.
+        Consumer at ypos=500 with height=28 occupies Y=[500, 528).
+        Each Dot (height=12) must be placed such that:
+          - dot.ypos() < 500 (Dot top is strictly above consumer top)
+          - dot.ypos() + dot.screenHeight() <= 500 - (snap_threshold - 1)
+            (Dot bottom clears consumer top by at least snap_threshold-1 pixels)
+
+        The buggy formula places Dots at y + (node.screenHeight() - inp.screenHeight()) // 2
+        = 500 + (28 - 12) // 2 = 508, which is greater than 500 — RED.
+        """
+        consumer, inputs, non_mask_slots = self._build_three_input_consumer()
+        consumer_y = 500
+        nl.place_subtree(
+            consumer, 500, consumer_y, self.memo, self.snap_threshold, self.node_count
+        )
+        # Collect Dot nodes from non-mask slots.
+        dot_nodes = []
+        for slot in non_mask_slots:
+            node_at_slot = consumer._inputs[slot]
+            if node_at_slot is not None and node_at_slot.Class() == "Dot":
+                dot_nodes.append(node_at_slot)
+
+        self.assertGreaterEqual(
+            len(dot_nodes), 3,
+            f"expected at least 3 fan Dots, found {len(dot_nodes)}"
+        )
+        for dot in dot_nodes:
+            self.assertLess(
+                dot.ypos(), consumer_y,
+                f"Dot top (ypos={dot.ypos()}) must be strictly above consumer top "
+                f"(ypos={consumer_y}) — Dot is ON or BELOW consumer"
+            )
+            dot_bottom = dot.ypos() + dot.screenHeight()
+            clearance_limit = consumer_y - (self.snap_threshold - 1)
+            self.assertLessEqual(
+                dot_bottom, clearance_limit,
+                f"Dot bottom ({dot_bottom}) must be <= {clearance_limit} "
+                f"(consumer_y={consumer_y} minus snap_threshold-1={self.snap_threshold - 1})"
+            )
+
 
 # ---------------------------------------------------------------------------
 # TestMaskSideSwap — 3 tests for mask placement (left when fan, right when not)
