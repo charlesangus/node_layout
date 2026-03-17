@@ -185,6 +185,8 @@ if not hasattr(_active_nuke, "INVISIBLE"):
     _active_nuke.INVISIBLE = 0x01
 if not hasattr(_active_nuke, "lastHitGroup"):
     _active_nuke.lastHitGroup = lambda: None
+if not hasattr(_active_nuke, "Undo"):
+    _active_nuke.Undo = _StubUndo
 
 # Load node_layout_prefs if not already loaded.
 if "node_layout_prefs" not in sys.modules:
