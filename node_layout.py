@@ -1141,8 +1141,10 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
             place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
             dot_center_x = x_positions[i] + actual_upstream.screenWidth() // 2
             if fan_active and n >= 3:
-                # Fan mode: uniform Dot row — all Dots at the same Y regardless of index.
-                dot_row_y = y + (node.screenHeight() - inp.screenHeight()) // 2
+                # Fan mode: Dot row sits in gap above consumer, symmetric snap_threshold-1 margins.
+                # gap_to_fan is already sized to hold the Dot; place bottom of Dot at snap_threshold-1
+                # above consumer top (y). Nuke Y is positive-down so subtract to move upward.
+                dot_row_y = y - (snap_threshold - 1) - inp.screenHeight()
                 dot_y = dot_row_y
             elif i == n - 1:
                 # Staircase: bottom-most dot centred vertically beside the root node.
