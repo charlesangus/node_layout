@@ -326,6 +326,40 @@ class TestPlaceSubtreeFanRoots(unittest.TestCase):
             f"got dot_y_values={dot_y_values}"
         )
 
+    def test_fan_a1_x_clears_b_subtree_right_edge(self):
+        """A1 X position must clear B subtree's right edge when B overhangs past A1's start.
+
+        With a small horizontal_subtree_gap (10px), the current formula places A1 at
+        x + consumer_w + gap = 500 + 80 + 10 = 590.
+
+        B (width=500) is centered above consumer (width=80) at x=500:
+        B_left = 500 + (80 - 500) // 2 = 290; B_right = 290 + 500 = 790.
+
+        A1 at 590 < B_right 790 — B's subtree overlaps A1's start position. FAILS RED.
+        After fix: A1 starts at max(590, 790) = 790. Passes.
+        """
+        # Use a small horizontal gap so B's overhang exceeds A1's starting offset.
+        _node_layout_prefs_module.prefs_singleton.set("horizontal_subtree_gap", 10)
+        consumer_xpos = 500
+        consumer_ypos = 500
+        input_b = _StubNode(width=500, height=28)
+        input_a1 = _StubNode(width=80, height=28)
+        input_a2 = _StubNode(width=80, height=28)
+        consumer = _StubMergeNode(width=80, height=28, xpos=consumer_xpos, ypos=consumer_ypos)
+        # slot 0=B, slot 1=A1, slot 2=mask (None), slot 3=A2
+        consumer._inputs = [input_b, input_a1, None, input_a2]
+        nl.place_subtree(
+            consumer, consumer_xpos, consumer_ypos, self.memo, self.snap_threshold, self.node_count
+        )
+        b_left = input_b.xpos()
+        b_right = b_left + 500
+        self.assertGreaterEqual(
+            input_a1.xpos(), b_right,
+            f"A1 (xpos={input_a1.xpos()}) must start at or past B subtree right edge "
+            f"(b_left={b_left}, b_right={b_right}); "
+            f"current formula gives A1 at consumer_x+consumer_w+gap=590, B_right=790 — overlap"
+        )
+
     def test_fan_dot_row_y_in_gap_not_on_consumer(self):
         """Fan routing Dots must sit in the gap ABOVE the consumer, not on it.
 
@@ -368,6 +402,52 @@ class TestPlaceSubtreeFanRoots(unittest.TestCase):
                 f"Dot bottom ({dot_bottom}) must be <= {clearance_limit} "
                 f"(consumer_y={consumer_y} minus snap_threshold-1={self.snap_threshold - 1})"
             )
+
+
+# ---------------------------------------------------------------------------
+# TestComputeDimsFanWidth — 1 test for fan W formula in compute_dims()
+# ---------------------------------------------------------------------------
+
+
+class TestComputeDimsFanWidth(unittest.TestCase):
+    """compute_dims() fan W formula must account for B's right overhang past consumer edge."""
+
+    def setUp(self):
+        _reset_prefs()
+        self.memo = {}
+        self.snap_threshold = 8
+        self.node_count = 5
+
+    def test_compute_dims_fan_w_accounts_for_b_overhang(self):
+        """Fan W must include B's rightward overhang when A inputs are also wide.
+
+        Consumer width=80 at xpos=500. B width=500 (B_right_overhang = (500-80)//2 = 210 px).
+        A1 width=300, A2 width=300.
+
+        With horizontal_subtree_gap=10 (small, to expose the overhang gap):
+        Broken formula: W = max(500, 80 + 10 + 10 + 300 + 300) = max(500, 700) = 700.
+        Fixed formula:  W = max(500, 80 + 210 + 10 + 10 + 300 + 300) = max(500, 910) = 910.
+
+        Assert W > 880 (strictly greater than the broken formula's maximum of 700).
+        The 210 px B overhang is the distinguishing factor — the broken formula ignores it.
+        """
+        # Use a small horizontal gap so the B overhang is the deciding factor in W.
+        _node_layout_prefs_module.prefs_singleton.set("horizontal_subtree_gap", 10)
+        input_b = _StubNode(width=500, height=28)
+        input_a1 = _StubNode(width=300, height=28)
+        input_a2 = _StubNode(width=300, height=28)
+        consumer = _StubMergeNode(width=80, height=28, xpos=500, ypos=500)
+        # slot 0=B, slot 1=A1, slot 2=mask (None), slot 3=A2
+        consumer._inputs = [input_b, input_a1, None, input_a2]
+        width, height = nl.compute_dims(
+            consumer, self.memo, self.snap_threshold, self.node_count
+        )
+        self.assertGreater(
+            width, 880,
+            f"fan W must include B right overhang ((500-80)//2=210 px) + node_w + margins + A_widths; "
+            f"got W={width}, expected > 880. "
+            f"Broken formula gives 700 (ignores 210 px overhang); fixed formula gives 910."
+        )
 
 
 # ---------------------------------------------------------------------------
