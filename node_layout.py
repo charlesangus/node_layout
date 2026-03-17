@@ -894,14 +894,20 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
             # n >= 3: W formula differs in fan mode to exclude mask from rightward spread.
             mask_count = sum(1 for slot, _ in input_slot_pairs if _is_mask_input(node, slot))
             if fan_active and mask_count > 0:
-                # Fan mode with mask: mask is placed LEFT; W measures only rightward (non-mask) spread.
+                # Fan mode with mask: mask is placed LEFT; W measures rightward (non-mask) spread.
+                # B (first non-mask) is centered above consumer; if B is wider than consumer it overhangs
+                # rightward past consumer's right edge by (b_w - node_w) // 2. A1 must clear B's right edge.
                 non_mask_dims = child_dims[mask_count:]
-                W = max(non_mask_dims[0][0],
-                        node.screenWidth() + sum(side_margins_h[mask_count + 1:]) + sum(w for w, h in non_mask_dims[1:]))
+                b_w = non_mask_dims[0][0]
+                b_right_overhang = max(0, (b_w - node.screenWidth()) // 2)
+                W = max(b_w,
+                        node.screenWidth() + b_right_overhang + sum(side_margins_h[mask_count + 1:]) + sum(w for w, h in non_mask_dims[1:]))
             else:
-                # Standard n >= 3: input[0] centered above node; inputs[1..n-1] rightward from node's right edge
-                W = max(child_dims[0][0],
-                        node.screenWidth() + sum(side_margins_h[1:]) + sum(w for w, h in child_dims[1:]))
+                # n >= 3 fan without mask (or non-fan fallback): same B-overhang correction.
+                b_w = child_dims[0][0]
+                b_right_overhang = max(0, (b_w - node.screenWidth()) // 2)
+                W = max(b_w,
+                        node.screenWidth() + b_right_overhang + sum(side_margins_h[1:]) + sum(w for w, h in child_dims[1:]))
 
         if fan_active and n >= 3:
             # Fan mode: all non-mask inputs sit at the same Y level.
@@ -1070,8 +1076,9 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
         x_positions = [0] * n
         # B (first non-mask) centered above consumer.
         x_positions[non_mask_start] = _center_x(inputs[non_mask_start].screenWidth(), x, node.screenWidth())
-        # A1, A2, ... step rightward from consumer's right edge.
-        current_x = x + node.screenWidth() + (side_margins_h[non_mask_start + 1] if non_mask_start + 1 < n else 0)
+        # A1, A2, ... step rightward from max(consumer right, B subtree right).
+        # When B is wider than the consumer it overhangs rightward; A1 must clear B's right edge.
+        current_x = max(x + node.screenWidth(), x_positions[non_mask_start] + child_dims[non_mask_start][0]) + (side_margins_h[non_mask_start + 1] if non_mask_start + 1 < n else 0)
         for i in range(non_mask_start + 1, n):
             x_positions[i] = current_x
             if i + 1 < n:
