@@ -1511,6 +1511,29 @@ def layout_upstream(scheme_multiplier=None):
                             per_node_h_scale=per_node_h_scale,
                             per_node_v_scale=per_node_v_scale,
                         )
+                        # Fix C: push Phase 2 vertical input nodes above the horizontal
+                        # chain's topmost extent.  place_subtree starts Phase 2 inputs
+                        # at original_selected_root.ypos() - gap, which can land inside
+                        # the chain's Y band when the chain has side subtrees that extend
+                        # above spine_y.  Shift all Phase 2 non-root nodes upward so
+                        # their collective bottom sits at chain_top - side_vertical_gap.
+                        if _chain_bbox is not None:
+                            _chain_top_fix_c = _chain_bbox[1]
+                            _phase2_side_gap = current_prefs.get("horizontal_side_vertical_gap")
+                            _phase2_input_nodes = [
+                                phase2_node for phase2_node in vertical_filter
+                                if id(phase2_node) != id(original_selected_root)
+                            ]
+                            if _phase2_input_nodes:
+                                _phase2_subtree_bottom = max(
+                                    phase2_node.ypos() + phase2_node.screenHeight()
+                                    for phase2_node in _phase2_input_nodes
+                                )
+                                _phase2_required_ceiling = _chain_top_fix_c - _phase2_side_gap
+                                if _phase2_subtree_bottom > _phase2_required_ceiling:
+                                    _phase2_shift_up = _phase2_subtree_bottom - _phase2_required_ceiling
+                                    for phase2_node in _phase2_input_nodes:
+                                        phase2_node.setYpos(phase2_node.ypos() - _phase2_shift_up)
             else:
                 compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier,
                              per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
@@ -1823,6 +1846,24 @@ def layout_selected(scheme_multiplier=None):
                                 per_node_h_scale=per_node_h_scale,
                                 per_node_v_scale=per_node_v_scale,
                             )
+                            # Fix C (parity): same upward shift as layout_upstream.
+                            if _chain_bbox is not None:
+                                _chain_top_fix_c = _chain_bbox[1]
+                                _phase2_side_gap = current_prefs.get("horizontal_side_vertical_gap")
+                                _phase2_input_nodes = [
+                                    phase2_node for phase2_node in vertical_filter
+                                    if id(phase2_node) != id(original_selected_root)
+                                ]
+                                if _phase2_input_nodes:
+                                    _phase2_subtree_bottom = max(
+                                        phase2_node.ypos() + phase2_node.screenHeight()
+                                        for phase2_node in _phase2_input_nodes
+                                    )
+                                    _phase2_required_ceiling = _chain_top_fix_c - _phase2_side_gap
+                                    if _phase2_subtree_bottom > _phase2_required_ceiling:
+                                        _phase2_shift_up = _phase2_subtree_bottom - _phase2_required_ceiling
+                                        for phase2_node in _phase2_input_nodes:
+                                            phase2_node.setYpos(phase2_node.ypos() - _phase2_shift_up)
                 else:
                     insert_dot_nodes(root, node_filter=node_filter)
                     tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)

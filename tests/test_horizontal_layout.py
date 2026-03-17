@@ -2066,5 +2066,122 @@ class TestBugBPhase2NoCrossChain(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# TestBugCPhase2AboveHorizontalSection — BUG-C: Phase 2 must be above chain top
+# ---------------------------------------------------------------------------
+
+
+class TestBugCPhase2AboveHorizontalSection(unittest.TestCase):
+    """RED test: Phase 2 vertical input nodes must sit above the chain's topmost extent.
+
+    BUG-C: Phase 2 places m1's vertical inputs at m1.ypos() - gap, which can land
+    inside the horizontal chain's Y band (between chain_top and spine_y) when the
+    chain has side subtrees that extend above spine_y.  All Phase 2 non-root nodes
+    must be shifted upward so their bottom is at or above chain_top -
+    horizontal_side_vertical_gap.
+
+    Topology:
+      m1.input(0) = m2  (horizontal chain root; state=horizontal)
+        m2.input(0) = n   (spine end; state=horizontal)
+        m2.input(1) = side  (side subtree above m2; no state — vertical)
+      m1.input(1) = b   (vertical B-chain node, no state)
+
+    The chain has a side subtree (side) placed above m2, so chain_top =
+    m2.ypos() - horizontal_side_vertical_gap - side.screenHeight() < spine_y.
+    Phase 2 places b above m1 starting at ~spine_y - gap, landing INSIDE the
+    chain's Y extent.  After Fix C, b.ypos() + b.screenHeight() must be <=
+    chain_top - horizontal_side_vertical_gap.
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        _stub_all_nodes_list.clear()
+        self._stub_ctx = _StubContextManager()
+        self._saved_selectedNode = _nuke_stub.selectedNode
+        self._saved_lastHitGroup = _nuke_stub.lastHitGroup
+        self._saved_nodes_Dot = _nuke_stub.nodes.Dot
+        self._saved_sys_nuke = sys.modules.get("nuke")
+        sys.modules["nuke"] = _nuke_stub
+        _nuke_stub.lastHitGroup = lambda: self._stub_ctx
+
+        def _tracked_dot():
+            dot = _StubDotNode()
+            _stub_all_nodes_list.append(dot)
+            return dot
+
+        _nuke_stub.nodes = types.SimpleNamespace(Dot=_tracked_dot)
+
+    def tearDown(self):
+        _stub_all_nodes_list.clear()
+        _nuke_stub.selectedNode = self._saved_selectedNode
+        _nuke_stub.lastHitGroup = self._saved_lastHitGroup
+        _nuke_stub.nodes = types.SimpleNamespace(Dot=self._saved_nodes_Dot)
+        if self._saved_sys_nuke is not None:
+            sys.modules["nuke"] = self._saved_sys_nuke
+
+    def _set_state_horizontal(self, node):
+        node._knobs["node_layout_state"] = _StubKnob(
+            '{"scheme": "normal", "mode": "horizontal", "h_scale": 1.0, "v_scale": 1.0}'
+        )
+
+    def _find_output_dot(self):
+        for candidate in _stub_all_nodes_list:
+            if candidate.knob(nl._OUTPUT_DOT_KNOB_NAME) is not None:
+                return candidate
+        return None
+
+    def test_phase2_nodes_above_chain_top(self):
+        """BUG-C: Phase 2 non-root nodes must be above chain_top - side_gap.
+
+        After layout_upstream(), all Phase 2 vertical input nodes must satisfy:
+          max(n.ypos() + n.screenHeight() for n in phase2_input_nodes)
+              <= chain_top - horizontal_side_vertical_gap
+        where chain_top = min(n.ypos() for n in chain_nodes_including_side_subtrees).
+        """
+        m1 = _StubNode(width=80, height=28, xpos=800, ypos=400, num_inputs=2)
+        m2 = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=2)
+        n = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=0)
+        side = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=0)
+        b = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=0)
+
+        m2.setInput(0, n)
+        m2.setInput(1, side)
+        m1.setInput(0, m2)
+        m1.setInput(1, b)
+
+        self._set_state_horizontal(m2)
+        self._set_state_horizontal(n)
+        # side and b are intentionally NOT horizontal — side is above the spine,
+        # b is the vertical B-chain we want to push above the horizontal section.
+
+        _stub_all_nodes_list.extend([m1, m2, n, side, b])
+        _nuke_stub.selectedNode = lambda: m1
+
+        nl.layout_upstream()
+
+        # Compute chain_top: minimum ypos across all horizontal chain nodes
+        # (spine nodes m2, n and the side subtree).
+        chain_nodes = nl.collect_subtree_nodes(m2)
+        output_dot = self._find_output_dot()
+        if output_dot is not None:
+            chain_nodes = chain_nodes + [output_dot]
+        chain_top = min(node.ypos() for node in chain_nodes)
+
+        side_gap = _node_layout_prefs_module.DEFAULTS["horizontal_side_vertical_gap"]
+
+        # b is the only Phase 2 non-root node (m1 stays in place).
+        phase2_bottom = b.ypos() + b.screenHeight()
+        required_ceiling = chain_top - side_gap
+
+        self.assertLessEqual(
+            phase2_bottom,
+            required_ceiling,
+            f"BUG-C: Phase 2 node bottom ({phase2_bottom}) must be <= "
+            f"chain_top - side_gap ({required_ceiling}). "
+            f"chain_top={chain_top}, side_gap={side_gap}, "
+            f"b.ypos()={b.ypos()}, b.screenHeight()={b.screenHeight()}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
