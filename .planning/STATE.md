@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: CI/CD
 status: planning
 stopped_at: Completed 13-03-PLAN.md
-last_updated: "2026-03-17T13:48:12.222Z"
+last_updated: "2026-03-17T13:51:26.269Z"
 last_activity: 2026-03-17 — v1.2 roadmap created; phases 13-14 defined
 progress:
   total_phases: 2
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 Phase: 13 of 14 (Tooling + CI)
 Plan: 0 of ? in current phase
 Status: Ready to plan
-Last activity: 2026-03-17 — v1.2 roadmap created; phases 13-14 defined
+Last activity: 2026-03-17 - Completed quick task 260317-n0k: fix the failing tests
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -70,6 +70,12 @@ None.
 ### Blockers/Concerns
 
 - Sibling project anchors (charlesangus/anchors) has the reference CI/CD pattern — inspect before writing workflows
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260317-n0k | fix the failing tests | 2026-03-17 | 29a0e26 | [260317-n0k-fix-the-failing-tests](./quick/260317-n0k-fix-the-failing-tests/) |
 
 ## Session Continuity
 
