@@ -13,9 +13,9 @@ Requirements for the CI/CD milestone. Each maps to roadmap phases.
 
 ### CI
 
-- [ ] **CI-01**: GitHub Actions CI workflow runs pytest on every push and pull request
-- [ ] **CI-02**: GitHub Actions CI workflow runs Ruff linting on every push and pull request
-- [ ] **CI-03**: CI workflow reports pass/fail status on pull requests
+- [x] **CI-01**: GitHub Actions CI workflow runs pytest on every push and pull request
+- [x] **CI-02**: GitHub Actions CI workflow runs Ruff linting on every push and pull request
+- [x] **CI-03**: CI workflow reports pass/fail status on pull requests
 
 ### Release
 
@@ -43,9 +43,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | TOOL-01 | Phase 13 | Complete |
-| CI-01 | Phase 13 | Pending |
-| CI-02 | Phase 13 | Pending |
-| CI-03 | Phase 13 | Pending |
+| CI-01 | Phase 13 | Complete |
+| CI-02 | Phase 13 | Complete |
+| CI-03 | Phase 13 | Complete |
 | REL-01 | Phase 14 | Pending |
 | REL-02 | Phase 14 | Pending |
 | REL-03 | Phase 14 | Pending |
