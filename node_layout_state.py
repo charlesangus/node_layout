@@ -80,7 +80,6 @@ def clear_node_state(node):
     Also removes the ``node_layout_tab`` knob unless the node still has a
     ``node_layout_diamond_dot`` knob (which uses the same tab).
     """
-    import nuke  # deferred import — keeps module importable without Nuke runtime
 
     state_knob = node.knob(_STATE_KNOB_NAME)
     if state_knob is not None:

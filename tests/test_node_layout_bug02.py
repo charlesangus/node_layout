@@ -8,9 +8,7 @@ which is only available inside Nuke.
 
 import ast
 import os
-import sys
 import unittest
-
 
 NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 

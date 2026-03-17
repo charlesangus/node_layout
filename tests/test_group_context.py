@@ -15,7 +15,6 @@ import ast
 import os
 import unittest
 
-
 NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 
 
@@ -36,7 +35,8 @@ class TestGroupContextWrapping(unittest.TestCase):
             return source_file.read()
 
     def test_layout_upstream_captures_current_group_first(self):
-        """layout_upstream() must capture current_group = nuke.lastHitGroup() before nuke.selectedNode()."""
+        """layout_upstream() must capture current_group = nuke.lastHitGroup() before
+        nuke.selectedNode()."""
         source = self._read_source()
         func_source = _get_function_source(source, "layout_upstream")
         self.assertIsNotNone(func_source, "layout_upstream not found in node_layout.py")
@@ -79,7 +79,10 @@ class TestGroupContextWrapping(unittest.TestCase):
         undo_begin_text = "nuke.Undo.begin()"
         with_text = "with current_group:"
 
-        self.assertIn(undo_begin_text, func_source, f"'{undo_begin_text}' not found in layout_upstream()")
+        self.assertIn(
+            undo_begin_text, func_source,
+            f"'{undo_begin_text}' not found in layout_upstream()",
+        )
         self.assertIn(with_text, func_source, f"'{with_text}' not found in layout_upstream()")
 
         undo_begin_index = func_source.index(undo_begin_text)
@@ -92,7 +95,8 @@ class TestGroupContextWrapping(unittest.TestCase):
         )
 
     def test_layout_selected_captures_current_group_first(self):
-        """layout_selected() must capture current_group = nuke.lastHitGroup() before nuke.selectedNodes()."""
+        """layout_selected() must capture current_group = nuke.lastHitGroup() before
+        nuke.selectedNodes()."""
         source = self._read_source()
         func_source = _get_function_source(source, "layout_selected")
         self.assertIsNotNone(func_source, "layout_selected not found in node_layout.py")
@@ -136,7 +140,8 @@ class TestGroupContextWrapping(unittest.TestCase):
                 self.assertIn(
                     "current_group",
                     arg_names,
-                    f"push_nodes_to_make_room() must have 'current_group' parameter; got: {arg_names}",
+                    f"push_nodes_to_make_room() must have 'current_group' parameter;"
+                    f" got: {arg_names}",
                 )
                 return
         self.fail("push_nodes_to_make_room not found in node_layout.py")
@@ -150,7 +155,8 @@ class TestGroupContextWrapping(unittest.TestCase):
         self.assertIn(
             "current_group.nodes()",
             func_source,
-            "push_nodes_to_make_room() must call current_group.nodes() to iterate group-scoped nodes",
+            "push_nodes_to_make_room() must call current_group.nodes() to iterate"
+            " group-scoped nodes",
         )
 
     def test_push_nodes_nuke_allnodes_as_fallback(self):
@@ -162,7 +168,8 @@ class TestGroupContextWrapping(unittest.TestCase):
         self.assertIn(
             "nuke.allNodes()",
             func_source,
-            "push_nodes_to_make_room() must keep nuke.allNodes() as fallback when current_group is None",
+            "push_nodes_to_make_room() must keep nuke.allNodes() as fallback when"
+            " current_group is None",
         )
 
 

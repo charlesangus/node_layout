@@ -5,10 +5,10 @@ runtime.  We import only the functions defined before any Nuke API calls are
 needed, using a stub nuke module so the import succeeds in a plain Python
 environment.
 """
-import sys
-import types
 import importlib.util
 import os
+import sys
+import types
 import unittest
 
 # ---------------------------------------------------------------------------

@@ -8,12 +8,11 @@ These tests verify the dot font-size margin scaling contract (LAYOUT-03):
 
 All 11 tests in this file MUST FAIL RED before any production code is written.
 """
-import sys
-import types
 import importlib.util
 import os
+import sys
+import types
 import unittest
-
 
 NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 NODE_LAYOUT_PREFS_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
@@ -273,8 +272,10 @@ class TestDotFontScaleUnit(unittest.TestCase):
         node = _StubNode(node_class="Grade")
         node._inputs = [dot1]
         result = _nl._dot_font_scale(node, 0)
-        self.assertEqual(result, 1.0,
-                         f"Expected 1.0 when chain broke at Grade before labeled Dot3, got {result}")
+        self.assertEqual(
+            result, 1.0,
+            f"Expected 1.0 when chain broke at Grade before labeled Dot3, got {result}",
+        )
 
     def test_missing_knob_fallback(self):
         """When note_font_size knob raises KeyError, _dot_font_scale returns 1.0."""
@@ -369,7 +370,8 @@ class TestNoRegression(unittest.TestCase):
         _reset_prefs()
 
     def test_default_font_no_change(self):
-        """Dot with font_size == reference_size (20) produces identical margins to no-Dot baseline."""
+        """Dot with font_size == reference_size (20) produces identical margins to
+        no-Dot baseline."""
         # No-Dot baseline: slot input is a plain Grade node (not a Dot)
         grade_input = _StubNonDotNode()
         node_no_dot = _StubNode(node_class="Grade")

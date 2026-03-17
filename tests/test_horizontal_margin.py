@@ -8,12 +8,11 @@ These tests verify the H-axis decoupling:
 - Behavioral: _horizontal_margin returns 150 for non-mask, 50 for mask (defaults)
 """
 import ast
-import sys
-import types
 import importlib.util
 import os
+import sys
+import types
 import unittest
-
 
 NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 NODE_LAYOUT_PREFS_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
@@ -251,7 +250,8 @@ class TestHorizontalMarginAST(unittest.TestCase):
         self.assertIn(
             "horizontal_subtree_gap",
             clearance_block,
-            f"horizontal_clearance block must use horizontal_subtree_gap; block: {clearance_block!r}",
+            f"horizontal_clearance block must use horizontal_subtree_gap;"
+            f" block: {clearance_block!r}",
         )
 
     def test_layout_selected_horizontal_clearance_no_base_subtree_margin(self):
@@ -266,7 +266,8 @@ class TestHorizontalMarginAST(unittest.TestCase):
         self.assertNotIn(
             "base_subtree_margin",
             clearance_block,
-            f"horizontal_clearance block must NOT reference base_subtree_margin; block: {clearance_block!r}",
+            f"horizontal_clearance block must NOT reference base_subtree_margin;"
+            f" block: {clearance_block!r}",
         )
 
 
@@ -301,7 +302,8 @@ class TestHorizontalMarginBehavioral(unittest.TestCase):
         self.assertEqual(result, 250, f"Default horizontal_subtree_gap is 250, got {result}")
 
     def test_horizontal_margin_mask_slot_returns_horizontal_mask_gap_default(self):
-        """_horizontal_margin for a mask slot (Merge2 slot 2) returns horizontal_mask_gap (default 50)."""
+        """_horizontal_margin for a mask slot (Merge2 slot 2) returns horizontal_mask_gap
+        (default 50)."""
         merge_node = self._make_merge2_node()
         result = _nl._horizontal_margin(merge_node, 2)
         expected = _node_layout_prefs_module.prefs_singleton.get("horizontal_mask_gap")

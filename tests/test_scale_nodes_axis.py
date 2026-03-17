@@ -3,7 +3,8 @@
 Tests verify (all expected to FAIL RED until implementation in Plan 02):
 - axis="h" leaves dy unchanged, only scales dx
 - axis="v" leaves dx unchanged, only scales dy
-- axis="both" scales both dx and dy (regression guard — but will fail RED because axis param not yet accepted)
+- axis="both" scales both dx and dy (regression guard — but will fail RED because axis param not
+  yet accepted)
 - snap floor is NOT applied to the unchanged axis
 - axis="h" only updates h_scale in state, v_scale unchanged
 - axis="v" only updates v_scale in state, h_scale unchanged
@@ -18,13 +19,12 @@ Tests verify (all expected to FAIL RED until implementation in Plan 02):
 - shrink_selected_horizontal does NOT call push_nodes_to_make_room
 """
 import ast
-import sys
-import types
 import importlib.util
 import os
+import sys
+import types
 import unittest
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import MagicMock, patch
 
 NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 NODE_LAYOUT_PREFS_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
@@ -314,8 +314,10 @@ class TestAxisScalingBehavior(unittest.TestCase):
         # non_anchor is the internal pivot (ypos=300 > ypos=200)
         pivot_center_x = non_anchor.xpos() + non_anchor.screenWidth() / 2   # 240
         pivot_center_y = non_anchor.ypos() + non_anchor.screenHeight() / 2  # 314
-        original_dx = (anchor.xpos() + anchor.screenWidth() / 2) - pivot_center_x    # 40 - 240 = -200
-        original_dy = (anchor.ypos() + anchor.screenHeight() / 2) - pivot_center_y   # 214 - 314 = -100
+        # 40 - 240 = -200
+        original_dx = (anchor.xpos() + anchor.screenWidth() / 2) - pivot_center_x
+        # 214 - 314 = -100
+        original_dy = (anchor.ypos() + anchor.screenHeight() / 2) - pivot_center_y
 
         _set_selected_nodes([anchor, non_anchor])
         _nl._scale_selected_nodes(EXPAND_FACTOR, axis="both")
@@ -415,7 +417,8 @@ class TestAxisStateBehavior(unittest.TestCase):
 
 
 class TestNewCommandsAST(unittest.TestCase):
-    """AST-based tests: new wrapper functions and _last_scale_fn variable exist in node_layout.py."""
+    """AST-based tests: new wrapper functions and _last_scale_fn variable exist in
+    node_layout.py."""
 
     @classmethod
     def setUpClass(cls):
@@ -427,9 +430,8 @@ class TestNewCommandsAST(unittest.TestCase):
         """Return the set of function names defined at module scope."""
         return {
             node.name
-            for node in cls._tree.body
+            for node in self.__class__._tree.body
             if isinstance(node, ast.FunctionDef)
-            for cls in [self.__class__]
         }
 
     def _top_level_function_names(self):

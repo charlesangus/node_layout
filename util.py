@@ -1,6 +1,7 @@
 import nuke
 import nukescripts
 
+
 def sort_by_filename():
     ns = nuke.selectedNodes()
 

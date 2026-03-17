@@ -1,6 +1,6 @@
+import json
 import sys
 import types
-import json
 import unittest
 
 # ---------------------------------------------------------------------------
@@ -304,7 +304,9 @@ class TestScaleAccumulation(unittest.TestCase):
 
         # Second shrink: h_scale 0.8 -> 0.64
         new_h_scale = round(read_back["h_scale"] * 0.8, 10)
-        state_after_second = {"scheme": "normal", "mode": "vertical", "h_scale": new_h_scale, "v_scale": 1.0}
+        state_after_second = {
+            "scheme": "normal", "mode": "vertical", "h_scale": new_h_scale, "v_scale": 1.0,
+        }
         node_layout_state.write_node_state(node, state_after_second)
         final = node_layout_state.read_node_state(node)
         self.assertAlmostEqual(final["h_scale"], 0.64, places=9)

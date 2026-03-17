@@ -2,10 +2,12 @@
 
 Tests verify:
 - Anchor tiebreaker: on Y tie, leftmost node (min xpos) wins
-- Center-based offsets: Dot nodes (with centering offset) move same fractional distance as regular nodes
+- Center-based offsets: Dot nodes (with centering offset) move same fractional distance as
+  regular nodes
 - round() not int(): a 100px center-to-center offset * 0.8 lands at exactly 80px, not 79 or 81
 - Anchor xpos does not change after repeated shrinks
-- Minimum floor: no node's center-to-center distance falls below snap_threshold-1 (unless original offset was 0)
+- Minimum floor: no node's center-to-center distance falls below snap_threshold-1
+  (unless original offset was 0)
 - _scale_upstream_nodes uses center-based offsets; no floor applied
 - AST: (n.ypos(), -n.xpos()) tiebreaker present in _scale_selected_nodes source
 - AST: round() used, int() absent from both scale functions
@@ -13,12 +15,11 @@ Tests verify:
 - AST: snap_min floor guard present in _scale_selected_nodes source
 """
 import ast
-import sys
-import types
 import importlib.util
 import os
+import sys
+import types
 import unittest
-
 
 NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 NODE_LAYOUT_PREFS_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
@@ -305,13 +306,15 @@ class TestScaleUpstreamNodesAST(unittest.TestCase):
         )
 
     def test_snap_min_floor_guard_in_scale_upstream(self):
-        """_scale_upstream_nodes must contain snap_min floor guard (Plan 06: matching _scale_selected_nodes)."""
+        """_scale_upstream_nodes must contain snap_min floor guard
+        (Plan 06: matching _scale_selected_nodes)."""
         source = _get_function_source("_scale_upstream_nodes")
         self.assertIsNotNone(source, "_scale_upstream_nodes not found in source")
         self.assertIn(
             "snap_min",
             source,
-            "_scale_upstream_nodes missing snap_min floor guard — must match _scale_selected_nodes pattern",
+            "_scale_upstream_nodes missing snap_min floor guard"
+            " — must match _scale_selected_nodes pattern",
         )
 
 
@@ -371,8 +374,12 @@ class TestScaleSelectedNodesBehavior(unittest.TestCase):
         _nl._scale_selected_nodes(0.8)
 
         # left_bottom is anchor (max Y=500, leftmost xpos=0): must not move
-        self.assertEqual(left_bottom.xpos(), 0, f"Anchor left_bottom.xpos moved: {left_bottom.xpos()}")
-        self.assertEqual(left_bottom.ypos(), 500, f"Anchor left_bottom.ypos moved: {left_bottom.ypos()}")
+        self.assertEqual(
+            left_bottom.xpos(), 0, f"Anchor left_bottom.xpos moved: {left_bottom.xpos()}"
+        )
+        self.assertEqual(
+            left_bottom.ypos(), 500, f"Anchor left_bottom.ypos moved: {left_bottom.ypos()}"
+        )
 
     def test_round_not_int_precision(self):
         """A 100px center-to-center offset * 0.8 lands at exactly 80px (round, not int/truncate)."""
@@ -410,11 +417,13 @@ class TestScaleSelectedNodesBehavior(unittest.TestCase):
         self.assertEqual(
             anchor_node.xpos(),
             initial_anchor_xpos,
-            f"Anchor xpos changed after repeated shrinks: expected {initial_anchor_xpos}, got {anchor_node.xpos()}",
+            f"Anchor xpos changed after repeated shrinks:"
+            f" expected {initial_anchor_xpos}, got {anchor_node.xpos()}",
         )
 
     def test_minimum_floor_prevents_too_close(self):
-        """After shrinking, no node's center-to-center distance to anchor falls below snap_threshold-1."""
+        """After shrinking, no node's center-to-center distance to anchor falls below
+        snap_threshold-1."""
         snap_threshold = 8
         snap_min = snap_threshold - 1
 
@@ -438,7 +447,8 @@ class TestScaleSelectedNodesBehavior(unittest.TestCase):
         self.assertGreaterEqual(
             center_distance,
             snap_min,
-            f"Center-to-center distance {center_distance} is below snap_min={snap_min} — floor not applied",
+            f"Center-to-center distance {center_distance} is below snap_min={snap_min}"
+            f" — floor not applied",
         )
 
     def test_zero_offset_node_stays_zero(self):
@@ -491,7 +501,8 @@ class TestScaleSelectedNodesBehavior(unittest.TestCase):
         self.assertEqual(
             regular_dx_after,
             160,
-            f"Regular node center-to-center distance after shrink: expected 160, got {regular_dx_after}",
+            f"Regular node center-to-center distance after shrink:"
+            f" expected 160, got {regular_dx_after}",
         )
         self.assertEqual(
             dot_dx_after,

@@ -18,7 +18,6 @@ import os
 import tempfile
 import unittest
 
-
 NODE_LAYOUT_PREFS_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
 
 
@@ -131,11 +130,10 @@ class TestNodeLayoutPrefsRoundTrip(unittest.TestCase):
 
     def setUp(self):
         self.prefs_module = _import_prefs_module()
-        self.temp_file = tempfile.NamedTemporaryFile(
+        with tempfile.NamedTemporaryFile(
             suffix=".json", delete=False, prefix="test_node_layout_prefs_"
-        )
-        self.temp_file.close()
-        self.temp_path = self.temp_file.name
+        ) as temp_file:
+            self.temp_path = temp_file.name
 
     def tearDown(self):
         if os.path.exists(self.temp_path):
@@ -187,11 +185,10 @@ class TestNewPrefsRoundTrip(unittest.TestCase):
 
     def setUp(self):
         self.prefs_module = _import_prefs_module()
-        self.temp_file = tempfile.NamedTemporaryFile(
+        with tempfile.NamedTemporaryFile(
             suffix=".json", delete=False, prefix="test_node_layout_prefs_new_"
-        )
-        self.temp_file.close()
-        self.temp_path = self.temp_file.name
+        ) as temp_file:
+            self.temp_path = temp_file.name
 
     def tearDown(self):
         if os.path.exists(self.temp_path):
@@ -229,11 +226,10 @@ class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
 
     def setUp(self):
         self.prefs_module = _import_prefs_module()
-        self.temp_file = tempfile.NamedTemporaryFile(
+        with tempfile.NamedTemporaryFile(
             suffix=".json", delete=False, prefix="test_node_layout_prefs_partial_"
-        )
-        self.temp_file.close()
-        self.temp_path = self.temp_file.name
+        ) as temp_file:
+            self.temp_path = temp_file.name
 
     def tearDown(self):
         if os.path.exists(self.temp_path):

@@ -8,12 +8,11 @@ These tests use AST analysis (for structural checks) and a nuke stub (for
 runtime geometry tests) — neither requires the Nuke runtime.
 """
 import ast
-import sys
-import types
 import importlib.util
 import os
+import sys
+import types
 import unittest
-
 
 NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 

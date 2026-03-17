@@ -11,10 +11,10 @@ Key invariant: for a node with n inputs [primary, side1, side2, ...]:
 Both compute_dims and place_subtree must use the same margin index for each
 side input slot, ensuring total widths are consistent.
 """
-import sys
-import types
 import importlib.util
 import os
+import sys
+import types
 import unittest
 
 # ---------------------------------------------------------------------------
@@ -225,7 +225,8 @@ class TestMarginSymmetryN3(unittest.TestCase):
         _reset_prefs()
 
     def test_side_inputs_placed_with_correct_margins(self):
-        """n==3: child[1] at x+node_w+h_margin[1]; child[2] at x+node_w+h_margin[1]+child1_w+h_margin[2]."""
+        """n==3: child[1] at x+node_w+h_margin[1];
+        child[2] at x+node_w+h_margin[1]+child1_w+h_margin[2]."""
         parent = _make_node(width=80, xpos=0, ypos=400)
         child0 = _make_node(width=80)   # slot 0: primary (above)
         child1 = _make_node(width=60)   # slot 1: first side input -> horizontal_subtree_gap (150)
@@ -243,7 +244,9 @@ class TestMarginSymmetryN3(unittest.TestCase):
 
         # child2 placed at: x + node_w + h_margin[1] + child1_w + h_margin[2]
         # = 0 + 80 + 150 + 60 + 150 = 440
-        expected_child2_x = 0 + 80 + _HORIZONTAL_MARGIN_AT_REFERENCE + 60 + _HORIZONTAL_MARGIN_AT_REFERENCE
+        expected_child2_x = (
+            0 + 80 + _HORIZONTAL_MARGIN_AT_REFERENCE + 60 + _HORIZONTAL_MARGIN_AT_REFERENCE
+        )
         self.assertEqual(child2.xpos(), expected_child2_x)
 
     def test_compute_dims_n3_total_width_matches_placement(self):

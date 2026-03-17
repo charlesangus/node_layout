@@ -12,12 +12,11 @@ Expected RED state: 6 tests FAIL, 2 tests PASS (the two regression guards).
   - test_two_input_no_fan_regression: PASS RED (staircase for n==2 is unchanged)
   - test_mask_right_when_no_fan_regression: PASS RED (mask stays right for n==2)
 """
-import sys
-import types
 import importlib.util
 import os
+import sys
+import types
 import unittest
-
 
 NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 NODE_LAYOUT_PREFS_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
@@ -162,7 +161,9 @@ sys.modules["node_layout_prefs"] = _node_layout_prefs_module
 
 # Provide a minimal node_layout_state stub so node_layout.py can import it.
 if "node_layout_state" not in sys.modules:
-    _state_spec = importlib.util.spec_from_file_location("node_layout_state", NODE_LAYOUT_STATE_PATH)
+    _state_spec = importlib.util.spec_from_file_location(
+        "node_layout_state", NODE_LAYOUT_STATE_PATH
+    )
     _node_layout_state_module = importlib.util.module_from_spec(_state_spec)
     sys.modules["node_layout_state"] = _node_layout_state_module
     sys.modules["nuke"] = _nuke_stub
@@ -444,7 +445,8 @@ class TestComputeDimsFanWidth(unittest.TestCase):
         )
         self.assertGreater(
             width, 880,
-            f"fan W must include B right overhang ((500-80)//2=210 px) + node_w + margins + A_widths; "
+            f"fan W must include B right overhang ((500-80)//2=210 px) + node_w"
+            f" + margins + A_widths; "
             f"got W={width}, expected > 880. "
             f"Broken formula gives 700 (ignores 210 px overhang); fixed formula gives 910."
         )
@@ -516,10 +518,7 @@ class TestMaskSideSwap(unittest.TestCase):
         if node_at_mask_slot is not None and node_at_mask_slot.Class() == "Dot":
             # Walk through to the actual mask input upstream node.
             upstream = node_at_mask_slot.input(0)
-            if upstream is not None:
-                mask_xpos = upstream.xpos()
-            else:
-                mask_xpos = node_at_mask_slot.xpos()
+            mask_xpos = upstream.xpos() if upstream is not None else node_at_mask_slot.xpos()
         else:
             mask_xpos = mask_input.xpos()
         self.assertLess(
@@ -547,10 +546,7 @@ class TestMaskSideSwap(unittest.TestCase):
         node_at_mask_slot = consumer._inputs[2]
         if node_at_mask_slot is not None and node_at_mask_slot.Class() == "Dot":
             upstream = node_at_mask_slot.input(0)
-            if upstream is not None:
-                mask_xpos = upstream.xpos()
-            else:
-                mask_xpos = node_at_mask_slot.xpos()
+            mask_xpos = upstream.xpos() if upstream is not None else node_at_mask_slot.xpos()
         else:
             mask_xpos = mask_input.xpos()
         self.assertGreater(

@@ -17,13 +17,12 @@ Expected RED state: ALL 10 tests FAIL with AttributeError or AssertionError.
   layout_selected_horizontal, _find_or_create_output_dot do not exist yet
 - AssertionError: the AST checks fail because those function names are absent from source
 """
-import sys
 import ast
-import types
 import importlib.util
 import os
+import sys
+import types
 import unittest
-
 
 NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 NODE_LAYOUT_PREFS_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
@@ -204,7 +203,9 @@ sys.modules["node_layout_prefs"] = _node_layout_prefs_module
 
 # Provide a minimal node_layout_state stub so node_layout.py can import it.
 if "node_layout_state" not in sys.modules:
-    _state_spec = importlib.util.spec_from_file_location("node_layout_state", NODE_LAYOUT_STATE_PATH)
+    _state_spec = importlib.util.spec_from_file_location(
+        "node_layout_state", NODE_LAYOUT_STATE_PATH
+    )
     _node_layout_state_module = importlib.util.module_from_spec(_state_spec)
     sys.modules["node_layout_state"] = _node_layout_state_module
     sys.modules["nuke"] = _nuke_stub
@@ -954,7 +955,9 @@ class TestDownstreamReplayAnchor(unittest.TestCase):
 
     When the ancestor walk finds a different upstream root (root is not original_selected_root),
     the spine_x formula must be:
-        spine_x = original_selected_root.xpos() + original_selected_root.screenWidth() + horizontal_gap
+        spine_x = (
+            original_selected_root.xpos() + original_selected_root.screenWidth() + horizontal_gap
+        )
         spine_y = original_selected_root.ypos()
 
     The old vertical formula (placing above with loose_gap) must be replaced.
@@ -1006,14 +1009,18 @@ class TestDownstreamReplayAnchor(unittest.TestCase):
             "layout_upstream() horizontal anchor block must use the left-extent-aware formula:\n"
             "  spine_x = consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent\n"
             "Found old formula instead (only accounts for root clearance, not full spine extent). "
-            "Fix: replace the right-of-consumer anchor with the leftward-extent formula in layout_upstream()."
+            "Fix: replace the right-of-consumer anchor with the leftward-extent formula"
+            " in layout_upstream()."
         )
 
     def test_vertical_formula_removed_from_horizontal_anchor(self):
         """The old vertical formula using _DOT_TILE_HEIGHT must be removed from layout_upstream.
 
         The old buggy code used:
-            spine_y = original_selected_root.ypos() - loose_gap - _DOT_TILE_HEIGHT - loose_gap - root.screenHeight()
+            spine_y = (
+                original_selected_root.ypos() - loose_gap - _DOT_TILE_HEIGHT
+                - loose_gap - root.screenHeight()
+            )
         This formula placed the chain ABOVE the consumer (vertical semantics).
         After the fix, _DOT_TILE_HEIGHT must not appear in the horizontal anchor block.
         """
@@ -1026,7 +1033,8 @@ class TestDownstreamReplayAnchor(unittest.TestCase):
             "layout_upstream() horizontal anchor block must NOT contain _DOT_TILE_HEIGHT — "
             "this is a sign the old vertical formula (above-consumer placement) is still present. "
             "Replace it with the right-of-consumer formula: "
-            "spine_x = original_selected_root.xpos() + original_selected_root.screenWidth() + horizontal_gap"
+            "spine_x = original_selected_root.xpos()"
+            " + original_selected_root.screenWidth() + horizontal_gap"
         )
 
     def test_spine_y_equals_consumer_ypos(self):
@@ -1391,7 +1399,9 @@ class TestDotYAlignment(unittest.TestCase):
 
         self.assertIsNotNone(returned_dot, "Must return existing dot on reuse-check path")
 
-        expected_dot_y = consumer.ypos() + (consumer.screenHeight() - returned_dot.screenHeight()) // 2
+        expected_dot_y = (
+            consumer.ypos() + (consumer.screenHeight() - returned_dot.screenHeight()) // 2
+        )
         self.assertEqual(
             returned_dot.ypos(),
             expected_dot_y,
@@ -1465,7 +1475,9 @@ class TestPlaceOutputDotReplay(unittest.TestCase):
         nl._place_output_dot_for_horizontal_root(root, None, snap_threshold=8,
                                                  scheme_multiplier=1.0)
 
-        expected_dot_y = consumer.ypos() + (consumer.screenHeight() - existing_dot.screenHeight()) // 2
+        expected_dot_y = (
+            consumer.ypos() + (consumer.screenHeight() - existing_dot.screenHeight()) // 2
+        )
         self.assertEqual(
             existing_dot.ypos(),
             expected_dot_y,
@@ -1521,7 +1533,9 @@ class TestSpineYAboveConsumer(unittest.TestCase):
         _stub_all_nodes_list.clear()
         self.snap_threshold = 8
         self.scheme_multiplier = _node_layout_prefs_module.prefs_singleton.get("normal_multiplier")
-        self.loose_gap_multiplier = _node_layout_prefs_module.prefs_singleton.get("loose_gap_multiplier")
+        self.loose_gap_multiplier = _node_layout_prefs_module.prefs_singleton.get(
+            "loose_gap_multiplier"
+        )
         self.dot_gap = int(self.loose_gap_multiplier * self.scheme_multiplier * self.snap_threshold)
 
     def tearDown(self):

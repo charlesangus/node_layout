@@ -17,12 +17,11 @@ Verifications:
   (verified by AST inspection of function signatures)
 """
 import ast
-import sys
-import types
 import importlib.util
 import os
+import sys
+import types
 import unittest
-
 
 NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 NODE_LAYOUT_PREFS_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs.py")
@@ -230,14 +229,16 @@ class TestPrefsIntegration(unittest.TestCase):
         self.assertLess(
             margin_small,
             margin_large,
-            f"Expected margin for node_count=1 ({margin_small}) < margin for node_count=150 ({margin_large})",
+            f"Expected margin for node_count=1 ({margin_small})"
+            f" < margin for node_count=150 ({margin_large})",
         )
 
     def test_subtree_margin_at_reference_count_equals_base(self):
         """_subtree_margin() at node_count=scaling_reference_count returns base_subtree_margin."""
         non_mask_node = self._make_non_mask_node()
         margin = _nl._subtree_margin(non_mask_node, 0, node_count=150)
-        # With normal_multiplier=1.0 and sqrt(150)/sqrt(150)=1.0, result should equal base_subtree_margin (200).
+        # With normal_multiplier=1.0 and sqrt(150)/sqrt(150)=1.0, result should equal
+        # base_subtree_margin (200).
         self.assertEqual(margin, 200)
 
     # --- mask input ratio ---
@@ -395,7 +396,8 @@ class TestSchemeMultiplierPipeline(unittest.TestCase):
     # --- AST: scheme entry-point functions exist ---
 
     def test_scheme_entry_point_functions_exist(self):
-        """layout_upstream_compact, layout_selected_compact, layout_upstream_loose, layout_selected_loose must be defined."""
+        """layout_upstream_compact, layout_selected_compact, layout_upstream_loose,
+        layout_selected_loose must be defined."""
         with open(NODE_LAYOUT_PATH) as source_file:
             source = source_file.read()
         tree = ast.parse(source)
@@ -496,8 +498,12 @@ class TestSchemeDifferentiation(unittest.TestCase):
         node_a = _StubNode(node_class="Grade", knobs={"tile_color": _StubKnob(0x00ff0000)})
         node_b = _StubNode(node_class="Blur", knobs={"tile_color": _StubKnob(0x0000ff00)})
         snap_threshold = 8
-        normal_gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=1.0)
-        compact_gap = _nl.vertical_gap_between(node_a, node_b, snap_threshold, scheme_multiplier=0.6)
+        normal_gap = _nl.vertical_gap_between(
+            node_a, node_b, snap_threshold, scheme_multiplier=1.0
+        )
+        compact_gap = _nl.vertical_gap_between(
+            node_a, node_b, snap_threshold, scheme_multiplier=0.6
+        )
         self.assertLess(compact_gap, normal_gap)
         self.assertEqual(compact_gap, int(8.0 * 0.6 * snap_threshold))
 
@@ -587,7 +593,8 @@ class TestHorizontalOnlyScheme(unittest.TestCase):
         self.assertEqual(
             horizontal_margin,
             expected_gap,
-            f"_horizontal_margin must return horizontal_subtree_gap={expected_gap}, got {horizontal_margin}",
+            f"_horizontal_margin must return horizontal_subtree_gap={expected_gap},"
+            f" got {horizontal_margin}",
         )
         self.assertEqual(
             horizontal_margin,
@@ -603,7 +610,8 @@ class TestHorizontalOnlyScheme(unittest.TestCase):
         self.assertLess(
             compact_margin,
             normal_margin,
-            f"Compact vertical margin ({compact_margin}) must be less than normal ({normal_margin})",
+            f"Compact vertical margin ({compact_margin}) must be less than normal"
+            f" ({normal_margin})",
         )
 
     def test_vertical_margin_affected_by_loose_scheme(self):

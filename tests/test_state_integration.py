@@ -9,8 +9,8 @@ implemented.  Do not skip them — they are the acceptance criteria for each pla
 """
 
 import ast
-import unittest
 import pathlib
+import unittest
 
 _NL_SOURCE_PATH = pathlib.Path(__file__).parent.parent / 'node_layout.py'
 
@@ -154,7 +154,8 @@ class TestUpstreamAnchorAST(unittest.TestCase):
     """Verify _scale_upstream_nodes uses root_node as pivot."""
 
     def test_scale_upstream_uses_root_node_as_anchor(self):
-        """_scale_upstream_nodes must use root_node (the selected node) as anchor so it stays fixed."""
+        """_scale_upstream_nodes must use root_node (the selected node) as anchor so it stays
+        fixed."""
         source = _read_source()
         func_source = _get_function_source(source, '_scale_upstream_nodes')
         self.assertIsNotNone(
@@ -254,7 +255,8 @@ class TestScaleWiringAST(unittest.TestCase):
         self.assertIn(
             'per_node_h_scale=per_node_h_scale',
             func_source,
-            "layout_upstream must pass per_node_h_scale=per_node_h_scale to compute_dims/place_subtree"
+            "layout_upstream must pass per_node_h_scale=per_node_h_scale"
+            " to compute_dims/place_subtree"
         )
 
     def test_layout_upstream_passes_per_node_v_scale_to_compute_dims(self):
@@ -266,7 +268,8 @@ class TestScaleWiringAST(unittest.TestCase):
         self.assertIn(
             'per_node_v_scale=per_node_v_scale',
             func_source,
-            "layout_upstream must pass per_node_v_scale=per_node_v_scale to compute_dims/place_subtree"
+            "layout_upstream must pass per_node_v_scale=per_node_v_scale"
+            " to compute_dims/place_subtree"
         )
 
     def test_layout_selected_builds_per_node_h_scale(self):

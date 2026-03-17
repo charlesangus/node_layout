@@ -5,17 +5,17 @@ Verifies via AST analysis that layout_upstream() and layout_selected() both:
 - Wrap all mutating operations inside a try block
 - Call nuke.Undo.cancel() + raise on exception (never in finally)
 - Call nuke.Undo.end() in the else clause (never in finally)
-- Place nuke.Undo.begin() at the correct position relative to early-return guards and first mutations
+- Place nuke.Undo.begin() at the correct position relative to early-return guards and first
+  mutations
 
 These tests run without the Nuke runtime — they use AST structural analysis.
 """
 import ast
-import sys
-import types
 import importlib.util
 import os
+import sys
+import types
 import unittest
-
 
 NODE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 
@@ -291,7 +291,9 @@ class TestUndoWrappingLayoutSelected(unittest.TestCase):
         """nuke.Undo.begin() must appear AFTER 'if len(selected_nodes) < 2' in layout_selected()."""
         guard_pos = self.source.find("if len(selected_nodes) < 2")
         begin_pos = self.source.find("nuke.Undo.begin()")
-        self.assertGreater(guard_pos, -1, "'if len(selected_nodes) < 2' not found in layout_selected()")
+        self.assertGreater(
+            guard_pos, -1, "'if len(selected_nodes) < 2' not found in layout_selected()"
+        )
         self.assertGreater(begin_pos, -1, "nuke.Undo.begin() not found in layout_selected()")
         self.assertLess(
             guard_pos, begin_pos,

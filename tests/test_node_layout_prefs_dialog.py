@@ -14,7 +14,6 @@ import ast
 import os
 import unittest
 
-
 DIALOG_PATH = os.path.join(os.path.dirname(__file__), "..", "node_layout_prefs_dialog.py")
 
 
@@ -34,7 +33,6 @@ class TestDialogSectionHeader(unittest.TestCase):
 
     def test_make_section_header_function_exists(self):
         """_make_section_header must be defined as a function in the dialog module."""
-        source = _load_dialog_source()
         tree = _parse_dialog_ast()
         function_names = {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
         self.assertIn(
@@ -47,7 +45,10 @@ class TestDialogSectionHeader(unittest.TestCase):
         """Dialog must NOT import QGroupBox — section headers are bold QLabel only."""
         source = _load_dialog_source()
         # QGroupBox must not appear in any import statement
-        import_lines = [line for line in source.splitlines() if line.strip().startswith("from") or line.strip().startswith("import")]
+        import_lines = [
+            line for line in source.splitlines()
+            if line.strip().startswith("from") or line.strip().startswith("import")
+        ]
         import_block = "\n".join(import_lines)
         self.assertNotIn(
             "QGroupBox",
