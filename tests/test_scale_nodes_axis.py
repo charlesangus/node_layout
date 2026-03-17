@@ -204,6 +204,10 @@ _module_path = os.path.join(os.path.dirname(__file__), "..", "node_layout.py")
 _spec = importlib.util.spec_from_file_location("node_layout_axis_tests_fresh", _module_path)
 _nl = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_nl)
+# Preserve the nuke reference _nl imported during exec_module — this has Undo.
+# setUp methods must restore from this saved reference, not from sys.modules["nuke"],
+# which may point to a different stub missing Undo (if another test file loaded first).
+_correct_nuke_for_nl = _nl.nuke
 
 
 # ---------------------------------------------------------------------------
@@ -234,8 +238,9 @@ class TestAxisScalingBehavior(unittest.TestCase):
     """Behavioral tests for axis-specific scaling (h / v / both)."""
 
     def setUp(self):
-        # Restore nuke stub reference after each test in case another test mutated it.
-        _nl.nuke = sys.modules["nuke"]
+        # Restore _nl's nuke to the reference it received at load time (not sys.modules,
+        # which may point to a different stub missing Undo).
+        _nl.nuke = _correct_nuke_for_nl
 
     def test_h_axis_leaves_dy_unchanged(self):
         """axis='h': horizontal scale applied, vertical distance unchanged."""
@@ -366,7 +371,7 @@ class TestAxisStateBehavior(unittest.TestCase):
     """State write-back tests: axis='h' only updates h_scale, axis='v' only updates v_scale."""
 
     def setUp(self):
-        _nl.nuke = sys.modules["nuke"]
+        _nl.nuke = _correct_nuke_for_nl
 
     def test_h_axis_only_updates_h_scale(self):
         """axis='h': h_scale accumulates, v_scale remains 1.0."""
@@ -515,7 +520,7 @@ class TestRepeatLastScaleBehavior(unittest.TestCase):
     """Behavioral tests for repeat_last_scale and _last_scale_fn tracking."""
 
     def setUp(self):
-        _nl.nuke = sys.modules["nuke"]
+        _nl.nuke = _correct_nuke_for_nl
         # Reset _last_scale_fn before each test.
         _nl._last_scale_fn = None
 
@@ -566,7 +571,7 @@ class TestExpandPushAway(unittest.TestCase):
     """expand H/V wrappers call push_nodes_to_make_room; shrink wrappers do not."""
 
     def setUp(self):
-        _nl.nuke = sys.modules["nuke"]
+        _nl.nuke = _correct_nuke_for_nl
         # Reset _last_scale_fn
         _nl._last_scale_fn = None
 
