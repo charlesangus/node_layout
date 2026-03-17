@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
-status: completed
-last_updated: "2026-03-16T10:27:52.948Z"
-last_activity: "2026-03-14 - Completed quick task 1: Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing"
+status: in_progress
+last_updated: "2026-03-16T12:00:00.000Z"
+last_activity: "2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance (spine_x mismatch + Phase 2 overlap)"
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 7
   total_plans: 26
   completed_plans: 26
-  percent: 100
+  percent: 93
 ---
 
 # Project State
@@ -24,11 +24,11 @@ See: .planning/PROJECT.md (updated 2026-03-05 after v1.1 start)
 
 ## Current Position
 
-Phase: 11.1 of 11.1 (Fix Horizontal Layout Functionality)
-Plan: 3 of 3 (completed Plan 03)
-Status: Phase 11.1 Complete — all 3 plans done (Bug 1 spine_x, Bug 2 dot Y, debug doc closure)
+Phase: 11.2 of 11.2 (Fix Horizontal Layout BBox)
+Plan: 0 of ? (CONTEXT.md written, ready to plan)
+Status: Phase 11.2 open — horizontal layout still broken: spine_x clearance mismatch + Phase 2 overlap
 
-Progress: [██████████] 100% (26 of 26 plans complete)
+Progress: [█████████░] 93% (26 of 26 plans complete, phase 11.2 unplanned)
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Progress: [██████████] 100% (26 of 26 plans complete)
 ### Roadmap Evolution
 
 - Phase 11.1 inserted after Phase 11: fix horizontal layout functionality (URGENT)
+- Phase 11.2 inserted after Phase 11.1: horizontal layout STILL broken — spine_x clearance mismatch + Phase 2 vertical subtrees overlapping horizontal chain bbox
 
 ### Decisions
 
@@ -169,6 +170,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T10:25:03.597Z
-Last activity: 2026-03-14 - Completed quick task 1: Fix highest-subtree placement in horizontal layout: B left, A up, no overlaps, add Dot to B input if missing
-Resume file: None
+Last session: 2026-03-16T12:00:00.000Z
+Last activity: 2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance. Root causes identified: spine_x mismatch vs effective_widths, Phase 2 ignores horizontal chain bbox.
+Resume file: .planning/phases/11.2-fix-horizontal-layout-bbox/11.2-CONTEXT.md
