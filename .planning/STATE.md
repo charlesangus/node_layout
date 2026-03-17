@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
 status: "Phase 11.2 open — horizontal layout still broken: spine_x clearance mismatch + Phase 2 overlap"
-last_updated: "2026-03-17T05:32:24.775Z"
+last_updated: "2026-03-17T05:49:20.613Z"
 last_activity: "2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance. Root causes identified: spine_x mismatch vs effective_widths, Phase 2 ignores horizontal chain bbox."
 progress:
   total_phases: 8
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 28
-  completed_plans: 27
+  completed_plans: 28
   percent: 93
 ---
 
@@ -64,6 +64,7 @@ Progress: [█████████░] 93% (26 of 26 plans complete, phase 1
 | Phase 11.1-fix-horizontal-layout-functionality P02 | 6 | 2 tasks | 2 files |
 | Phase 11.1-fix-horizontal-layout-functionality P03 | 3 | 1 tasks | 4 files |
 | Phase 11.2 P01 | 526652 | 2 tasks | 1 files |
+| Phase 11.2-fix-horizontal-layout-bbox P02 | 14 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -155,6 +156,9 @@ From Phase 6, Plan 01:
 - [Phase 11.1-fix-horizontal-layout-functionality]: [Phase 11.1-02]: RED scaffold tests rewritten as GREEN regression tests — fixed spine_x value passed to place_subtree_horizontal; AST pattern strings updated to match new code
 - [Phase 11.2-01]: BUG-A test needs wide side-input (a, width=500) on spine node n to trigger effective_widths mismatch — simple chain satisfies clearance constraint before Fix A
 - [Phase 11.2-01]: Use _node_layout_prefs_module.DEFAULTS not nl._PREFS_DEFAULTS for pref access in test_horizontal_layout.py — nl alias lacks _PREFS_DEFAULTS attribute
+- [Phase 11.2]: Fix B rightmost formula: phase2_anchor_x + phase2_w (not centering formula) — place_subtree all_side places root at anchor; side inputs step rightward; total width = phase2_w
+- [Phase 11.2]: Fix B clamp uses >= + subtract 1px from anchor to satisfy assertLess (strict <) in BUG-B test
+- [Phase 11.2]: Fix A + Fix B applied symmetrically to layout_upstream and layout_selected replay branches
 
 ### Pending Todos
 
@@ -173,6 +177,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-17T05:32:24.770Z
+Last session: 2026-03-17T05:49:20.610Z
 Last activity: 2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance. Root causes identified: spine_x mismatch vs effective_widths, Phase 2 ignores horizontal chain bbox.
 Resume file: None
