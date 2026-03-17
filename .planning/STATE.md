@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Layout Engine & State
-status: in_progress
-last_updated: "2026-03-16T12:00:00.000Z"
-last_activity: "2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance (spine_x mismatch + Phase 2 overlap)"
+status: "Phase 11.2 open — horizontal layout still broken: spine_x clearance mismatch + Phase 2 overlap"
+last_updated: "2026-03-17T05:32:24.775Z"
+last_activity: "2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance. Root causes identified: spine_x mismatch vs effective_widths, Phase 2 ignores horizontal chain bbox."
 progress:
   total_phases: 8
   completed_phases: 7
-  total_plans: 26
-  completed_plans: 26
+  total_plans: 28
+  completed_plans: 27
   percent: 93
 ---
 
@@ -63,6 +63,7 @@ Progress: [█████████░] 93% (26 of 26 plans complete, phase 1
 | Phase 11.1-fix-horizontal-layout-functionality P01 | 8 | 2 tasks | 1 files |
 | Phase 11.1-fix-horizontal-layout-functionality P02 | 6 | 2 tasks | 2 files |
 | Phase 11.1-fix-horizontal-layout-functionality P03 | 3 | 1 tasks | 4 files |
+| Phase 11.2 P01 | 526652 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -152,6 +153,8 @@ From Phase 6, Plan 01:
 - [Phase 11.1-fix-horizontal-layout-functionality]: [Phase 11.1-02]: Bug 1 spine_x uses leftward_extent = sum(step_x + node.screenWidth()) for each spine node except root — ensures leftmost node clears consumer regardless of node widths
 - [Phase 11.1-fix-horizontal-layout-functionality]: [Phase 11.1-02]: Bug 2 dot_y conditional: consumer_node.ypos() + (consumer_node.screenHeight() - dot.screenHeight()) // 2 when consumer_node is not None; else keep below-root formula for standalone chains
 - [Phase 11.1-fix-horizontal-layout-functionality]: [Phase 11.1-02]: RED scaffold tests rewritten as GREEN regression tests — fixed spine_x value passed to place_subtree_horizontal; AST pattern strings updated to match new code
+- [Phase 11.2-01]: BUG-A test needs wide side-input (a, width=500) on spine node n to trigger effective_widths mismatch — simple chain satisfies clearance constraint before Fix A
+- [Phase 11.2-01]: Use _node_layout_prefs_module.DEFAULTS not nl._PREFS_DEFAULTS for pref access in test_horizontal_layout.py — nl alias lacks _PREFS_DEFAULTS attribute
 
 ### Pending Todos
 
@@ -170,6 +173,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T12:00:00.000Z
+Last session: 2026-03-17T05:32:24.770Z
 Last activity: 2026-03-16 - Opened Phase 11.2: fix horizontal layout bbox clearance. Root causes identified: spine_x mismatch vs effective_widths, Phase 2 ignores horizontal chain bbox.
-Resume file: .planning/phases/11.2-fix-horizontal-layout-bbox/11.2-CONTEXT.md
+Resume file: None

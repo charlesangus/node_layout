@@ -164,7 +164,7 @@ Plans:
 **Goal:** Layout Upstream with a horizontal chain produces no overlaps: the chain clears the consumer by horizontal_subtree_gap, and the Phase 2 vertical subtrees do not land inside the horizontal chain's bounding box.
 **Requirements**: BUG-A, BUG-B, REGRESSION
 **Depends on:** Phase 11.1
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 11.2-01-PLAN.md — Add RED end-to-end tests for BUG-A (chain clearance) and BUG-B (Phase 2 no cross-chain)
