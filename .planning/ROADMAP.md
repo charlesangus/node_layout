@@ -158,3 +158,14 @@ Plans:
 - [ ] 11.1-01-PLAN.md — Add RED regression tests: TestLeftExtentOverlap and TestDotYAlignment
 - [ ] 11.1-02-PLAN.md — Fix Bug 1 (spine_x left-extent) and Bug 2 (dot Y consumer alignment) in node_layout.py
 - [ ] 11.1-03-PLAN.md — Close 4 stale debug documents (status: resolved + fix commit)
+
+### Phase 11.2: fix horizontal layout bbox (INSERTED)
+
+**Goal:** Layout Upstream with a horizontal chain produces no overlaps: the chain clears the consumer by horizontal_subtree_gap, and the Phase 2 vertical subtrees do not land inside the horizontal chain's bounding box.
+**Requirements**: BUG-A, BUG-B, REGRESSION
+**Depends on:** Phase 11.1
+**Plans:** 2 plans
+
+Plans:
+- [ ] 11.2-01-PLAN.md — Add RED end-to-end tests for BUG-A (chain clearance) and BUG-B (Phase 2 no cross-chain)
+- [ ] 11.2-02-PLAN.md — Implement Fix A (place-then-measure-then-shift) and Fix B (Phase 2 anchor clamped to chain bbox) in node_layout.py
