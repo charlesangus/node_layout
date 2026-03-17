@@ -288,7 +288,7 @@ class TestHorizontalMarginBehavioral(unittest.TestCase):
         return _StubNode(node_class="Merge2")
 
     def test_horizontal_margin_non_mask_returns_horizontal_subtree_gap_default(self):
-        """_horizontal_margin for a non-mask slot returns horizontal_subtree_gap (default 150)."""
+        """_horizontal_margin for a non-mask slot returns horizontal_subtree_gap (default 250)."""
         non_mask_node = self._make_non_mask_node()
         result = _nl._horizontal_margin(non_mask_node, 0)
         expected = _node_layout_prefs_module.prefs_singleton.get("horizontal_subtree_gap")
@@ -298,7 +298,7 @@ class TestHorizontalMarginBehavioral(unittest.TestCase):
             f"Expected horizontal_subtree_gap={expected}, got {result}",
         )
         # Also verify against hard-coded default value
-        self.assertEqual(result, 150, f"Default horizontal_subtree_gap is 150, got {result}")
+        self.assertEqual(result, 250, f"Default horizontal_subtree_gap is 250, got {result}")
 
     def test_horizontal_margin_mask_slot_returns_horizontal_mask_gap_default(self):
         """_horizontal_margin for a mask slot (Merge2 slot 2) returns horizontal_mask_gap (default 50)."""

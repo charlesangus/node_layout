@@ -155,7 +155,8 @@ _spec.loader.exec_module(_nl)
 
 _PREFS_DEFAULTS = {
     "base_subtree_margin": 200,
-    "horizontal_subtree_gap": 150,
+    "horizontal_subtree_gap": 250,
+    "horizontal_side_vertical_gap": 150,
     "horizontal_mask_gap": 50,
     "dot_font_reference_size": 20,
     "compact_multiplier": 0.6,
@@ -572,10 +573,10 @@ class TestHorizontalOnlyScheme(unittest.TestCase):
         return _StubNode(node_class="Grade")
 
     def test_horizontal_margin_unaffected_by_compact_scheme(self):
-        """_horizontal_margin() returns horizontal_subtree_gap (150) regardless of any scheme.
+        """_horizontal_margin() returns horizontal_subtree_gap (250) regardless of any scheme.
 
         H-axis is now fully decoupled: _horizontal_margin() reads a direct pref value,
-        not a sqrt-scaled formula. The result must equal horizontal_subtree_gap (default 150)
+        not a sqrt-scaled formula. The result must equal horizontal_subtree_gap (default 250)
         even when compact_multiplier is set, because _horizontal_margin() ignores multipliers.
         """
         non_mask_node = self._make_non_mask_node()
@@ -590,8 +591,8 @@ class TestHorizontalOnlyScheme(unittest.TestCase):
         )
         self.assertEqual(
             horizontal_margin,
-            150,
-            f"Default horizontal_subtree_gap must be 150, got {horizontal_margin}",
+            250,
+            f"Default horizontal_subtree_gap must be 250, got {horizontal_margin}",
         )
 
     def test_vertical_margin_affected_by_compact_scheme(self):

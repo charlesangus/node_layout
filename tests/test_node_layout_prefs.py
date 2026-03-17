@@ -74,8 +74,8 @@ class TestNodeLayoutPrefsDefaults(unittest.TestCase):
         self.assertEqual(self.instance.get("scaling_reference_count"), 150)
 
     def test_default_horizontal_subtree_gap(self):
-        """get('horizontal_subtree_gap') returns 150 when no prefs file exists."""
-        self.assertEqual(self.instance.get("horizontal_subtree_gap"), 150)
+        """get('horizontal_subtree_gap') returns 250 when no prefs file exists."""
+        self.assertEqual(self.instance.get("horizontal_subtree_gap"), 250)
 
     def test_default_horizontal_mask_gap(self):
         """get('horizontal_mask_gap') returns 50 when no prefs file exists."""
@@ -97,11 +97,12 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
     def setUp(self):
         self.prefs_module = _import_prefs_module()
 
-    def test_defaults_contains_all_ten_keys(self):
-        """DEFAULTS must contain exactly the 10 required preference keys."""
+    def test_defaults_contains_all_eleven_keys(self):
+        """DEFAULTS must contain exactly the 11 required preference keys."""
         required_keys = {
             "base_subtree_margin",
             "horizontal_subtree_gap",
+            "horizontal_side_vertical_gap",
             "horizontal_mask_gap",
             "dot_font_reference_size",
             "compact_multiplier",
@@ -120,8 +121,8 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
         )
         self.assertEqual(
             len(actual_keys),
-            10,
-            f"DEFAULTS should have exactly 10 keys, got {len(actual_keys)}: {actual_keys}",
+            11,
+            f"DEFAULTS should have exactly 11 keys, got {len(actual_keys)}: {actual_keys}",
         )
 
 
@@ -259,7 +260,8 @@ class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
         self.assertEqual(instance.get("scaling_reference_count"), 150)
 
         # New keys also fall back to DEFAULTS
-        self.assertEqual(instance.get("horizontal_subtree_gap"), 150)
+        self.assertEqual(instance.get("horizontal_subtree_gap"), 250)
+        self.assertEqual(instance.get("horizontal_side_vertical_gap"), 150)
         self.assertEqual(instance.get("horizontal_mask_gap"), 50)
         self.assertEqual(instance.get("dot_font_reference_size"), 20)
 

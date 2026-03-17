@@ -49,6 +49,9 @@ class NodeLayoutPrefsDialog(QDialog):
         self.horizontal_subtree_gap_edit = QLineEdit()
         form_layout.addRow("Horizontal Subtree Gap (px):", self.horizontal_subtree_gap_edit)
 
+        self.horizontal_side_vertical_gap_edit = QLineEdit()
+        form_layout.addRow("Horizontal Side Vertical Gap (px):", self.horizontal_side_vertical_gap_edit)
+
         self.horizontal_mask_gap_edit = QLineEdit()
         form_layout.addRow("Horizontal Mask Gap (px):", self.horizontal_mask_gap_edit)
 
@@ -95,6 +98,7 @@ class NodeLayoutPrefsDialog(QDialog):
     def _populate_from_prefs(self):
         prefs_instance = node_layout_prefs.prefs_singleton
         self.horizontal_subtree_gap_edit.setText(str(prefs_instance.get("horizontal_subtree_gap")))
+        self.horizontal_side_vertical_gap_edit.setText(str(prefs_instance.get("horizontal_side_vertical_gap")))
         self.horizontal_mask_gap_edit.setText(str(prefs_instance.get("horizontal_mask_gap")))
         self.base_subtree_margin_edit.setText(str(prefs_instance.get("base_subtree_margin")))
         self.mask_input_ratio_edit.setText(str(prefs_instance.get("mask_input_ratio")))
@@ -108,6 +112,7 @@ class NodeLayoutPrefsDialog(QDialog):
     def _on_accept(self):
         try:
             horizontal_subtree_gap_value = int(self.horizontal_subtree_gap_edit.text())
+            horizontal_side_vertical_gap_value = int(self.horizontal_side_vertical_gap_edit.text())
             horizontal_mask_gap_value = int(self.horizontal_mask_gap_edit.text())
             base_subtree_margin_value = int(self.base_subtree_margin_edit.text())
             mask_input_ratio_value = float(self.mask_input_ratio_edit.text())
@@ -122,6 +127,8 @@ class NodeLayoutPrefsDialog(QDialog):
 
         if horizontal_subtree_gap_value <= 0:
             return
+        if horizontal_side_vertical_gap_value < 0:
+            return
         if horizontal_mask_gap_value < 0:
             return
         if base_subtree_margin_value <= 0:
@@ -133,6 +140,7 @@ class NodeLayoutPrefsDialog(QDialog):
 
         prefs_instance = node_layout_prefs.prefs_singleton
         prefs_instance.set("horizontal_subtree_gap", horizontal_subtree_gap_value)
+        prefs_instance.set("horizontal_side_vertical_gap", horizontal_side_vertical_gap_value)
         prefs_instance.set("horizontal_mask_gap", horizontal_mask_gap_value)
         prefs_instance.set("base_subtree_margin", base_subtree_margin_value)
         prefs_instance.set("mask_input_ratio", mask_input_ratio_value)
