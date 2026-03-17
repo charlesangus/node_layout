@@ -1731,7 +1731,47 @@ def layout_selected(scheme_multiplier=None):
                         spine_set=root_spine_set,
                         side_layout_mode="recursive",
                     )
+
+                    # Fix A: place-then-measure-then-shift clearance.
+                    # After place_subtree_horizontal returns, compute the actual leftmost extent of
+                    # the placed chain (spine + side subtrees).  If that extent is closer to the
+                    # consumer's right edge than horizontal_subtree_gap, translate the entire chain
+                    # rightward by the deficit so the gap invariant is restored.
+                    _chain_nodes_fix_a = collect_subtree_nodes(root)
+                    _actual_left = min(chain_node.xpos() for chain_node in _chain_nodes_fix_a)
+                    _horizontal_gap = current_prefs.get("horizontal_subtree_gap")
+                    if root is not original_selected_root:
+                        _required_left = (
+                            original_selected_root.xpos()
+                            + original_selected_root.screenWidth()
+                            + _horizontal_gap
+                        )
+                        _clearance_deficit = _required_left - _actual_left
+                        if _clearance_deficit > 0:
+                            for chain_node in _chain_nodes_fix_a:
+                                chain_node.setXpos(chain_node.xpos() + _clearance_deficit)
+                    elif downstream_consumer is not None:
+                        _required_left = (
+                            downstream_consumer.xpos()
+                            + downstream_consumer.screenWidth()
+                            + _horizontal_gap
+                        )
+                        _clearance_deficit = _required_left - _actual_left
+                        if _clearance_deficit > 0:
+                            for chain_node in _chain_nodes_fix_a:
+                                chain_node.setXpos(chain_node.xpos() + _clearance_deficit)
+
                     _place_output_dot_for_horizontal_root(root, current_group, snap_threshold, root_scheme_multiplier)
+
+                    # Fix B: compute the full horizontal chain bbox (including output dot, now placed)
+                    # so Phase 2 can clamp its X-anchor and avoid landing inside the chain's extent.
+                    _chain_all_nodes_fix_b = collect_subtree_nodes(root)
+                    for _fix_b_slot in range(original_selected_root.inputs()):
+                        _fix_b_inp = original_selected_root.input(_fix_b_slot)
+                        if _fix_b_inp is not None and _fix_b_inp.knob(_OUTPUT_DOT_KNOB_NAME) is not None:
+                            _chain_all_nodes_fix_b.append(_fix_b_inp)
+                    _chain_bbox = compute_node_bounding_box(_chain_all_nodes_fix_b)
+                    _chain_left_for_phase2 = _chain_bbox[0] if _chain_bbox is not None else None
 
                     # Phase 2: when a vertical consumer triggered the horizontal layout,
                     # also run the standard vertical layout on that consumer so that any
@@ -1751,16 +1791,32 @@ def layout_selected(scheme_multiplier=None):
                         )
                         if vertical_filter:
                             memo_phase2 = {}
-                            compute_dims(
+                            phase2_w, _ = compute_dims(
                                 original_selected_root, memo_phase2, snap_threshold, node_count,
                                 node_filter=vertical_filter,
                                 scheme_multiplier=consumer_scheme_multiplier,
                                 per_node_h_scale=per_node_h_scale,
                                 per_node_v_scale=per_node_v_scale,
                             )
+                            # Clamp phase2_anchor_x so Phase 2 subtree right extent doesn't enter
+                            # the horizontal chain bbox.
+                            # place_subtree places the root at phase2_anchor_x and side inputs step
+                            # rightward from the root's right edge.  The actual rightmost extent of
+                            # the Phase 2 subtree is therefore phase2_anchor_x + phase2_w.
+                            # Require: phase2_anchor_x + phase2_w < chain_left - horizontal_subtree_gap
+                            # (strictly less — the chain gap must not be eaten by Phase 2 nodes)
+                            phase2_anchor_x = original_selected_root.xpos()
+                            if _chain_left_for_phase2 is not None:
+                                _max_right_for_phase2 = (
+                                    _chain_left_for_phase2
+                                    - current_prefs.get("horizontal_subtree_gap")
+                                )
+                                _phase2_rightmost = phase2_anchor_x + phase2_w
+                                if _phase2_rightmost >= _max_right_for_phase2:
+                                    phase2_anchor_x = _max_right_for_phase2 - phase2_w - 1
                             place_subtree(
                                 original_selected_root,
-                                original_selected_root.xpos(), original_selected_root.ypos(),
+                                phase2_anchor_x, original_selected_root.ypos(),
                                 memo_phase2, snap_threshold, node_count,
                                 node_filter=vertical_filter,
                                 scheme_multiplier=consumer_scheme_multiplier,
