@@ -1863,5 +1863,208 @@ class TestLayoutUpstreamEndToEnd(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# TestBugAChainClearsConsumer — BUG-A: chain left edge must clear consumer
+# ---------------------------------------------------------------------------
+
+
+class TestBugAChainClearsConsumer(unittest.TestCase):
+    """RED test: horizontal chain must be placed >= consumer right edge + gap.
+
+    BUG-A: spine_x is computed from consumer.xpos() + consumer.screenWidth() +
+    horizontal_subtree_gap, but the actual leftmost chain node may land at a
+    position further left than spine_x because place_subtree_horizontal walks
+    the chain leftward from spine_x without accounting for the cumulative node
+    widths correctly.  The test asserts the minimum x of all chain nodes is >=
+    consumer.right + horizontal_subtree_gap.
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        _stub_all_nodes_list.clear()
+        self._stub_ctx = _StubContextManager()
+        self._saved_selectedNode = _nuke_stub.selectedNode
+        self._saved_lastHitGroup = _nuke_stub.lastHitGroup
+        self._saved_nodes_Dot = _nuke_stub.nodes.Dot
+        self._saved_sys_nuke = sys.modules.get("nuke")
+        sys.modules["nuke"] = _nuke_stub
+        _nuke_stub.lastHitGroup = lambda: self._stub_ctx
+
+        def _tracked_dot():
+            dot = _StubDotNode()
+            _stub_all_nodes_list.append(dot)
+            return dot
+
+        _nuke_stub.nodes = types.SimpleNamespace(Dot=_tracked_dot)
+
+    def tearDown(self):
+        _stub_all_nodes_list.clear()
+        _nuke_stub.selectedNode = self._saved_selectedNode
+        _nuke_stub.lastHitGroup = self._saved_lastHitGroup
+        _nuke_stub.nodes = types.SimpleNamespace(Dot=self._saved_nodes_Dot)
+        if self._saved_sys_nuke is not None:
+            sys.modules["nuke"] = self._saved_sys_nuke
+
+    def _set_state_horizontal(self, node):
+        node._knobs["node_layout_state"] = _StubKnob(
+            '{"scheme": "normal", "mode": "horizontal", "h_scale": 1.0, "v_scale": 1.0}'
+        )
+
+    def _find_output_dot(self):
+        for candidate in _stub_all_nodes_list:
+            if candidate.knob(nl._OUTPUT_DOT_KNOB_NAME) is not None:
+                return candidate
+        return None
+
+    def test_chain_clears_consumer_by_gap(self):
+        """BUG-A: all chain nodes must be placed >= consumer right edge + gap.
+
+        Topology: a → n → m2 → m1
+          - m1 is consumer/selected (vertical)
+          - m2 and n are horizontal spine nodes
+          - a is a wide side input of n (slot 1, width=500) — wider than n (width=80)
+            This makes effective_widths[n] >> n.screenWidth(), so the advance formula
+            in place_subtree_horizontal pushes n further left than spine_x predicted,
+            violating the clearance constraint.
+
+        The spine_x formula in layout_upstream uses n.screenWidth()=80 to predict
+        the leftward extent, but effective_widths[n]=290 (due to wide side input a).
+        Result: n and a land further left than required_left, failing the assertion.
+
+        This is RED before Fix A is implemented.
+        """
+        m1 = _StubNode(width=80, height=28, xpos=800, ypos=400, num_inputs=1)
+        m2 = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=1)
+        # n has 2 inputs: input(0) = None (leaf), input(1) = a (wide side input)
+        n = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=2)
+        # a is a wide side input of n that makes effective_widths[n] > n.screenWidth()
+        a = _StubNode(width=500, height=28, xpos=0, ypos=0, num_inputs=0)
+        n.setInput(1, a)
+        m2.setInput(0, n)
+        m1.setInput(0, m2)
+
+        self._set_state_horizontal(m2)
+        self._set_state_horizontal(n)
+        # a and m1 intentionally NOT set to horizontal
+
+        _stub_all_nodes_list.extend([m1, m2, n, a])
+        _nuke_stub.selectedNode = lambda: m1
+
+        nl.layout_upstream()
+
+        chain_nodes = nl.collect_subtree_nodes(m2)
+        actual_left = min(node.xpos() for node in chain_nodes)
+        horizontal_subtree_gap = _node_layout_prefs_module.DEFAULTS[
+            "horizontal_subtree_gap"
+        ]
+        required_left = (
+            m1.xpos()
+            + m1.screenWidth()
+            + horizontal_subtree_gap
+        )
+        self.assertGreaterEqual(
+            actual_left,
+            required_left,
+            f"BUG-A: chain left edge ({actual_left}) must be >= consumer right edge"
+            f" + gap ({required_left})."
+            f" Gap={horizontal_subtree_gap}",
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestBugBPhase2NoCrossChain — BUG-B: Phase 2 must not cross into chain bbox
+# ---------------------------------------------------------------------------
+
+
+class TestBugBPhase2NoCrossChain(unittest.TestCase):
+    """RED test: Phase 2 B-chain must not overlap horizontal chain's left boundary.
+
+    BUG-B: Phase 2 (place_subtree on consumer's non-horizontal inputs) places
+    the B-chain without knowing about the horizontal chain's bounding box.
+    The B-chain must be positioned so its right edge < chain_min_x -
+    horizontal_subtree_gap, ensuring the two subtrees do not overlap.
+    """
+
+    def setUp(self):
+        _reset_prefs()
+        _stub_all_nodes_list.clear()
+        self._stub_ctx = _StubContextManager()
+        self._saved_selectedNode = _nuke_stub.selectedNode
+        self._saved_lastHitGroup = _nuke_stub.lastHitGroup
+        self._saved_nodes_Dot = _nuke_stub.nodes.Dot
+        self._saved_sys_nuke = sys.modules.get("nuke")
+        sys.modules["nuke"] = _nuke_stub
+        _nuke_stub.lastHitGroup = lambda: self._stub_ctx
+
+        def _tracked_dot():
+            dot = _StubDotNode()
+            _stub_all_nodes_list.append(dot)
+            return dot
+
+        _nuke_stub.nodes = types.SimpleNamespace(Dot=_tracked_dot)
+
+    def tearDown(self):
+        _stub_all_nodes_list.clear()
+        _nuke_stub.selectedNode = self._saved_selectedNode
+        _nuke_stub.lastHitGroup = self._saved_lastHitGroup
+        _nuke_stub.nodes = types.SimpleNamespace(Dot=self._saved_nodes_Dot)
+        if self._saved_sys_nuke is not None:
+            sys.modules["nuke"] = self._saved_sys_nuke
+
+    def _set_state_horizontal(self, node):
+        node._knobs["node_layout_state"] = _StubKnob(
+            '{"scheme": "normal", "mode": "horizontal", "h_scale": 1.0, "v_scale": 1.0}'
+        )
+
+    def _find_output_dot(self):
+        for candidate in _stub_all_nodes_list:
+            if candidate.knob(nl._OUTPUT_DOT_KNOB_NAME) is not None:
+                return candidate
+        return None
+
+    def test_phase2_does_not_overlap_horizontal_chain(self):
+        """BUG-B: B-chain right edge must be < chain left edge - gap.
+
+        Topology:
+          m1.input(0) = m2  (horizontal chain root; m2.input(0) = n)
+          m1.input(1) = b   (vertical B-chain node, no inputs)
+
+        After layout_upstream(), the B-chain (b) must not intrude into the
+        horizontal chain's space:
+          max_x(b_chain_nodes) < min_x(chain_nodes) - horizontal_subtree_gap
+        """
+        m1 = _StubNode(width=80, height=28, xpos=800, ypos=400, num_inputs=2)
+        m2 = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=1)
+        n = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=0)
+        b = _StubNode(width=80, height=28, xpos=0, ypos=0, num_inputs=0)
+        m2.setInput(0, n)
+        m1.setInput(0, m2)
+        m1.setInput(1, b)
+
+        self._set_state_horizontal(m2)
+        self._set_state_horizontal(n)
+        # b is intentionally NOT set to horizontal — it is a vertical B-chain node
+
+        _stub_all_nodes_list.extend([m1, m2, n, b])
+        _nuke_stub.selectedNode = lambda: m1
+
+        nl.layout_upstream()
+
+        chain_nodes = nl.collect_subtree_nodes(m2)
+        b_chain_nodes = [b]
+
+        chain_min_x = min(node.xpos() for node in chain_nodes)
+        b_max_x = max(node.xpos() + node.screenWidth() for node in b_chain_nodes)
+        gap = _node_layout_prefs_module.DEFAULTS["horizontal_subtree_gap"]
+
+        self.assertLess(
+            b_max_x,
+            chain_min_x - gap,
+            f"BUG-B: B-chain right edge ({b_max_x}) must be < chain left edge"
+            f" - gap ({chain_min_x - gap})."
+            f" chain_min_x={chain_min_x}, gap={gap}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
