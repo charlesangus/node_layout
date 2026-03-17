@@ -1,5 +1,7 @@
 import math
+
 import nuke
+
 import node_layout_prefs
 import node_layout_state
 
@@ -63,9 +65,20 @@ def find_node_default_color(node):
     if node_class in _COLOR_LOOKUP_CACHE:
         return _COLOR_LOOKUP_CACHE[node_class]
     prefs = nuke.toNode("preferences")
-    node_colour_slots = [prefs[knob_name].value().split(' ') for knob_name in prefs.knobs() if knob_name.startswith("NodeColourSlot")]
-    node_colour_slots = [[item.replace("'", "").lower() for item in parent_item] for parent_item in node_colour_slots]
-    node_colour_choices = [prefs[knob_name].value() for knob_name in prefs.knobs() if knob_name.startswith("NodeColourChoice")]
+    node_colour_slots = [
+        prefs[knob_name].value().split(' ')
+        for knob_name in prefs.knobs()
+        if knob_name.startswith("NodeColourSlot")
+    ]
+    node_colour_slots = [
+        [item.replace("'", "").lower() for item in parent_item]
+        for parent_item in node_colour_slots
+    ]
+    node_colour_choices = [
+        prefs[knob_name].value()
+        for knob_name in prefs.knobs()
+        if knob_name.startswith("NodeColourChoice")
+    ]
     for i, slot in enumerate(node_colour_slots):
         if node_class.lower() in slot:
             result = node_colour_choices[i]
@@ -114,9 +127,10 @@ def _is_mask_input(node, i):
     except (KeyError, AttributeError):
         pass
     # Fallback for nodes that have a mask channel knob but don't label the input
-    if (node.knob('maskChannelInput') or node.knob('maskChannel')) and i == node.inputs() - 1:
-        return True
-    return False
+    return (
+        (node.knob('maskChannelInput') or node.knob('maskChannel'))
+        and i == node.inputs() - 1
+    )
 
 
 def _dot_font_scale(node, slot):
@@ -155,7 +169,10 @@ def _subtree_margin(node, slot, node_count, mode_multiplier=None):
         mode_multiplier = current_prefs.get("normal_multiplier")
     reference_count = current_prefs.get("scaling_reference_count")
     font_mult = _dot_font_scale(node, slot)
-    effective_margin = int(base * mode_multiplier * math.sqrt(node_count) / math.sqrt(reference_count) * font_mult)
+    effective_margin = int(
+        base * mode_multiplier * math.sqrt(node_count)
+        / math.sqrt(reference_count) * font_mult
+    )
     if _is_mask_input(node, slot):
         ratio = current_prefs.get("mask_input_ratio")
         return int(effective_margin * ratio)
@@ -208,8 +225,14 @@ def _reorder_inputs_mask_last(input_slot_pairs, node, all_side, fan_active=False
         # Fan mode: mask goes to the FRONT (leftmost placement).
         # Preserves relative order within mask and non-mask groups.
         if all_side:
-            mask_inputs = [(slot, inp) for slot, inp in input_slot_pairs if _is_mask_input(node, slot)]
-            non_mask = [(slot, inp) for slot, inp in input_slot_pairs if not _is_mask_input(node, slot)]
+            mask_inputs = [
+                (slot, inp) for slot, inp in input_slot_pairs
+                if _is_mask_input(node, slot)
+            ]
+            non_mask = [
+                (slot, inp) for slot, inp in input_slot_pairs
+                if not _is_mask_input(node, slot)
+            ]
         else:
             primary = input_slot_pairs[:1]
             side = input_slot_pairs[1:]
@@ -265,12 +288,12 @@ def _passes_node_filter(node, node_filter):
         return True
     if node in node_filter:
         return True
-    if (node.Class() == 'Dot'
-            and node.knob('node_layout_diamond_dot') is not None
-            and node.input(0) is not None
-            and node.input(0) in node_filter):
-        return True
-    return False
+    return (
+        node.Class() == 'Dot'
+        and node.knob('node_layout_diamond_dot') is not None
+        and node.input(0) is not None
+        and node.input(0) in node_filter
+    )
 
 
 def _primary_slot_externally_occupied(node, node_filter):
@@ -419,7 +442,9 @@ def _find_or_create_output_dot(root, consumer_node, consumer_slot, current_group
     return dot
 
 
-def _place_output_dot_for_horizontal_root(root, current_group, snap_threshold=None, scheme_multiplier=None):
+def _place_output_dot_for_horizontal_root(
+    root, current_group, snap_threshold=None, scheme_multiplier=None
+):
     """Place or reposition an output Dot below the horizontal section root.
 
     Finds root's downstream consumer (a non-output-dot node whose direct input is
@@ -484,7 +509,10 @@ def _place_output_dot_for_horizontal_root(root, current_group, snap_threshold=No
         # connection to the dot itself (replay, after the second scan above).
         existing_dot.setXpos(root.xpos() + (root.screenWidth() - existing_dot.screenWidth()) // 2)
         if consumer_node is not None:
-            existing_dot.setYpos(consumer_node.ypos() + (consumer_node.screenHeight() - existing_dot.screenHeight()) // 2)
+            existing_dot.setYpos(
+                consumer_node.ypos()
+                + (consumer_node.screenHeight() - existing_dot.screenHeight()) // 2
+            )
         else:
             loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
             dot_gap = int(loose_gap_multiplier * scheme_multiplier * snap_threshold)
@@ -666,7 +694,9 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                 # right_extent_from_root: how far right the subtree bbox extends from
                 # the side root's left edge (preserved under rigid translation).
                 right_extent_from_root = subtree_max_x - side_node.xpos()
-                effective_widths[i] = max(effective_widths[i], centering_offset + right_extent_from_root)
+                effective_widths[i] = max(
+                    effective_widths[i], centering_offset + right_extent_from_root
+                )
                 # left_extent_from_root: how far left the subtree bbox extends from
                 # the side root's left edge.
                 left_extent_from_root = side_node.xpos() - subtree_min_x
@@ -769,12 +799,15 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
             # Detect whether a leftmost Dot was already inserted by a prior recursive run.
             # Also treat any pre-existing plain Dot as a reusable leftmost dot to avoid
             # stacking a new Dot in front of one that already exists.
-            if raw_primary is not None and raw_primary.knob(_LEFTMOST_DOT_KNOB_NAME) is not None:
-                leftmost_dot = raw_primary
-                upstream_root = raw_primary.input(0)
-            elif (raw_primary is not None
+            if (
+                raw_primary is not None
+                and raw_primary.knob(_LEFTMOST_DOT_KNOB_NAME) is not None
+                or (
+                    raw_primary is not None
                     and raw_primary.Class() == "Dot"
-                    and id(raw_primary) not in spine_set):
+                    and id(raw_primary) not in spine_set
+                )
+            ):
                 leftmost_dot = raw_primary
                 upstream_root = raw_primary.input(0)
             elif raw_primary is not None and id(raw_primary) not in spine_set:
@@ -806,7 +839,10 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                 #   upstream_root to the Dot before turning horizontal to the spine.
                 # upstream_y: above the spine by horizontal_side_gap + node height.
                 if leftmost_dot is not None:
-                    upstream_x = dot_x + (leftmost_dot.screenWidth() - upstream_root.screenWidth()) // 2
+                    upstream_x = (
+                        dot_x
+                        + (leftmost_dot.screenWidth() - upstream_root.screenWidth()) // 2
+                    )
                 else:
                     # Fallback (no Dot possible — spine node has no input[0]): place A
                     # to the left of the spine using the upstream root's own width.
@@ -854,7 +890,12 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
             cur_x = cur_x - step_x - effective_widths[index + 1] - left_extents[index]
 
 
-def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None, per_node_h_scale=None, per_node_v_scale=None, layout_mode="vertical"):
+def compute_dims(
+    node, memo, snap_threshold, node_count,
+    node_filter=None, scheme_multiplier=None,
+    per_node_h_scale=None, per_node_v_scale=None,
+    layout_mode="vertical",
+):
     node_h_scale = per_node_h_scale.get(id(node), 1.0) if per_node_h_scale else 1.0
     node_v_scale = per_node_v_scale.get(id(node), 1.0) if per_node_v_scale else 1.0
     if (id(node), scheme_multiplier, node_h_scale, node_v_scale, layout_mode) in memo:
@@ -863,16 +904,35 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
     input_slot_pairs = _get_input_slot_pairs(node, node_filter)
     all_side = _primary_slot_externally_occupied(node, node_filter)
     fan_active = _is_fan_active(input_slot_pairs, node)
-    input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side, fan_active=fan_active)
+    input_slot_pairs = _reorder_inputs_mask_last(
+        input_slot_pairs, node, all_side, fan_active=fan_active
+    )
     inputs = [inp for _, inp in input_slot_pairs]
-    side_margins_h = [int(_horizontal_margin(node, slot) * node_h_scale) for slot, _ in input_slot_pairs]
-    side_margins_v = [int(_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) * node_v_scale) for slot, _ in input_slot_pairs]
+    side_margins_h = [
+        int(_horizontal_margin(node, slot) * node_h_scale)
+        for slot, _ in input_slot_pairs
+    ]
+    side_margins_v = [
+        int(
+            _subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier)
+            * node_v_scale
+        )
+        for slot, _ in input_slot_pairs
+    ]
 
     if not inputs:
         result = (node.screenWidth(), node.screenHeight())
     elif all_side:
         # All in-filter inputs are side inputs; none goes directly above.
-        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale) for inp in inputs]
+        child_dims = [
+            compute_dims(
+                inp, memo, snap_threshold, node_count, node_filter,
+                scheme_multiplier=scheme_multiplier,
+                per_node_h_scale=per_node_h_scale,
+                per_node_v_scale=per_node_v_scale,
+            )
+            for inp in inputs
+        ]
         n = len(inputs)
         W = node.screenWidth() + sum(side_margins_h) + sum(w for w, h in child_dims)
         raw_gap = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
@@ -882,7 +942,15 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
         H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_closest + inter_band_gaps
         result = (W, H)
     else:
-        child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale) for inp in inputs]
+        child_dims = [
+            compute_dims(
+                inp, memo, snap_threshold, node_count, node_filter,
+                scheme_multiplier=scheme_multiplier,
+                per_node_h_scale=per_node_h_scale,
+                per_node_v_scale=per_node_v_scale,
+            )
+            for inp in inputs
+        ]
         n = len(inputs)
         if n == 1:
             W = max(node.screenWidth(), child_dims[0][0])
@@ -895,28 +963,40 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
             mask_count = sum(1 for slot, _ in input_slot_pairs if _is_mask_input(node, slot))
             if fan_active and mask_count > 0:
                 # Fan mode with mask: mask is placed LEFT; W measures rightward (non-mask) spread.
-                # B (first non-mask) is centered above consumer; if B is wider than consumer it overhangs
-                # rightward past consumer's right edge by (b_w - node_w) // 2. A1 must clear B's right edge.
+                # B (first non-mask) is centered above consumer; if B is wider than consumer
+                # it overhangs rightward past consumer's right edge by (b_w - node_w) // 2.
+                # A1 must clear B's right edge.
                 non_mask_dims = child_dims[mask_count:]
                 b_w = non_mask_dims[0][0]
                 b_right_overhang = max(0, (b_w - node.screenWidth()) // 2)
-                W = max(b_w,
-                        node.screenWidth() + b_right_overhang + sum(side_margins_h[mask_count + 1:]) + sum(w for w, h in non_mask_dims[1:]))
+                W = max(
+                    b_w,
+                    node.screenWidth() + b_right_overhang
+                    + sum(side_margins_h[mask_count + 1:])
+                    + sum(w for w, h in non_mask_dims[1:]),
+                )
             else:
                 # n >= 3 fan without mask (or non-fan fallback): same B-overhang correction.
                 b_w = child_dims[0][0]
                 b_right_overhang = max(0, (b_w - node.screenWidth()) // 2)
-                W = max(b_w,
-                        node.screenWidth() + b_right_overhang + sum(side_margins_h[1:]) + sum(w for w, h in child_dims[1:]))
+                W = max(
+                    b_w,
+                    node.screenWidth() + b_right_overhang
+                    + sum(side_margins_h[1:])
+                    + sum(w for w, h in child_dims[1:]),
+                )
 
         if fan_active and n >= 3:
             # Fan mode: all non-mask inputs sit at the same Y level.
             # H is determined by the TALLEST non-mask subtree, not the sum.
             # The mask subtree is placed LEFT (outside the rightward W); exclude it from H.
             mask_count = sum(1 for slot, _ in input_slot_pairs if _is_mask_input(node, slot))
-            non_mask_child_dims = child_dims[mask_count:]  # non-mask children follow mask(s) in list
+            # non-mask children follow mask(s) in list
+            non_mask_child_dims = child_dims[mask_count:]
             non_mask_start = mask_count
-            raw_gap_b = vertical_gap_between(inputs[non_mask_start], node, snap_threshold, scheme_multiplier)
+            raw_gap_b = vertical_gap_between(
+                inputs[non_mask_start], node, snap_threshold, scheme_multiplier
+            )
             gap_to_fan = max(snap_threshold - 1, int(raw_gap_b * node_v_scale))
             gap_to_fan = max(gap_to_fan, side_margins_v[non_mask_start])  # ensure Dot row fits
             fan_max_child_h = max(h for w, h in non_mask_child_dims) if non_mask_child_dims else 0
@@ -925,21 +1005,30 @@ def compute_dims(node, memo, snap_threshold, node_count, node_filter=None, schem
             # Staircase formula for all n: each input gets its own vertical band.
             # Total height is sum of all child subtree heights plus per-gap values that
             # depend on the tile colors of adjacent nodes.
-            raw_gap_to_consumer = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+            raw_gap_to_consumer = vertical_gap_between(
+                inputs[n - 1], node, snap_threshold, scheme_multiplier
+            )
             gap_to_consumer = max(snap_threshold - 1, int(raw_gap_to_consumer * node_v_scale))
             # When there are side inputs (n > 1), a dot will be inserted for inputs[n-1].
             # Reserve at least side_margins_v[n-1] so the dot fits without overlapping.
             if n > 1:
                 gap_to_consumer = max(gap_to_consumer, side_margins_v[n - 1])
             inter_band_gaps = sum(side_margins_v[1:n])
-            H = node.screenHeight() + sum(h for w, h in child_dims) + 2 * gap_to_consumer + inter_band_gaps
+            H = (
+                node.screenHeight() + sum(h for w, h in child_dims)
+                + 2 * gap_to_consumer + inter_band_gaps
+            )
         result = (W, H)
 
     memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale, layout_mode)] = result  # noqa: E501
     return result
 
 
-def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None, scheme_multiplier=None, per_node_h_scale=None, per_node_v_scale=None):
+def place_subtree(
+    node, x, y, memo, snap_threshold, node_count,
+    node_filter=None, scheme_multiplier=None,
+    per_node_h_scale=None, per_node_v_scale=None,
+):
     """
     Place `node` with its top-left corner at (x, y) and recursively position
     every upstream input above it.
@@ -1013,13 +1102,31 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
 
     all_side = _primary_slot_externally_occupied(node, node_filter)
     fan_active = _is_fan_active(input_slot_pairs, node)
-    input_slot_pairs = _reorder_inputs_mask_last(input_slot_pairs, node, all_side, fan_active=fan_active)
+    input_slot_pairs = _reorder_inputs_mask_last(
+        input_slot_pairs, node, all_side, fan_active=fan_active
+    )
     actual_slots = [slot for slot, _ in input_slot_pairs]
     inputs = [inp for _, inp in input_slot_pairs]
     n = len(inputs)
-    child_dims = [compute_dims(inp, memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale) for inp in inputs]
-    side_margins_h = [int(_horizontal_margin(node, slot) * node_h_scale) for slot in actual_slots]
-    side_margins_v = [int(_subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier) * node_v_scale) for slot in actual_slots]
+    child_dims = [
+        compute_dims(
+            inp, memo, snap_threshold, node_count, node_filter,
+            scheme_multiplier=scheme_multiplier,
+            per_node_h_scale=per_node_h_scale,
+            per_node_v_scale=per_node_v_scale,
+        )
+        for inp in inputs
+    ]
+    side_margins_h = [
+        int(_horizontal_margin(node, slot) * node_h_scale) for slot in actual_slots
+    ]
+    side_margins_v = [
+        int(
+            _subtree_margin(node, slot, node_count, mode_multiplier=scheme_multiplier)
+            * node_v_scale
+        )
+        for slot in actual_slots
+    ]
 
     # --- Y placement: fan mode (uniform row) or staircase (backward walk) ---
     if fan_active and n >= 3:
@@ -1028,7 +1135,9 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
         mask_count = sum(1 for slot, _ in input_slot_pairs if _is_mask_input(node, slot))
         non_mask_start = mask_count  # non-mask inputs begin at this index after reorder
         # Fan Y: all non-mask inputs at the same row; use B's (first non-mask) gap formula.
-        raw_gap_b = vertical_gap_between(inputs[non_mask_start], node, snap_threshold, scheme_multiplier)
+        raw_gap_b = vertical_gap_between(
+            inputs[non_mask_start], node, snap_threshold, scheme_multiplier
+        )
         gap_to_fan = max(snap_threshold - 1, int(raw_gap_b * node_v_scale))
         gap_to_fan = max(gap_to_fan, side_margins_v[non_mask_start])
         # All non-mask roots placed at fan_y (top-left corner = fan_y).
@@ -1046,7 +1155,9 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
         # Staircase Y: backward walk so input[n-1] is closest to root.
         # Mirror the gap enlargement from compute_dims: when n > 1 (or all_side,
         # which always inserts a dot), the gap must be at least side_margins_v[n-1].
-        raw_gap_closest = vertical_gap_between(inputs[n - 1], node, snap_threshold, scheme_multiplier)
+        raw_gap_closest = vertical_gap_between(
+            inputs[n - 1], node, snap_threshold, scheme_multiplier
+        )
         gap_closest = max(snap_threshold - 1, int(raw_gap_closest * node_v_scale))
         if n > 1 or all_side:
             gap_closest = max(gap_closest, side_margins_v[n - 1])
@@ -1075,10 +1186,15 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
         # non_mask_start is already computed in the Y section above.
         x_positions = [0] * n
         # B (first non-mask) centered above consumer.
-        x_positions[non_mask_start] = _center_x(inputs[non_mask_start].screenWidth(), x, node.screenWidth())
+        x_positions[non_mask_start] = _center_x(
+            inputs[non_mask_start].screenWidth(), x, node.screenWidth()
+        )
         # A1, A2, ... step rightward from max(consumer right, B subtree right).
         # When B is wider than the consumer it overhangs rightward; A1 must clear B's right edge.
-        current_x = max(x + node.screenWidth(), x_positions[non_mask_start] + child_dims[non_mask_start][0]) + (side_margins_h[non_mask_start + 1] if non_mask_start + 1 < n else 0)
+        current_x = (
+            max(x + node.screenWidth(), x_positions[non_mask_start] + child_dims[non_mask_start][0])
+            + (side_margins_h[non_mask_start + 1] if non_mask_start + 1 < n else 0)
+        )
         for i in range(non_mask_start + 1, n):
             x_positions[i] = current_x
             if i + 1 < n:
@@ -1089,7 +1205,8 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
             mask_subtree_width = child_dims[i][0]
             x_positions[i] = x - mask_gap_h - mask_subtree_width
     else:
-        # n >= 3 non-fan: input[0] centered above root; inputs[1..n-1] step right from root's right edge.
+        # n >= 3 non-fan: input[0] centered above root;
+        # inputs[1..n-1] step right from root's right edge.
         x_positions = [_center_x(inputs[0].screenWidth(), x, node.screenWidth())]
         current_x = x + node.screenWidth() + side_margins_h[1]
         for i in range(1, n):
@@ -1113,7 +1230,8 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
                 inputs[i] = dot
     else:
         if fan_active and n >= 3:
-            # Fan mode: insert Dots for ALL inputs (non-mask including B at index non_mask_start, plus mask as side).
+            # Fan mode: insert Dots for ALL inputs
+            # (non-mask including B at index non_mask_start, plus mask as side).
             for i in range(n):
                 if inputs[i].Class() != 'Dot':
                     dot = nuke.nodes.Dot()
@@ -1139,18 +1257,29 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
         # In fan mode, ALL inputs (including B at non_mask_start) are treated as side inputs
         # and get routing Dots. The not _hides_inputs guard prevents diamond Dots from
         # being treated as routing Dots.
-        is_side_dot = (all_side or (fan_active and n >= 3) or i > 0) and inp.Class() == 'Dot' and not _hides_inputs(inp)
+        is_side_dot = (
+            (all_side or (fan_active and n >= 3) or i > 0)
+            and inp.Class() == 'Dot'
+            and not _hides_inputs(inp)
+        )
         if is_side_dot:
             # Newly inserted side-input dot (hide_input is False).
             # Place the upstream subtree at the fan/staircase position, then
             # position the dot itself separately.
             actual_upstream = inp.input(0)
-            place_subtree(actual_upstream, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
+            place_subtree(
+                actual_upstream, x_positions[i], y_positions[i],
+                memo, snap_threshold, node_count, node_filter,
+                scheme_multiplier=scheme_multiplier,
+                per_node_h_scale=per_node_h_scale,
+                per_node_v_scale=per_node_v_scale,
+            )
             dot_center_x = x_positions[i] + actual_upstream.screenWidth() // 2
             if fan_active and n >= 3:
                 # Fan mode: Dot row sits in gap above consumer, symmetric snap_threshold-1 margins.
-                # gap_to_fan is already sized to hold the Dot; place bottom of Dot at snap_threshold-1
-                # above consumer top (y). Nuke Y is positive-down so subtract to move upward.
+                # gap_to_fan is already sized to hold the Dot; place bottom of Dot at
+                # snap_threshold-1 above consumer top (y).
+                # Nuke Y is positive-down so subtract to move upward.
                 dot_row_y = y - (snap_threshold - 1) - inp.screenHeight()
                 dot_y = dot_row_y
             elif i == n - 1:
@@ -1158,12 +1287,27 @@ def place_subtree(node, x, y, memo, snap_threshold, node_count, node_filter=None
                 dot_y = y + (node.screenHeight() - inp.screenHeight()) // 2
             else:
                 # Staircase: staggered dot placed below its input node using prefs-based margin.
-                dot_y = y_positions[i] + actual_upstream.screenHeight() + int(_subtree_margin(node, actual_slots[n - 1], node_count, mode_multiplier=scheme_multiplier) * node_v_scale)
+                dot_y = (
+                    y_positions[i] + actual_upstream.screenHeight()
+                    + int(
+                        _subtree_margin(
+                            node, actual_slots[n - 1], node_count,
+                            mode_multiplier=scheme_multiplier,
+                        ) * node_v_scale
+                    )
+                )
             inp.setXpos(dot_center_x - inp.screenWidth() // 2)
             inp.setYpos(dot_y)
         else:
-            # Regular node, or a diamond-resolution Dot (hide_input=True, node_layout_diamond_dot knob).
-            place_subtree(inp, x_positions[i], y_positions[i], memo, snap_threshold, node_count, node_filter, scheme_multiplier=scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
+            # Regular node, or a diamond-resolution Dot
+            # (hide_input=True, node_layout_diamond_dot knob).
+            place_subtree(
+                inp, x_positions[i], y_positions[i],
+                memo, snap_threshold, node_count, node_filter,
+                scheme_multiplier=scheme_multiplier,
+                per_node_h_scale=per_node_h_scale,
+                per_node_v_scale=per_node_v_scale,
+            )
             # After recursion, reposition diamond Dots to be centered under the consumer tile.
             # The upstream subtree above the Dot is unaffected — only the Dot tile moves.
             if (inp.Class() == 'Dot'
@@ -1347,12 +1491,15 @@ def layout_upstream(scheme_multiplier=None):
                 # above the originally selected downstream node so the layout is
                 # positioned correctly relative to the consumer, not D's scrambled coords.
                 if root is not original_selected_root:
-                    step_x = int(current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier)
+                    step_x = int(
+                        current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier
+                    )
                     # Walk the already-built replay_spine_set to compute full leftward extent.
                     # Each spine node beyond the root (index 1 onward) advances the chain left by
                     # step_x + that node's width.  spine_x must account for this entire extent so
-                    # the leftmost spine node still clears the consumer's right edge with a clean gap.
-                    # Note: left_extents (side-subtree widths) are treated as out-of-scope here —
+                    # the leftmost spine node still clears the consumer's right edge with a clean
+                    # gap. Note: left_extents (side-subtree widths) are treated as out-of-scope
+                    # here —
                     # this fix addresses primary spine-node overlap; side-subtree overlap is a
                     # secondary edge case.
                     spine_nodes_ordered = []
@@ -1365,35 +1512,57 @@ def layout_upstream(scheme_multiplier=None):
                         for i in range(1, len(spine_nodes_ordered))
                     )
                     consumer = original_selected_root
-                    loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
+                    loose_gap_multiplier = node_layout_prefs.prefs_singleton.get(
+                        "loose_gap_multiplier"
+                    )
                     dot_gap = int(loose_gap_multiplier * root_scheme_multiplier * snap_threshold)
-                    spine_x = consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
+                    spine_x = (
+                        consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
+                    )
                     spine_y = consumer.ypos() - dot_gap - root.screenHeight()
                 else:
                     # root IS the originally selected node.  Find its downstream consumer
                     # (the node wired to root, or — on replay — wired to the output dot that
                     # sits between root and the consumer) so the chain can be anchored at the
                     # correct position relative to the consumer.
-                    step_x = int(current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier)
-                    loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
+                    step_x = int(
+                        current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier
+                    )
+                    loose_gap_multiplier = node_layout_prefs.prefs_singleton.get(
+                        "loose_gap_multiplier"
+                    )
                     dot_gap = int(loose_gap_multiplier * root_scheme_multiplier * snap_threshold)
-                    all_group_nodes = current_group.nodes() if current_group is not None else nuke.allNodes()
+                    all_group_nodes = (
+                        current_group.nodes() if current_group is not None else nuke.allNodes()
+                    )
                     downstream_consumer = None
                     replay_output_dot = None
                     for _candidate in all_group_nodes:
                         if _candidate.knob(_OUTPUT_DOT_KNOB_NAME) is not None:
-                            if _candidate.input(0) is not None and id(_candidate.input(0)) == id(root):
+                            if (
+                                _candidate.input(0) is not None
+                                and id(_candidate.input(0)) == id(root)
+                            ):
                                 replay_output_dot = _candidate
                         elif downstream_consumer is None:
                             for _slot in range(_candidate.inputs()):
-                                if _candidate.input(_slot) is not None and id(_candidate.input(_slot)) == id(root):
+                                if (
+                                    _candidate.input(_slot) is not None
+                                    and id(_candidate.input(_slot)) == id(root)
+                                ):
                                     downstream_consumer = _candidate
                                     break
                     if downstream_consumer is None and replay_output_dot is not None:
                         for _candidate in all_group_nodes:
-                            if _candidate.knob(_OUTPUT_DOT_KNOB_NAME) is None and downstream_consumer is None:
+                            if (
+                                _candidate.knob(_OUTPUT_DOT_KNOB_NAME) is None
+                                and downstream_consumer is None
+                            ):
                                 for _slot in range(_candidate.inputs()):
-                                    if _candidate.input(_slot) is not None and id(_candidate.input(_slot)) == id(replay_output_dot):
+                                    if (
+                                        _candidate.input(_slot) is not None
+                                        and id(_candidate.input(_slot)) == id(replay_output_dot)
+                                    ):
                                         downstream_consumer = _candidate
                                         break
                     if downstream_consumer is not None:
@@ -1406,7 +1575,11 @@ def layout_upstream(scheme_multiplier=None):
                             step_x + spine_nodes_ordered[i].screenWidth()
                             for i in range(1, len(spine_nodes_ordered))
                         )
-                        spine_x = downstream_consumer.xpos() + downstream_consumer.screenWidth() + step_x + leftward_extent
+                        spine_x = (
+                            downstream_consumer.xpos()
+                            + downstream_consumer.screenWidth()
+                            + step_x + leftward_extent
+                        )
                         spine_y = downstream_consumer.ypos() - dot_gap - root.screenHeight()
                     else:
                         spine_x = root.xpos()
@@ -1452,14 +1625,19 @@ def layout_upstream(scheme_multiplier=None):
                         for chain_node in _chain_nodes_fix_a:
                             chain_node.setXpos(chain_node.xpos() + _clearance_deficit)
 
-                _place_output_dot_for_horizontal_root(root, current_group, snap_threshold, root_scheme_multiplier)
+                _place_output_dot_for_horizontal_root(
+                    root, current_group, snap_threshold, root_scheme_multiplier
+                )
 
                 # Fix B: compute the full horizontal chain bbox (including output dot, now placed)
                 # so Phase 2 can clamp its X-anchor and avoid landing inside the chain's extent.
                 _chain_all_nodes_fix_b = collect_subtree_nodes(root)
                 for _fix_b_slot in range(original_selected_root.inputs()):
                     _fix_b_inp = original_selected_root.input(_fix_b_slot)
-                    if _fix_b_inp is not None and _fix_b_inp.knob(_OUTPUT_DOT_KNOB_NAME) is not None:
+                    if (
+                        _fix_b_inp is not None
+                        and _fix_b_inp.knob(_OUTPUT_DOT_KNOB_NAME) is not None
+                    ):
                         _chain_all_nodes_fix_b.append(_fix_b_inp)
                 _chain_bbox = compute_node_bounding_box(_chain_all_nodes_fix_b)
                 _chain_left_for_phase2 = _chain_bbox[0] if _chain_bbox is not None else None
@@ -1540,14 +1718,24 @@ def layout_upstream(scheme_multiplier=None):
                                 )
                                 _phase2_required_ceiling = _chain_top_fix_c - _phase2_side_gap
                                 if _phase2_subtree_bottom > _phase2_required_ceiling:
-                                    _phase2_shift_up = _phase2_subtree_bottom - _phase2_required_ceiling
+                                    _phase2_shift_up = (
+                                        _phase2_subtree_bottom - _phase2_required_ceiling
+                                    )
                                     for phase2_node in _phase2_input_nodes:
                                         phase2_node.setYpos(phase2_node.ypos() - _phase2_shift_up)
             else:
-                compute_dims(root, memo, snap_threshold, node_count, scheme_multiplier=root_scheme_multiplier,
-                             per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
-                place_subtree(root, root.xpos(), root.ypos(), memo, snap_threshold, node_count,
-                              scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
+                compute_dims(
+                    root, memo, snap_threshold, node_count,
+                    scheme_multiplier=root_scheme_multiplier,
+                    per_node_h_scale=per_node_h_scale,
+                    per_node_v_scale=per_node_v_scale,
+                )
+                place_subtree(
+                    root, root.xpos(), root.ypos(), memo, snap_threshold, node_count,
+                    scheme_multiplier=root_scheme_multiplier,
+                    per_node_h_scale=per_node_h_scale,
+                    per_node_v_scale=per_node_v_scale,
+                )
 
             # Capture final state from the originally selected node so all touched nodes
             # (horizontal chain, output dot, and consumer's vertical inputs) are included.
@@ -1567,7 +1755,9 @@ def layout_upstream(scheme_multiplier=None):
                     node_scheme_multiplier, current_prefs
                 )
                 if root_mode == "horizontal" and replay_spine_set is not None:
-                    stored_state["mode"] = "horizontal" if id(state_node) in replay_spine_set else "vertical"
+                    stored_state["mode"] = (
+                        "horizontal" if id(state_node) in replay_spine_set else "vertical"
+                    )
                 else:
                     stored_state["mode"] = "vertical"
                 # h_scale and v_scale are NOT reset by re-layout — preserve existing values
@@ -1587,7 +1777,8 @@ def layout_upstream(scheme_multiplier=None):
 
 
 def find_selection_roots(selected_nodes):
-    """Return the most-downstream selected nodes — those that no other selected node takes as an input."""
+    """Return the most-downstream selected nodes — those that no other selected node takes
+    as an input."""
     selected_set = set(id(n) for n in selected_nodes)
     nodes_used_as_input = set()
     for node in selected_nodes:
@@ -1660,7 +1851,10 @@ def layout_selected(scheme_multiplier=None):
                         if id(bfs_cursor) in bfs_visited:
                             continue
                         bfs_visited.add(id(bfs_cursor))
-                        if node_layout_state.read_node_state(bfs_cursor).get("mode") == "horizontal":
+                        if (
+                            node_layout_state.read_node_state(bfs_cursor).get("mode")
+                            == "horizontal"
+                        ):
                             root = bfs_cursor
                             root_mode = "horizontal"
                             break
@@ -1689,13 +1883,15 @@ def layout_selected(scheme_multiplier=None):
                     # upstream horizontal node, place the chain to the RIGHT of the
                     # originally selected downstream consumer at the consumer's Y level.
                     if root is not original_selected_root:
-                        step_x = int(current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier)
+                        step_x = int(
+                            current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier
+                        )
                         # Walk the already-built root_spine_set to compute full leftward extent.
-                        # Each spine node beyond the root (index 1 onward) advances the chain left by
-                        # step_x + that node's width.  spine_x must account for this entire extent so
-                        # the leftmost spine node still clears the consumer's right edge with a clean gap.
-                        # Note: left_extents (side-subtree widths) are treated as out-of-scope here —
-                        # this fix addresses primary spine-node overlap; side-subtree overlap is a
+                        # Each spine node beyond the root (index 1 onward) advances the chain left
+                        # by step_x + that node's width. spine_x must account for this entire
+                        # extent so the leftmost spine node still clears the consumer's right edge.
+                        # Note: left_extents (side-subtree widths) are treated as out-of-scope here
+                        # — this fix addresses primary spine-node overlap; side-subtree overlap is a
                         # secondary edge case.
                         spine_nodes_ordered = []
                         cursor = root
@@ -1707,34 +1903,61 @@ def layout_selected(scheme_multiplier=None):
                             for i in range(1, len(spine_nodes_ordered))
                         )
                         consumer = original_selected_root
-                        loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
-                        dot_gap = int(loose_gap_multiplier * root_scheme_multiplier * snap_threshold)
-                        spine_x = consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
+                        loose_gap_multiplier = node_layout_prefs.prefs_singleton.get(
+                            "loose_gap_multiplier"
+                        )
+                        dot_gap = int(
+                            loose_gap_multiplier * root_scheme_multiplier * snap_threshold
+                        )
+                        spine_x = (
+                            consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
+                        )
                         spine_y = consumer.ypos() - dot_gap - root.screenHeight()
                     else:
                         # root IS the originally selected node.  Find its downstream consumer
                         # (wired to root directly, or — on replay — wired to the output dot)
                         # so the chain can be anchored correctly relative to the consumer.
-                        step_x = int(current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier)
-                        loose_gap_multiplier = node_layout_prefs.prefs_singleton.get("loose_gap_multiplier")
-                        dot_gap = int(loose_gap_multiplier * root_scheme_multiplier * snap_threshold)
-                        all_group_nodes = current_group.nodes() if current_group is not None else nuke.allNodes()
+                        step_x = int(
+                            current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier
+                        )
+                        loose_gap_multiplier = node_layout_prefs.prefs_singleton.get(
+                            "loose_gap_multiplier"
+                        )
+                        dot_gap = int(
+                            loose_gap_multiplier * root_scheme_multiplier * snap_threshold
+                        )
+                        all_group_nodes = (
+                            current_group.nodes()
+                            if current_group is not None else nuke.allNodes()
+                        )
                         downstream_consumer = None
                         replay_output_dot = None
                         for _candidate in all_group_nodes:
                             if _candidate.knob(_OUTPUT_DOT_KNOB_NAME) is not None:
-                                if _candidate.input(0) is not None and id(_candidate.input(0)) == id(root):
+                                if (
+                                    _candidate.input(0) is not None
+                                    and id(_candidate.input(0)) == id(root)
+                                ):
                                     replay_output_dot = _candidate
                             elif downstream_consumer is None:
                                 for _slot in range(_candidate.inputs()):
-                                    if _candidate.input(_slot) is not None and id(_candidate.input(_slot)) == id(root):
+                                    if (
+                                        _candidate.input(_slot) is not None
+                                        and id(_candidate.input(_slot)) == id(root)
+                                    ):
                                         downstream_consumer = _candidate
                                         break
                         if downstream_consumer is None and replay_output_dot is not None:
                             for _candidate in all_group_nodes:
-                                if _candidate.knob(_OUTPUT_DOT_KNOB_NAME) is None and downstream_consumer is None:
+                                if (
+                                    _candidate.knob(_OUTPUT_DOT_KNOB_NAME) is None
+                                    and downstream_consumer is None
+                                ):
                                     for _slot in range(_candidate.inputs()):
-                                        if _candidate.input(_slot) is not None and id(_candidate.input(_slot)) == id(replay_output_dot):
+                                        if (
+                                            _candidate.input(_slot) is not None
+                                            and id(_candidate.input(_slot)) == id(replay_output_dot)
+                                        ):
                                             downstream_consumer = _candidate
                                             break
                         if downstream_consumer is not None:
@@ -1747,7 +1970,11 @@ def layout_selected(scheme_multiplier=None):
                                 step_x + spine_nodes_ordered[i].screenWidth()
                                 for i in range(1, len(spine_nodes_ordered))
                             )
-                            spine_x = downstream_consumer.xpos() + downstream_consumer.screenWidth() + step_x + leftward_extent
+                            spine_x = (
+                                downstream_consumer.xpos()
+                                + downstream_consumer.screenWidth()
+                                + step_x + leftward_extent
+                            )
                             spine_y = downstream_consumer.ypos() - dot_gap - root.screenHeight()
                         else:
                             spine_x = root.xpos()
@@ -1793,14 +2020,20 @@ def layout_selected(scheme_multiplier=None):
                             for chain_node in _chain_nodes_fix_a:
                                 chain_node.setXpos(chain_node.xpos() + _clearance_deficit)
 
-                    _place_output_dot_for_horizontal_root(root, current_group, snap_threshold, root_scheme_multiplier)
+                    _place_output_dot_for_horizontal_root(
+                    root, current_group, snap_threshold, root_scheme_multiplier
+                )
 
-                    # Fix B: compute the full horizontal chain bbox (including output dot, now placed)
-                    # so Phase 2 can clamp its X-anchor and avoid landing inside the chain's extent.
+                    # Fix B: compute the full horizontal chain bbox (including output dot, now
+                    # placed) so Phase 2 can clamp its X-anchor and avoid landing inside the
+                    # chain's extent.
                     _chain_all_nodes_fix_b = collect_subtree_nodes(root)
                     for _fix_b_slot in range(original_selected_root.inputs()):
                         _fix_b_inp = original_selected_root.input(_fix_b_slot)
-                        if _fix_b_inp is not None and _fix_b_inp.knob(_OUTPUT_DOT_KNOB_NAME) is not None:
+                        if (
+                            _fix_b_inp is not None
+                            and _fix_b_inp.knob(_OUTPUT_DOT_KNOB_NAME) is not None
+                        ):
                             _chain_all_nodes_fix_b.append(_fix_b_inp)
                     _chain_bbox = compute_node_bounding_box(_chain_all_nodes_fix_b)
                     _chain_left_for_phase2 = _chain_bbox[0] if _chain_bbox is not None else None
@@ -1835,7 +2068,8 @@ def layout_selected(scheme_multiplier=None):
                             # place_subtree places the root at phase2_anchor_x and side inputs step
                             # rightward from the root's right edge.  The actual rightmost extent of
                             # the Phase 2 subtree is therefore phase2_anchor_x + phase2_w.
-                            # Require: phase2_anchor_x + phase2_w < chain_left - horizontal_subtree_gap
+                            # Require: phase2_anchor_x + phase2_w < chain_left
+                            # - horizontal_subtree_gap
                             # (strictly less — the chain gap must not be eaten by Phase 2 nodes)
                             phase2_anchor_x = original_selected_root.xpos()
                             if _chain_left_for_phase2 is not None:
@@ -1870,24 +2104,40 @@ def layout_selected(scheme_multiplier=None):
                                     )
                                     _phase2_required_ceiling = _chain_top_fix_c - _phase2_side_gap
                                     if _phase2_subtree_bottom > _phase2_required_ceiling:
-                                        _phase2_shift_up = _phase2_subtree_bottom - _phase2_required_ceiling
+                                        _phase2_shift_up = (
+                                        _phase2_subtree_bottom - _phase2_required_ceiling
+                                    )
                                         for phase2_node in _phase2_input_nodes:
-                                            phase2_node.setYpos(phase2_node.ypos() - _phase2_shift_up)
+                                            phase2_node.setYpos(
+                                                phase2_node.ypos() - _phase2_shift_up
+                                            )
                 else:
                     insert_dot_nodes(root, node_filter=node_filter)
-                    tree_width, tree_height = compute_dims(root, memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
+                    tree_width, tree_height = compute_dims(
+                        root, memo, snap_threshold, node_count,
+                        node_filter=node_filter,
+                        scheme_multiplier=root_scheme_multiplier,
+                        per_node_h_scale=per_node_h_scale,
+                        per_node_v_scale=per_node_v_scale,
+                    )
 
                     tree_bottom = root.ypos() + root.screenHeight()
                     tree_top = tree_bottom - tree_height
 
                     # Resolve start_x: push right if Y ranges overlap with any already-placed tree.
                     start_x = root.xpos()
-                    for placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
+                    for _placed_left, placed_top, placed_right, placed_bottom in placed_bboxes:
                         if tree_top < placed_bottom and tree_bottom > placed_top:  # Y overlap
                             horizontal_clearance = current_prefs.get("horizontal_subtree_gap")
                             start_x = max(start_x, placed_right + horizontal_clearance)
 
-                    place_subtree(root, start_x, root.ypos(), memo, snap_threshold, node_count, node_filter=node_filter, scheme_multiplier=root_scheme_multiplier, per_node_h_scale=per_node_h_scale, per_node_v_scale=per_node_v_scale)
+                    place_subtree(
+                        root, start_x, root.ypos(), memo, snap_threshold, node_count,
+                        node_filter=node_filter,
+                        scheme_multiplier=root_scheme_multiplier,
+                        per_node_h_scale=per_node_h_scale,
+                        per_node_v_scale=per_node_v_scale,
+                    )
                     placed_bboxes.append((start_x, tree_top, start_x + tree_width, tree_bottom))
 
             # Aggregate all horizontal spine node ids across all roots.
@@ -1908,7 +2158,9 @@ def layout_selected(scheme_multiplier=None):
                 stored_state["scheme"] = node_layout_state.multiplier_to_scheme_name(
                     node_scheme_multiplier, current_prefs
                 )
-                stored_state["mode"] = "horizontal" if id(state_node) in all_horizontal_spine_ids else "vertical"
+                stored_state["mode"] = (
+                    "horizontal" if id(state_node) in all_horizontal_spine_ids else "vertical"
+                )
                 node_layout_state.write_node_state(state_node, stored_state)
 
             # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
@@ -1949,7 +2201,8 @@ def layout_selected_loose():
 
 
 def _layout_selected_horizontal_impl(scheme_multiplier, side_layout_mode, undo_label):
-    """Shared implementation for layout_selected_horizontal and layout_selected_horizontal_place_only."""
+    """Shared implementation for layout_selected_horizontal and
+    layout_selected_horizontal_place_only."""
     global _TOOLBAR_FOLDER_MAP
     _TOOLBAR_FOLDER_MAP = None
     _clear_color_cache()
@@ -2003,7 +2256,9 @@ def _layout_selected_horizontal_impl(scheme_multiplier, side_layout_mode, undo_l
                     spine_set=spine_set,
                     side_layout_mode=side_layout_mode,
                 )
-                _place_output_dot_for_horizontal_root(root, current_group, snap_threshold, root_scheme_multiplier)
+                _place_output_dot_for_horizontal_root(
+                    root, current_group, snap_threshold, root_scheme_multiplier
+                )
 
             # State write-back: both recursive and place_only write mode='horizontal'
             # so that subsequent layout_upstream/layout_selected replay horizontal mode.

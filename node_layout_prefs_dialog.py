@@ -1,6 +1,3 @@
-import node_layout_prefs
-
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -9,6 +6,8 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QVBoxLayout,
 )
+
+import node_layout_prefs
 
 
 def _make_section_header(text):
@@ -50,7 +49,10 @@ class NodeLayoutPrefsDialog(QDialog):
         form_layout.addRow("Horizontal Subtree Gap (px):", self.horizontal_subtree_gap_edit)
 
         self.horizontal_side_vertical_gap_edit = QLineEdit()
-        form_layout.addRow("Horizontal Side Vertical Gap (px):", self.horizontal_side_vertical_gap_edit)
+        form_layout.addRow(
+            "Horizontal Side Vertical Gap (px):",
+            self.horizontal_side_vertical_gap_edit,
+        )
 
         self.horizontal_mask_gap_edit = QLineEdit()
         form_layout.addRow("Horizontal Mask Gap (px):", self.horizontal_mask_gap_edit)
@@ -98,7 +100,9 @@ class NodeLayoutPrefsDialog(QDialog):
     def _populate_from_prefs(self):
         prefs_instance = node_layout_prefs.prefs_singleton
         self.horizontal_subtree_gap_edit.setText(str(prefs_instance.get("horizontal_subtree_gap")))
-        self.horizontal_side_vertical_gap_edit.setText(str(prefs_instance.get("horizontal_side_vertical_gap")))
+        self.horizontal_side_vertical_gap_edit.setText(
+            str(prefs_instance.get("horizontal_side_vertical_gap"))
+        )
         self.horizontal_mask_gap_edit.setText(str(prefs_instance.get("horizontal_mask_gap")))
         self.base_subtree_margin_edit.setText(str(prefs_instance.get("base_subtree_margin")))
         self.mask_input_ratio_edit.setText(str(prefs_instance.get("mask_input_ratio")))
@@ -106,8 +110,12 @@ class NodeLayoutPrefsDialog(QDialog):
         self.normal_multiplier_edit.setText(str(prefs_instance.get("normal_multiplier")))
         self.loose_multiplier_edit.setText(str(prefs_instance.get("loose_multiplier")))
         self.loose_gap_multiplier_edit.setText(str(prefs_instance.get("loose_gap_multiplier")))
-        self.dot_font_reference_size_edit.setText(str(prefs_instance.get("dot_font_reference_size")))
-        self.scaling_reference_count_edit.setText(str(prefs_instance.get("scaling_reference_count")))
+        self.dot_font_reference_size_edit.setText(
+            str(prefs_instance.get("dot_font_reference_size"))
+        )
+        self.scaling_reference_count_edit.setText(
+            str(prefs_instance.get("scaling_reference_count"))
+        )
 
     def _on_accept(self):
         try:

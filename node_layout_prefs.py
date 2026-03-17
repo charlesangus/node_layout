@@ -6,7 +6,8 @@ PREFS_FILE = os.path.join(os.path.expanduser("~"), ".nuke", "node_layout_prefs.j
 DEFAULTS = {
     "base_subtree_margin": 200,           # rebalanced: was 300, now 200 (less tall)
     "horizontal_subtree_gap": 250,        # H-axis spine-to-spine gap (px)
-    "horizontal_side_vertical_gap": 150,  # H-axis gap between spine and first node of side subtree (px)
+    # H-axis gap between spine and first node of side subtree (px)
+    "horizontal_side_vertical_gap": 150,
     "horizontal_mask_gap": 50,            # H-axis mask input gap (px)
     "dot_font_reference_size": 20,        # NEW: stub for Phase 8 font-margin scaling
     "compact_multiplier": 0.6,
