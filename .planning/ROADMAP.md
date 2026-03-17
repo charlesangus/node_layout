@@ -56,7 +56,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
   2. Pushing a commit to any branch triggers the CI workflow and runs all 276 pytest tests
   3. Pushing a commit to any branch triggers Ruff linting and reports any violations
   4. A pull request shows a green or red check from the CI workflow before merging
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 13-01-PLAN.md — pyproject.toml + menu.py wrapping + portable test paths
@@ -92,5 +92,5 @@ Plans:
 | 11.1. Fix Horizontal Layout Functionality (INSERTED) | v1.1 | 3/3 | Complete | 2026-03-15 |
 | 11.2. Fix Horizontal Layout Bbox (INSERTED) | v1.1 | 2/2 | Complete | 2026-03-16 |
 | 12. Fix Fan Layout Logic (INSERTED) | v1.1 | 2/2 | Complete | 2026-03-17 |
-| 13. Tooling + CI | 1/3 | In Progress|  | - |
+| 13. Tooling + CI | 2/3 | In Progress|  | - |
 | 14. Release Workflow | v1.2 | 0/? | Not started | - |
