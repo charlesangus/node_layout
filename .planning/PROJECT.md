@@ -103,9 +103,21 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 | Inserted phases use decimal numbering (11.1, 11.2, 12) | Clear insertion semantics; avoids renumbering existing phases | ✓ Good |
 | Phase 2 vertical pass for consumer when horizontal chain detected | Lets normal vertical tree sit correctly above/below horizontal spine without overlap | ✓ Good |
 
-## Next Milestone
+## Current Milestone: v1.2 CI/CD
 
-Run `/gsd:new-milestone` to define v1.2 goals, requirements, and roadmap.
+**Goal:** Add a CI/CD system that automatically tests on every push and produces reliable versioned release artifacts on tag push.
+
+**Target features:**
+- GitHub Actions CI: pytest + Ruff linting on every push/PR
+- GitHub Actions release workflow: tag-triggered, gated on passing CI, produces versioned ZIP
+- pyproject.toml with Ruff configuration
+- GitHub Release published automatically with ZIP artifact and release notes
+
+### Active
+
+- [ ] pyproject.toml with Ruff configuration
+- [ ] CI workflow: tests + linting on every push and PR
+- [ ] Release workflow: tag-triggered, tests + linting gate, ZIP artifact, GitHub Release
 
 ---
-*Last updated: 2026-03-17 after v1.1 milestone*
+*Last updated: 2026-03-17 after v1.2 milestone start*

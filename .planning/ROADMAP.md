@@ -92,5 +92,5 @@ Plans:
 | 11.1. Fix Horizontal Layout Functionality (INSERTED) | v1.1 | 3/3 | Complete | 2026-03-15 |
 | 11.2. Fix Horizontal Layout Bbox (INSERTED) | v1.1 | 2/2 | Complete | 2026-03-16 |
 | 12. Fix Fan Layout Logic (INSERTED) | v1.1 | 2/2 | Complete | 2026-03-17 |
-| 13. Tooling + CI | 3/3 | Complete   | 2026-03-17 | - |
+| 13. Tooling + CI | 3/3 | Complete    | 2026-03-17 | - |
 | 14. Release Workflow | v1.2 | 0/? | Not started | - |
