@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install ruff pytest
+
+      - name: Lint with Ruff
+        run: ruff check .
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+  build:
+    runs-on: ubuntu-24.04
+    needs: test
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build ZIP
+        run: |
+          mkdir node_layout
+          cp node_layout.py node_layout_state.py util.py \
+             node_layout_prefs.py node_layout_prefs_dialog.py \
+             menu.py make_room.py README.md LICENSE node_layout/
+          zip -r node_layout-${{ github.ref_name }}.zip node_layout/
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: node_layout-${{ github.ref_name }}.zip
+          generate_release_notes: true
