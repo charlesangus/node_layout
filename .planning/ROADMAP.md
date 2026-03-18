@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Quality & Preferences** — Phases 1-5 (shipped 2026-03-05)
 - ✅ **v1.1 Layout Engine & State** — Phases 6-12 (shipped 2026-03-17)
-- 🚧 **v1.2 CI/CD** — Phases 13-14 (in progress)
+- ✅ **v1.2 CI/CD** — Phases 13-14 (shipped 2026-03-18)
 
 ## Phases
 
@@ -38,44 +38,15 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 
 </details>
 
-### 🚧 v1.2 CI/CD (In Progress)
+<details>
+<summary>✅ v1.2 CI/CD (Phases 13-14) — SHIPPED 2026-03-18</summary>
 
-**Milestone Goal:** Add a CI/CD system that automatically tests on every push and produces reliable versioned release artifacts on tag push.
+- [x] Phase 13: Tooling + CI (3/3 plans) — completed 2026-03-17
+- [x] Phase 14: Release Workflow (1/1 plan) — completed 2026-03-18
 
-- [x] **Phase 13: Tooling + CI** — pyproject.toml with Ruff config and GitHub Actions CI workflow (completed 2026-03-17)
-- [x] **Phase 14: Release Workflow** — Tag-triggered release workflow producing versioned ZIP and GitHub Release (completed 2026-03-18)
+Full archive: `.planning/milestones/v1.2-ROADMAP.md`
 
-## Phase Details
-
-### Phase 13: Tooling + CI
-**Goal**: Every push and pull request is automatically linted and tested with results visible in GitHub
-**Depends on**: Nothing (first phase of v1.2)
-**Requirements**: TOOL-01, CI-01, CI-02, CI-03
-**Success Criteria** (what must be TRUE):
-  1. `pyproject.toml` exists at the repo root with Ruff configured (line length, E/F/W/B/I/SIM rules, per-file exceptions for `menu.py`)
-  2. Pushing a commit to any branch triggers the CI workflow and runs all 276 pytest tests
-  3. Pushing a commit to any branch triggers Ruff linting and reports any violations
-  4. A pull request shows a green or red check from the CI workflow before merging
-**Plans:** 3/3 plans complete
-
-Plans:
-- [ ] 13-01-PLAN.md — pyproject.toml + menu.py wrapping + portable test paths
-- [ ] 13-02-PLAN.md — Fix all Ruff violations across source and test files
-- [ ] 13-03-PLAN.md — GitHub Actions CI workflow
-
-### Phase 14: Release Workflow
-**Goal**: Pushing a version tag automatically produces a tested, versioned ZIP and publishes it as a GitHub Release
-**Depends on**: Phase 13
-**Requirements**: REL-01, REL-02, REL-03, REL-04
-**Success Criteria** (what must be TRUE):
-  1. Pushing a `v*` tag triggers the release workflow
-  2. The release workflow runs tests and linting before building; it does not publish if either fails
-  3. A versioned ZIP named `node_layout-vX.Y.zip` containing all plugin `.py` files, `README.md`, and `LICENSE` is attached to the release
-  4. A GitHub Release is published automatically with the ZIP attached and auto-generated release notes
-**Plans:** 1/1 plans complete
-
-Plans:
-- [ ] 14-01-PLAN.md — Release workflow with test gate, versioned ZIP build, and GitHub Release publish
+</details>
 
 ## Progress
 
@@ -95,5 +66,5 @@ Plans:
 | 11.1. Fix Horizontal Layout Functionality (INSERTED) | v1.1 | 3/3 | Complete | 2026-03-15 |
 | 11.2. Fix Horizontal Layout Bbox (INSERTED) | v1.1 | 2/2 | Complete | 2026-03-16 |
 | 12. Fix Fan Layout Logic (INSERTED) | v1.1 | 2/2 | Complete | 2026-03-17 |
-| 13. Tooling + CI | 3/3 | Complete    | 2026-03-17 | - |
-| 14. Release Workflow | 1/1 | Complete   | 2026-03-18 | - |
+| 13. Tooling + CI | v1.2 | 3/3 | Complete | 2026-03-17 |
+| 14. Release Workflow | v1.2 | 1/1 | Complete | 2026-03-18 |

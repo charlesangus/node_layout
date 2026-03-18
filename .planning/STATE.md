@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: CI/CD
 status: planning
 stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-03-18T00:26:46.342Z"
+last_updated: "2026-03-18T11:45:22.277Z"
 last_activity: "2026-03-17 - Completed quick task 260317-n0k: fix the failing tests"
 progress:
   total_phases: 2

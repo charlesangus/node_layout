@@ -1,5 +1,31 @@
 # Milestones
 
+## v1.2 — CI/CD
+
+**Shipped:** 2026-03-18
+**Phases:** 2 (13–14) | **Plans:** 4
+**Files changed:** 49 | **Lines:** +2,828 / -294
+**Timeline:** 2026-03-17 → 2026-03-18 (1 day)
+
+### Delivered
+
+Added a full CI/CD system: every push is linted and tested automatically, and pushing a version tag produces a tested ZIP artifact published as a GitHub Release.
+
+### Key Accomplishments
+
+1. **pyproject.toml with Ruff config** — line-length=100, E/F/W/B/I/SIM rules; Ruff is now the single source of truth for code style (Phase 13)
+2. **Portable test paths** — migrated 14 test files from hardcoded `/workspace/` paths to `__file__`-relative imports for CI portability (Phase 13)
+3. **Zero-violation Ruff compliance** — 140 E501 line-wraps + 10 other fixes (SIM103, SIM108, SIM115, B007, F821) across 20 source and test files (Phase 13)
+4. **GitHub Actions CI workflow** — Ruff lint then pytest on every push and PR; sequential fail-fast gives fast feedback on lint errors (Phase 13)
+5. **GitHub Actions release workflow** — `v*` tag push triggers test gate (ruff + pytest), builds `node_layout-vX.Y.zip` from 9 hardcoded files, and publishes a GitHub Release with auto-generated notes via softprops/action-gh-release@v2 (Phase 14)
+
+### Archive
+
+- `.planning/milestones/v1.2-ROADMAP.md` — full phase details
+- `.planning/milestones/v1.2-REQUIREMENTS.md` — all 8 requirements with outcomes
+
+---
+
 ## v1.1 — Layout Engine & State
 
 **Shipped:** 2026-03-17

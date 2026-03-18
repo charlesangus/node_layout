@@ -98,9 +98,52 @@
 
 ---
 
+## Milestone: v1.2 — CI/CD
+
+**Shipped:** 2026-03-18
+**Phases:** 2 (13–14) | **Plans:** 4
+
+### What Was Built
+
+- Phase 13: pyproject.toml with Ruff config; 14 test files migrated to `__file__`-relative paths; zero-violation Ruff compliance across 20 files; GitHub Actions CI workflow (Ruff + pytest on every push/PR)
+- Phase 14: GitHub Actions release workflow — `v*` tag triggers test gate, builds `node_layout-vX.Y.zip` from 9 hardcoded files, publishes GitHub Release with auto-generated notes via softprops/action-gh-release@v2
+
+### What Worked
+
+- **Sequential lint-then-test single CI job**: Fast-fail on lint errors before running 280 tests avoids wasted compute and gives immediate feedback on style regressions.
+- **Hardcoded file list for ZIP**: Explicit 9-file `cp` commands prevent accidental inclusion of future non-distribution files without requiring any glob maintenance.
+- **Mirroring CI job verbatim in release workflow**: The `test` job in the release workflow is a direct copy of the CI job — same OS, Python version, packages. No divergence possible.
+- **Ruff auto-fix first**: Running `ruff check . --fix` before manual E501 wrapping cleaned up import ordering and simple patterns automatically, leaving only structural wraps to do manually.
+
+### What Was Inefficient
+
+- **14 test files with hardcoded paths**: The `/workspace/` path problem was obvious in retrospect — any new test file added in this environment would inherit the same issue. A portable path pattern should have been established from the first test file. (Now established as a convention.)
+- **Ruff violations discovered incrementally**: 140 E501 violations across 20 files needed manual wrapping. Most were from code written before Ruff was configured. The per-plan structure (configure first, then fix) was correct, but the volume was higher than anticipated.
+
+### Patterns Established
+
+- `__file__`-relative test imports: `sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))` for all test files
+- CI pattern: single sequential `lint-and-test` job on ubuntu-24.04, Python 3.11, no pip cache
+- Release pattern: two-job workflow (`test` + `build`) with `needs: test` gate; hardcoded file list; `github.ref_name` in artifact name
+- Ruff config: `[tool.ruff.lint]` only in `pyproject.toml` (no `[project]` section); select = E/F/W/B/I/SIM
+
+### Key Lessons
+
+- **Portable paths from day one**: Establish `__file__`-relative imports in the first test file of a project, not retroactively. Adding a linting rule for hardcoded absolute paths would catch this automatically.
+- **Two-job release workflow is the right default**: The `test` job gate prevents publishing broken artifacts — this pattern should be standard for any future release workflow.
+- **Ruff compliance is cheapest at authorship**: Fixing 140 E501 violations retroactively was mechanical but time-consuming. Future phases should run `ruff check` incrementally as files are written.
+
+### Cost Observations
+
+- Sessions: 1 session over 1 day
+- Notable: Fastest milestone so far — pure tooling with no layout algorithm changes. The test suite validated nothing broke.
+
+---
+
 ## Cross-Milestone Trends
 
 | Milestone | Phases | Plans | Days | Notable |
 |-----------|--------|-------|------|---------|
 | v1.0 | 5 | 13 | 2 | First milestone; established all core patterns |
 | v1.1 | 9 (incl. 3 inserted) | 30 | 12 | Full layout engine; 3 post-ship geometry bug phases; 276 tests |
+| v1.2 | 2 | 4 | 1 | Pure CI/CD tooling; fastest milestone; 49 files changed |

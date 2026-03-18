@@ -2,7 +2,7 @@
 
 ## What This Is
 
-node_layout is a Nuke plugin that automatically lays out DAG node trees with intelligent spacing and persistent state. Related nodes are placed tightly while unrelated nodes get breathing room. The plugin supports vertical stacking, horizontal B-spine mode, multi-input fan alignment, and axis-specific scale commands. It is fully undoable, user-configurable via a PySide6 preferences dialog, and stores per-node layout state in hidden knobs that survive script save/reload and auto-replay on re-layout.
+node_layout is a Nuke plugin that automatically lays out DAG node trees with intelligent spacing and persistent state. Related nodes are placed tightly while unrelated nodes get breathing room. The plugin supports vertical stacking, horizontal B-spine mode, multi-input fan alignment, and axis-specific scale commands. It is fully undoable, user-configurable via a PySide6 preferences dialog, and stores per-node layout state in hidden knobs that survive script save/reload and auto-replay on re-layout. Every push is automatically linted and tested via GitHub Actions CI, and version tags produce a tested ZIP artifact published as a GitHub Release.
 
 ## Core Value
 
@@ -48,10 +48,13 @@ Layout operations must be reliable, undoable, and configurable — users need to
 - ✓ Multi-input fan alignment: 2+ non-mask inputs at same Y; mask placed left of all non-mask inputs — v1.1
 - ✓ Shrink/Expand H/V/Both axis modes; Expand pushes surrounding nodes away — v1.1
 - ✓ Horizontal B-spine layout (Layout Selected Horizontal); stored in state, auto-replayed by normal layout — v1.1
+- ✓ pyproject.toml with Ruff config (line-length=100, E/F/W/B/I/SIM rules) — v1.2
+- ✓ GitHub Actions CI workflow: pytest + Ruff linting on every push and PR — v1.2
+- ✓ GitHub Actions release workflow: v* tag triggers test gate, versioned ZIP build, GitHub Release publish — v1.2
 
 ### Active
 
-(None — all v1.1 requirements shipped. Define v1.2 requirements via `/gsd:new-milestone`.)
+(None — all v1.2 requirements shipped. Define v1.3 requirements via `/gsd:new-milestone`.)
 
 ### Out of Scope
 
@@ -61,13 +64,16 @@ Layout operations must be reliable, undoable, and configurable — users need to
 - Nuke version compatibility layer — current users are on Nuke 11+; not worth abstracting now
 - Error dialogs for empty selection — fail silently; no dialog noise
 - Layout scheme tag on individual nodes — delivered in v1.1 as per-node state storage
+- PyPI publishing — not a Python package; users install manually into `~/.nuke/`
+- Docker-based Nuke testing — no headless Nuke license; stub-based tests are sufficient
+- Automated versioning / changelog generation — git tags + auto-release notes are sufficient
 
 ## Context
 
-**Shipped:** v1.1 Layout Engine & State (2026-03-17)
-**Codebase:** ~2,900 LOC Python source (node_layout.py, node_layout_state.py, util.py, node_layout_prefs.py, node_layout_prefs_dialog.py, menu.py); ~11,100 LOC total incl. tests
-**Tech stack:** Python, PySide6; JSON prefs at `~/.nuke/`; AST-based structural tests + Nuke-stub unit tests (Nuke unavailable in CI)
-**Test suite:** 276 tests spanning prefs, state, layout core, fan alignment, horizontal spine, and scale commands
+**Shipped:** v1.2 CI/CD (2026-03-18)
+**Codebase:** ~2,900 LOC Python source (node_layout.py, node_layout_state.py, util.py, node_layout_prefs.py, node_layout_prefs_dialog.py, menu.py); ~11,465 LOC total incl. tests; 81 lines GitHub Actions YAML
+**Tech stack:** Python, PySide6; JSON prefs at `~/.nuke/`; AST-based structural tests + Nuke-stub unit tests; GitHub Actions CI (Ruff + pytest) and release workflow (softprops/action-gh-release@v2)
+**Test suite:** 280 tests spanning prefs, state, layout core, fan alignment, horizontal spine, and scale commands
 
 Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py` (JSON-backed singleton at `~/.nuke/labelmaker_prefs.json`) + `labelmaker_prefs_dialog.py`. node_layout follows the same structure.
 
@@ -102,22 +108,11 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 | Fan layout: _is_fan_active() threshold is 2+ non-mask inputs | Matches actual compositor usage; 2-input trees use original stacking | ✓ Good |
 | Inserted phases use decimal numbering (11.1, 11.2, 12) | Clear insertion semantics; avoids renumbering existing phases | ✓ Good |
 | Phase 2 vertical pass for consumer when horizontal chain detected | Lets normal vertical tree sit correctly above/below horizontal spine without overlap | ✓ Good |
-
-## Current Milestone: v1.2 CI/CD
-
-**Goal:** Add a CI/CD system that automatically tests on every push and produces reliable versioned release artifacts on tag push.
-
-**Target features:**
-- GitHub Actions CI: pytest + Ruff linting on every push/PR
-- GitHub Actions release workflow: tag-triggered, gated on passing CI, produces versioned ZIP
-- pyproject.toml with Ruff configuration
-- GitHub Release published automatically with ZIP artifact and release notes
-
-### Active
-
-- [ ] pyproject.toml with Ruff configuration
-- [ ] CI workflow: tests + linting on every push and PR
-- [ ] Release workflow: tag-triggered, tests + linting gate, ZIP artifact, GitHub Release
+| Single sequential lint-then-test CI job (not parallel) | Lint failure fast-fails before tests run — faster feedback, avoids wasted compute | ✓ Good |
+| ubuntu-24.04 explicit (not ubuntu-latest) in GitHub Actions | Reproducibility across time; ubuntu-latest changes without notice | ✓ Good |
+| Hardcoded 9-file list in ZIP build (not glob) | Prevents accidental inclusion of test files or future non-distribution files | ✓ Good |
+| ZIP named with github.ref_name preserving v prefix | Produces e.g. node_layout-v1.2.zip — clear version signal without extra config | ✓ Good |
+| softprops/action-gh-release@v2 with generate_release_notes: true | No manual release notes authoring; auto-notes from PR/commit history | ✓ Good |
 
 ---
-*Last updated: 2026-03-17 after v1.2 milestone start*
+*Last updated: 2026-03-18 after v1.2 milestone*
