@@ -19,10 +19,10 @@ Requirements for the CI/CD milestone. Each maps to roadmap phases.
 
 ### Release
 
-- [ ] **REL-01**: Release workflow triggers on `v*` git tag push
-- [ ] **REL-02**: Release workflow gates on passing tests and linting before building artifact
-- [ ] **REL-03**: Release workflow produces a versioned ZIP (`node_layout-vX.Y.zip`) containing all plugin `.py` files, `README.md`, and `LICENSE`
-- [ ] **REL-04**: Release workflow publishes a GitHub Release with the ZIP attached and auto-generated release notes
+- [x] **REL-01**: Release workflow triggers on `v*` git tag push
+- [x] **REL-02**: Release workflow gates on passing tests and linting before building artifact
+- [x] **REL-03**: Release workflow produces a versioned ZIP (`node_layout-vX.Y.zip`) containing all plugin `.py` files, `README.md`, and `LICENSE`
+- [x] **REL-04**: Release workflow publishes a GitHub Release with the ZIP attached and auto-generated release notes
 
 ## Future Requirements
 
@@ -46,10 +46,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CI-01 | Phase 13 | Complete |
 | CI-02 | Phase 13 | Complete |
 | CI-03 | Phase 13 | Complete |
-| REL-01 | Phase 14 | Pending |
-| REL-02 | Phase 14 | Pending |
-| REL-03 | Phase 14 | Pending |
-| REL-04 | Phase 14 | Pending |
+| REL-01 | Phase 14 | Complete |
+| REL-02 | Phase 14 | Complete |
+| REL-03 | Phase 14 | Complete |
+| REL-04 | Phase 14 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 8 total

@@ -43,7 +43,7 @@ Full archive: `.planning/milestones/v1.1-ROADMAP.md`
 **Milestone Goal:** Add a CI/CD system that automatically tests on every push and produces reliable versioned release artifacts on tag push.
 
 - [x] **Phase 13: Tooling + CI** — pyproject.toml with Ruff config and GitHub Actions CI workflow (completed 2026-03-17)
-- [ ] **Phase 14: Release Workflow** — Tag-triggered release workflow producing versioned ZIP and GitHub Release
+- [x] **Phase 14: Release Workflow** — Tag-triggered release workflow producing versioned ZIP and GitHub Release (completed 2026-03-18)
 
 ## Phase Details
 
@@ -72,7 +72,10 @@ Plans:
   2. The release workflow runs tests and linting before building; it does not publish if either fails
   3. A versioned ZIP named `node_layout-vX.Y.zip` containing all plugin `.py` files, `README.md`, and `LICENSE` is attached to the release
   4. A GitHub Release is published automatically with the ZIP attached and auto-generated release notes
-**Plans**: TBD
+**Plans:** 1/1 plans complete
+
+Plans:
+- [ ] 14-01-PLAN.md — Release workflow with test gate, versioned ZIP build, and GitHub Release publish
 
 ## Progress
 
@@ -93,4 +96,4 @@ Plans:
 | 11.2. Fix Horizontal Layout Bbox (INSERTED) | v1.1 | 2/2 | Complete | 2026-03-16 |
 | 12. Fix Fan Layout Logic (INSERTED) | v1.1 | 2/2 | Complete | 2026-03-17 |
 | 13. Tooling + CI | 3/3 | Complete    | 2026-03-17 | - |
-| 14. Release Workflow | v1.2 | 0/? | Not started | - |
+| 14. Release Workflow | 1/1 | Complete   | 2026-03-18 | - |
