@@ -1391,6 +1391,204 @@ def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after, current_g
             node.setYpos(node.ypos() + delta_y)
 
 
+def _find_freeze_block_root(block_members):
+    """Return the most downstream node in *block_members*.
+
+    The root is the block member that no other block member takes as an input.
+    If multiple qualify (disconnected block), pick by max ypos() as tiebreaker
+    (highest Y value = lowest on screen = most downstream in Nuke DAG).
+    """
+    member_id_set = {id(n) for n in block_members}
+    candidates = []
+    for member in block_members:
+        is_input_to_another_member = False
+        for other in block_members:
+            if id(other) == id(member):
+                continue
+            for slot in range(other.inputs()):
+                if other.input(slot) is not None and id(other.input(slot)) == id(member):
+                    is_input_to_another_member = True
+                    break
+            if is_input_to_another_member:
+                break
+        if not is_input_to_another_member:
+            candidates.append(member)
+    if not candidates:
+        return block_members[0]  # fallback
+    # Tiebreak: most downstream = highest ypos (positive Y is down in Nuke DAG)
+    return max(candidates, key=lambda n: n.ypos())
+
+
+def _detect_freeze_groups(scope_nodes):
+    """Detect freeze groups in *scope_nodes* and resolve auto-join and group merges.
+
+    Pass 1: Scan all scope_nodes and read freeze_group UUID from each via
+    node_layout_state.read_freeze_group().  Build initial membership maps.
+
+    Pass 2: Iteratively auto-join non-frozen nodes that have both a frozen
+    ancestor AND a frozen descendant in the same group.  A node that bridges
+    two different groups triggers a group merge: a new UUID is generated and
+    persisted to all affected nodes via node_layout_state.write_freeze_group().
+
+    Returns
+    -------
+    freeze_group_map : dict[str, list[Node]]
+        Maps freeze group UUID string to the list of member nodes in scope.
+    node_freeze_uuid : dict[int, str]
+        Maps id(node) to UUID string for O(1) membership lookup.
+    """
+    # --- Pass 1: build initial membership maps ---
+    freeze_group_map = {}   # uuid -> [node, ...]
+    node_freeze_uuid = {}   # id(node) -> uuid
+
+    for scope_node in scope_nodes:
+        group_uuid = node_layout_state.read_freeze_group(scope_node)
+        if group_uuid is not None:
+            node_freeze_uuid[id(scope_node)] = group_uuid
+            freeze_group_map.setdefault(group_uuid, []).append(scope_node)
+
+    # --- Pass 2: auto-join and group merge ---
+    # Build downstream_map: id(input_node) -> list of consumers in scope.
+    scope_id_set = {id(n) for n in scope_nodes}
+    downstream_map = {}  # id(node) -> [consumer_nodes in scope]
+    for scope_node in scope_nodes:
+        for input_node in get_inputs(scope_node):
+            if id(input_node) in scope_id_set:
+                downstream_map.setdefault(id(input_node), []).append(scope_node)
+
+    def _collect_frozen_ancestor_uuids(start_node):
+        """BFS upstream from start_node; return set of freeze UUIDs encountered."""
+        found_uuids = set()
+        visited_ids = {id(start_node)}
+        queue = list(get_inputs(start_node))
+        while queue:
+            current_node = queue.pop(0)
+            if id(current_node) not in scope_id_set:
+                continue
+            if id(current_node) in visited_ids:
+                continue
+            visited_ids.add(id(current_node))
+            if id(current_node) in node_freeze_uuid:
+                found_uuids.add(node_freeze_uuid[id(current_node)])
+            else:
+                for upstream_node in get_inputs(current_node):
+                    if id(upstream_node) in scope_id_set and id(upstream_node) not in visited_ids:
+                        queue.append(upstream_node)
+        return found_uuids
+
+    def _collect_frozen_descendant_uuids(start_node):
+        """BFS downstream from start_node using downstream_map; return set of freeze UUIDs."""
+        found_uuids = set()
+        visited_ids = {id(start_node)}
+        queue = list(downstream_map.get(id(start_node), []))
+        while queue:
+            current_node = queue.pop(0)
+            if id(current_node) in visited_ids:
+                continue
+            visited_ids.add(id(current_node))
+            if id(current_node) in node_freeze_uuid:
+                found_uuids.add(node_freeze_uuid[id(current_node)])
+            else:
+                for downstream_node in downstream_map.get(id(current_node), []):
+                    if id(downstream_node) not in visited_ids:
+                        queue.append(downstream_node)
+        return found_uuids
+
+    # Iterative loop: keep checking until no more joins/merges happen.
+    changed = True
+    while changed:
+        changed = False
+        for candidate_node in scope_nodes:
+            if id(candidate_node) in node_freeze_uuid:
+                continue  # already frozen — skip
+
+            ancestor_uuids = _collect_frozen_ancestor_uuids(candidate_node)
+            if not ancestor_uuids:
+                continue  # no frozen ancestors — cannot join
+
+            descendant_uuids = _collect_frozen_descendant_uuids(candidate_node)
+            if not descendant_uuids:
+                continue  # no frozen descendants — cannot join (not sandwiched)
+
+            # All UUIDs reachable from this candidate in both directions.
+            all_involved_uuids = ancestor_uuids | descendant_uuids
+
+            if len(all_involved_uuids) == 1:
+                # Auto-join: candidate is sandwiched within a single group.
+                join_uuid = next(iter(all_involved_uuids))
+                node_freeze_uuid[id(candidate_node)] = join_uuid
+                freeze_group_map.setdefault(join_uuid, []).append(candidate_node)
+                node_layout_state.write_freeze_group(candidate_node, join_uuid)
+                changed = True
+            else:
+                # Merge: candidate bridges two or more different groups.
+                merged_uuid = str(uuid.uuid4())
+                # Collect all members of all involved groups plus the bridging node.
+                all_affected = []
+                for involved_uuid in all_involved_uuids:
+                    for group_member in freeze_group_map.get(involved_uuid, []):
+                        all_affected.append(group_member)
+                    if involved_uuid in freeze_group_map:
+                        del freeze_group_map[involved_uuid]
+                all_affected.append(candidate_node)
+                # Write the new merged UUID to every affected node.
+                for affected_node in all_affected:
+                    node_layout_state.write_freeze_group(affected_node, merged_uuid)
+                    node_freeze_uuid[id(affected_node)] = merged_uuid
+                freeze_group_map[merged_uuid] = all_affected
+                changed = True
+
+    return freeze_group_map, node_freeze_uuid
+
+
+def _expand_scope_for_freeze_groups(selected_nodes, current_group):
+    """Expand *selected_nodes* to include all members of any freeze group encountered.
+
+    Silently adds non-selected nodes that share a freeze group UUID with any
+    selected node.  Scans all nodes in *current_group* (via current_group.nodes()
+    if not None, else nuke.allNodes()) to find full group membership.
+
+    Parameters
+    ----------
+    selected_nodes : list[Node]
+        Nodes initially in scope (selected or subtree).
+    current_group : context manager or None
+        The active Nuke group context (from nuke.lastHitGroup()).
+
+    Returns
+    -------
+    list[Node]
+        Union of selected_nodes and all discovered group members (de-duplicated).
+    """
+    # Collect all freeze UUIDs present in the selected nodes.
+    selected_uuids = set()
+    for selected_node in selected_nodes:
+        group_uuid = node_layout_state.read_freeze_group(selected_node)
+        if group_uuid is not None:
+            selected_uuids.add(group_uuid)
+
+    if not selected_uuids:
+        return list(selected_nodes)
+
+    # Scan all group nodes for members of the found UUIDs.
+    if current_group is not None:
+        all_group_nodes = current_group.nodes()
+    else:
+        all_group_nodes = nuke.allNodes()
+
+    expanded_id_set = {id(n) for n in selected_nodes}
+    expanded_nodes = list(selected_nodes)
+    for group_node in all_group_nodes:
+        if id(group_node) in expanded_id_set:
+            continue
+        node_uuid = node_layout_state.read_freeze_group(group_node)
+        if node_uuid in selected_uuids:
+            expanded_nodes.append(group_node)
+            expanded_id_set.add(id(group_node))
+
+    return expanded_nodes
+
+
 def layout_upstream(scheme_multiplier=None):
     global _TOOLBAR_FOLDER_MAP
     _TOOLBAR_FOLDER_MAP = None
@@ -1402,6 +1600,13 @@ def layout_upstream(scheme_multiplier=None):
     nuke.Undo.begin()
     try:
         with current_group:
+            # --- Freeze group preprocessing (FRZE-04, FRZE-05) ---
+            # Expand scope to include full freeze groups if root is in a freeze group
+            # whose members may not all be in the subtree.
+            all_upstream_nodes = collect_subtree_nodes(root)
+            freeze_scope_nodes = _expand_scope_for_freeze_groups(all_upstream_nodes, current_group)
+            freeze_group_map, node_freeze_uuid = _detect_freeze_groups(freeze_scope_nodes)
+
             # Capture starting state before any changes
             original_subtree_nodes = collect_subtree_nodes(root)
             bbox_before = compute_node_bounding_box(original_subtree_nodes)
@@ -1803,6 +2008,13 @@ def layout_selected(scheme_multiplier=None):
     try:
         with current_group:
             node_filter = set(selected_nodes)
+            # --- Freeze group preprocessing (FRZE-04, FRZE-05) ---
+            # Expand selection to include full freeze groups.
+            expanded_selection = _expand_scope_for_freeze_groups(list(node_filter), current_group)
+            node_filter = set(expanded_selection)
+            selected_nodes = list(node_filter)  # update for downstream use
+            freeze_group_map, node_freeze_uuid = _detect_freeze_groups(list(node_filter))
+
             roots = find_selection_roots(selected_nodes)
             roots.sort(key=lambda n: n.xpos())
 
