@@ -111,6 +111,7 @@ class TestReadNodeState(unittest.TestCase):
             "mode": "vertical",
             "h_scale": 1.0,
             "v_scale": 1.0,
+            "freeze_group": None,
         })
 
     def test_returns_defaults_when_knob_empty(self):
@@ -125,6 +126,7 @@ class TestReadNodeState(unittest.TestCase):
             "mode": "vertical",
             "h_scale": 1.0,
             "v_scale": 1.0,
+            "freeze_group": None,
         })
 
     def test_merges_stored_with_defaults(self):
@@ -139,6 +141,7 @@ class TestReadNodeState(unittest.TestCase):
             "mode": "vertical",
             "h_scale": 1.0,
             "v_scale": 1.0,
+            "freeze_group": None,
         })
 
     def test_returns_defaults_on_malformed_json(self):
@@ -152,6 +155,7 @@ class TestReadNodeState(unittest.TestCase):
             "mode": "vertical",
             "h_scale": 1.0,
             "v_scale": 1.0,
+            "freeze_group": None,
         })
 
 

@@ -13,6 +13,7 @@ _DEFAULT_STATE = {
     "mode": "vertical",
     "h_scale": 1.0,
     "v_scale": 1.0,
+    "freeze_group": None,
 }
 
 # Name constants used for the per-node knobs.
@@ -111,3 +112,27 @@ def multiplier_to_scheme_name(scheme_multiplier, prefs):
         if abs(scheme_multiplier - prefs.get(pref_key)) < 1e-9:
             return scheme_name
     return "normal"
+
+
+def read_freeze_group(node):
+    """Return the freeze group UUID string for *node*, or None if not frozen."""
+    return read_node_state(node).get("freeze_group")
+
+
+def write_freeze_group(node, group_uuid):
+    """Set the freeze group UUID on *node*.
+
+    *group_uuid* should be a string (e.g. from ``str(uuid.uuid4())``).
+    Pass ``None`` to remove freeze group membership.
+    """
+    state = read_node_state(node)
+    state["freeze_group"] = group_uuid
+    write_node_state(node, state)
+
+
+def clear_freeze_group(node):
+    """Remove freeze group membership from *node*.
+
+    Convenience alias for ``write_freeze_group(node, None)``.
+    """
+    write_freeze_group(node, None)
