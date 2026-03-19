@@ -52,16 +52,20 @@ Layout operations must be reliable, undoable, and configurable — users need to
 - ✓ GitHub Actions CI workflow: pytest + Ruff linting on every push and PR — v1.2
 - ✓ GitHub Actions release workflow: v* tag triggers test gate, versioned ZIP build, GitHub Release publish — v1.2
 
+### Validated (continued)
+
+<!-- v1.3 Freeze Layout — validated in Phase 15–16 -->
+
+- ✓ User can freeze a selection of nodes into a named freeze group (shared UUID, stored in hidden layout knob) — v1.3 (Phase 15)
+- ✓ User can unfreeze selected nodes, removing their freeze group membership — v1.3 (Phase 15)
+- ✓ Layout engine detects freeze groups during preprocessing (same phase as horizontal block detection) and treats each group as a rigid block — v1.3 (Phase 16)
+- ✓ Nodes inserted between frozen nodes in the DAG auto-join the freeze group during layout crawl (no real-time callbacks) — v1.3 (Phase 16)
+- ✓ Layout positions a frozen block via its root node (most downstream); other block nodes maintain relative offsets — v1.3 (Phase 16)
+- ✓ Push-away (expand) moves a frozen block rigidly as a unit using its bounding box as the obstacle — v1.3 (Phase 16)
+
 ### Active
 
-<!-- v1.3 Freeze Layout — building toward these -->
-
-- [ ] User can freeze a selection of nodes into a named freeze group (shared UUID, stored in hidden layout knob)
-- [ ] User can unfreeze selected nodes, removing their freeze group membership
-- [ ] Layout engine detects freeze groups during preprocessing (same phase as horizontal block detection) and treats each group as a rigid block
-- [ ] Nodes inserted between frozen nodes in the DAG auto-join the freeze group during layout crawl (no real-time callbacks)
-- [ ] Layout positions a frozen block via its root node (most downstream); other block nodes maintain relative offsets
-- [ ] Push-away (expand) moves a frozen block rigidly as a unit using its bounding box as the obstacle
+<!-- No active requirements — v1.3 milestone complete -->
 
 ### Out of Scope
 
@@ -78,9 +82,10 @@ Layout operations must be reliable, undoable, and configurable — users need to
 ## Context
 
 **Shipped:** v1.2 CI/CD (2026-03-18)
-**Codebase:** ~2,900 LOC Python source (node_layout.py, node_layout_state.py, util.py, node_layout_prefs.py, node_layout_prefs_dialog.py, menu.py); ~11,465 LOC total incl. tests; 81 lines GitHub Actions YAML
+**Shipped:** v1.3 Freeze Layout (2026-03-19) — Phase 16 complete
+**Codebase:** ~3,200 LOC Python source (node_layout.py, node_layout_state.py, util.py, node_layout_prefs.py, node_layout_prefs_dialog.py, menu.py); ~12,000+ LOC total incl. tests; 81 lines GitHub Actions YAML
 **Tech stack:** Python, PySide6; JSON prefs at `~/.nuke/`; AST-based structural tests + Nuke-stub unit tests; GitHub Actions CI (Ruff + pytest) and release workflow (softprops/action-gh-release@v2)
-**Test suite:** 280 tests spanning prefs, state, layout core, fan alignment, horizontal spine, and scale commands
+**Test suite:** 331 tests spanning prefs, state, layout core, fan alignment, horizontal spine, scale commands, freeze commands, and freeze layout integration
 
 Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py` (JSON-backed singleton at `~/.nuke/labelmaker_prefs.json`) + `labelmaker_prefs_dialog.py`. node_layout follows the same structure.
 
@@ -121,11 +126,11 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 | ZIP named with github.ref_name preserving v prefix | Produces e.g. node_layout-v1.2.zip — clear version signal without extra config | ✓ Good |
 | softprops/action-gh-release@v2 with generate_release_notes: true | No manual release notes authoring; auto-notes from PR/commit history | ✓ Good |
 
-## Current Milestone: v1.3 Freeze Layout
+## Completed Milestone: v1.3 Freeze Layout ✓
 
 **Goal:** Add a freeze command that locks the relative positions of a group of nodes into a rigid block that the layout engine treats as a single unit.
 
-**Target features:**
+**All features shipped:**
 - Freeze Selected: marks selected nodes with a shared UUID in hidden layout knob
 - Unfreeze Selected: removes freeze group membership
 - Layout crawl detects and resolves freeze groups (preprocessing step)
@@ -134,4 +139,4 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 - Rigid push-away: expand treats block bounding box as single obstacle
 
 ---
-*Last updated: 2026-03-18 after v1.3 milestone start*
+*Last updated: 2026-03-19 after Phase 16 (Layout Integration) complete — v1.3 milestone complete*
