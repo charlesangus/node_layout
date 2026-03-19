@@ -54,7 +54,14 @@ Layout operations must be reliable, undoable, and configurable — users need to
 
 ### Active
 
-(None — all v1.2 requirements shipped. Define v1.3 requirements via `/gsd:new-milestone`.)
+<!-- v1.3 Freeze Layout — building toward these -->
+
+- [ ] User can freeze a selection of nodes into a named freeze group (shared UUID, stored in hidden layout knob)
+- [ ] User can unfreeze selected nodes, removing their freeze group membership
+- [ ] Layout engine detects freeze groups during preprocessing (same phase as horizontal block detection) and treats each group as a rigid block
+- [ ] Nodes inserted between frozen nodes in the DAG auto-join the freeze group during layout crawl (no real-time callbacks)
+- [ ] Layout positions a frozen block via its root node (most downstream); other block nodes maintain relative offsets
+- [ ] Push-away (expand) moves a frozen block rigidly as a unit using its bounding box as the obstacle
 
 ### Out of Scope
 
@@ -114,5 +121,17 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 | ZIP named with github.ref_name preserving v prefix | Produces e.g. node_layout-v1.2.zip — clear version signal without extra config | ✓ Good |
 | softprops/action-gh-release@v2 with generate_release_notes: true | No manual release notes authoring; auto-notes from PR/commit history | ✓ Good |
 
+## Current Milestone: v1.3 Freeze Layout
+
+**Goal:** Add a freeze command that locks the relative positions of a group of nodes into a rigid block that the layout engine treats as a single unit.
+
+**Target features:**
+- Freeze Selected: marks selected nodes with a shared UUID in hidden layout knob
+- Unfreeze Selected: removes freeze group membership
+- Layout crawl detects and resolves freeze groups (preprocessing step)
+- Auto-join: nodes inserted between frozen DAG nodes inherit the group during crawl
+- Rigid block positioning: block anchored at root node; relative offsets preserved
+- Rigid push-away: expand treats block bounding box as single obstacle
+
 ---
-*Last updated: 2026-03-18 after v1.2 milestone*
+*Last updated: 2026-03-18 after v1.3 milestone start*

@@ -17,8 +17,8 @@ Requirements for the Freeze Layout milestone. Each maps to roadmap phases.
 
 - [x] **FRZE-04**: Layout crawl runs a preprocessing step that detects all freeze groups before any node positioning begins (analogous to existing horizontal block detection)
 - [x] **FRZE-05**: During preprocessing, nodes topologically inserted between frozen nodes in the DAG auto-join the freeze group (no real-time callbacks; resolved at crawl time only)
-- [ ] **FRZE-06**: Layout positions a frozen block as a unit — the root node (most downstream node in the block) is placed by the layout algorithm and all other block nodes are repositioned to maintain their original relative offsets
-- [ ] **FRZE-07**: Push-away (expand) treats a frozen block's bounding box as a single rigid obstacle; the entire block shifts as a unit when pushed
+- [x] **FRZE-06**: Layout positions a frozen block as a unit — the root node (most downstream node in the block) is placed by the layout algorithm and all other block nodes are repositioned to maintain their original relative offsets
+- [x] **FRZE-07**: Push-away (expand) treats a frozen block's bounding box as a single rigid obstacle; the entire block shifts as a unit when pushed
 
 ## Future Requirements
 
@@ -46,8 +46,8 @@ Requirements for the Freeze Layout milestone. Each maps to roadmap phases.
 | FRZE-03 | Phase 15 | Complete |
 | FRZE-04 | Phase 16 | Complete |
 | FRZE-05 | Phase 16 | Complete |
-| FRZE-06 | Phase 16 | Pending |
-| FRZE-07 | Phase 16 | Pending |
+| FRZE-06 | Phase 16 | Complete |
+| FRZE-07 | Phase 16 | Complete |
 
 **Coverage:**
 - v1.3 requirements: 7 total

@@ -54,7 +54,7 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
 **Milestone Goal:** Add a freeze command that locks the relative positions of a group of nodes into a rigid block that the layout engine treats as a single unit.
 
 - [x] **Phase 15: Freeze State & Commands** — Freeze/unfreeze menu commands and UUID state storage (completed 2026-03-19)
-- [ ] **Phase 16: Layout Integration** — Freeze group detection, auto-join, rigid positioning, and push-away
+- [x] **Phase 16: Layout Integration** — Freeze group detection, auto-join, rigid positioning, and push-away (completed 2026-03-19)
 
 ## Phase Details
 
@@ -81,7 +81,7 @@ Plans:
   2. A node inserted (wired) between two frozen nodes in the DAG is automatically treated as part of the freeze group when layout next runs — no manual re-freeze required
   3. The frozen block as a whole moves when its root node is repositioned by the layout algorithm; all other block members shift by the same delta
   4. Expand/push-away moves a frozen block rigidly as a unit — no individual block nodes are pushed independently
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 16-01-PLAN.md — Freeze group preprocessing: detection, auto-join, group merge, scope expansion
 - [ ] 16-02-PLAN.md — Rigid block positioning, freeze-aware push-away, Group View Dot fix
@@ -107,4 +107,4 @@ Plans:
 | 13. Tooling + CI | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14. Release Workflow | v1.2 | 1/1 | Complete | 2026-03-18 |
 | 15. Freeze State & Commands | v1.3 | 2/2 | Complete | 2026-03-19 |
-| 16. Layout Integration | 1/2 | In Progress|  | - |
+| 16. Layout Integration | 2/2 | Complete   | 2026-03-19 | - |

@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Freeze Layout
-status: executing
-stopped_at: "Completed 16-01-PLAN.md"
-last_updated: "2026-03-19T12:57:00Z"
+status: complete
+stopped_at: "Completed 16-02-PLAN.md"
+last_updated: "2026-03-19T13:05:00Z"
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Session State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave.
-**Current focus:** Phase 16 — Layout Integration
+**Current focus:** Phase 16 — Layout Integration — COMPLETE
 
 ## Current Position
 
-Phase: 16 (Layout Integration) — EXECUTING
-Plan: 2 of 2
+Phase: 16 (Layout Integration) — COMPLETE
+Plan: 2 of 2 — COMPLETE
 
 ## Performance Metrics
 
@@ -39,7 +39,7 @@ Plan: 2 of 2
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 15-freeze-state-commands | 2 | 9min | 4.5min |
-| 16-layout-integration | 1 | 4min | 4min |
+| 16-layout-integration | 2 | 12min | 6min |
 
 *Updated after each plan completion*
 
@@ -60,6 +60,10 @@ Recent decisions affecting current work:
 - [15-02]: Freeze/Unfreeze shortcuts ctrl+shift+f and ctrl+shift+u chosen — verified no conflict with existing menu shortcuts
 - [16-01]: _detect_freeze_groups merge condition uses ancestor_uuids | descendant_uuids (union) not intersection — correctly triggers merge for cross-group bridges
 - [16-01]: _expand_scope_for_freeze_groups uses current_group.nodes() when available, falls back to nuke.allNodes()
+- [16-02]: already_translated_blocks set guards against double-translation when two block members both independently qualify for push
+- [16-02]: Block bbox overlap check: if ANY part of freeze block overlaps before-bbox, entire block is skipped from push
+- [16-02]: Freeze overrides horizontal mode in spine walk — freeze membership in node_freeze_uuid stops spine collection
+- [16-02]: Group View Dot creation already correctly scoped via with current_group: — no nuke.thisGroup() calls needed
 
 ### Pending Todos
 
@@ -77,6 +81,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T12:57:00Z
-Stopped at: Completed 16-01-PLAN.md
-Resume file: .planning/phases/16-layout-integration/16-02-PLAN.md
+Last session: 2026-03-19T13:05:00Z
+Stopped at: Completed 16-02-PLAN.md — Phase 16 and v1.3 Freeze Layout milestone complete
