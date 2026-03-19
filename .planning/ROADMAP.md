@@ -107,4 +107,4 @@ Plans:
 | 13. Tooling + CI | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14. Release Workflow | v1.2 | 1/1 | Complete | 2026-03-18 |
 | 15. Freeze State & Commands | v1.3 | 2/2 | Complete | 2026-03-19 |
-| 16. Layout Integration | 2/2 | Complete   | 2026-03-19 | - |
+| 16. Layout Integration | 2/2 | Complete    | 2026-03-19 | - |
