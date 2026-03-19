@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Freeze Layout
-status: completed
-stopped_at: Completed 15-freeze-state-commands/15-02-PLAN.md
-last_updated: "2026-03-19T05:05:02.060Z"
-last_activity: 2026-03-18 — Completed 15-02 (freeze_selected + unfreeze_selected commands + menu registration)
+status: executing
+stopped_at: "Completed 16-01-PLAN.md"
+last_updated: "2026-03-19T12:57:00Z"
 progress:
   total_phases: 2
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 100
+  total_plans: 4
+  completed_plans: 3
 ---
 
 # Session State
@@ -21,29 +19,27 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave.
-**Current focus:** v1.3 Freeze Layout — Phase 15 ready to plan
+**Current focus:** Phase 16 — Layout Integration
 
 ## Current Position
 
-Phase: 15 of 16 (Freeze State & Commands)
-Plan: 2 of 2 complete
-Status: Phase Complete
-Last activity: 2026-03-18 — Completed 15-02 (freeze_selected + unfreeze_selected commands + menu registration)
-
-Progress: [██████████] 100%
+Phase: 16 (Layout Integration) — EXECUTING
+Plan: 2 of 2
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2 (this milestone)
-- Average duration: 4.5min
-- Total execution time: 9min
+
+- Total plans completed: 3 (this milestone)
+- Average duration: 4.3min
+- Total execution time: 13min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 15-freeze-state-commands | 2 | 9min | 4.5min |
+| 16-layout-integration | 1 | 4min | 4min |
 
 *Updated after each plan completion*
 
@@ -52,6 +48,7 @@ Progress: [██████████] 100%
 ### Decisions
 
 Recent decisions affecting current work:
+
 - All decisions in PROJECT.md Key Decisions table
 - [v1.3 design]: Freeze group UUID stored as invisible knob on existing hidden layout tab — same mechanism as per-node state in node_layout_state.py
 - [v1.3 design]: Auto-join resolved at crawl time only (preprocessing), no real-time Nuke callbacks
@@ -61,6 +58,8 @@ Recent decisions affecting current work:
 - [Phase 15-freeze-state-commands]: read_freeze_group/write_freeze_group/clear_freeze_group helpers compose on top of read_node_state/write_node_state — never bypass JSON round-trip
 - [15-02]: uuid imported at module top level in node_layout.py (stdlib, no Nuke dependency — no deferred import needed)
 - [15-02]: Freeze/Unfreeze shortcuts ctrl+shift+f and ctrl+shift+u chosen — verified no conflict with existing menu shortcuts
+- [16-01]: _detect_freeze_groups merge condition uses ancestor_uuids | descendant_uuids (union) not intersection — correctly triggers merge for cross-group bridges
+- [16-01]: _expand_scope_for_freeze_groups uses current_group.nodes() when available, falls back to nuke.allNodes()
 
 ### Pending Todos
 
@@ -78,6 +77,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T09:05:00.000Z
-Stopped at: Completed 15-freeze-state-commands/15-02-PLAN.md
-Resume file: None
+Last session: 2026-03-19T12:57:00Z
+Stopped at: Completed 16-01-PLAN.md
+Resume file: .planning/phases/16-layout-integration/16-02-PLAN.md
