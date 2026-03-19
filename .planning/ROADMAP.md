@@ -67,7 +67,7 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
   2. User can select frozen nodes and run "Unfreeze Selected" — the nodes lose their freeze group membership
   3. Freeze group identity (UUID) survives a .nk script save and reload — frozen nodes re-load as members of their group
   4. Both commands are accessible from the Node Layout menu with keyboard shortcuts
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 15-01-PLAN.md — Wave 0 test scaffolds + freeze_group state helpers in node_layout_state.py
 - [ ] 15-02-PLAN.md — freeze_selected/unfreeze_selected commands + menu registration
@@ -103,5 +103,5 @@ Plans:
 | 12. Fix Fan Layout Logic (INSERTED) | v1.1 | 2/2 | Complete | 2026-03-17 |
 | 13. Tooling + CI | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14. Release Workflow | v1.2 | 1/1 | Complete | 2026-03-18 |
-| 15. Freeze State & Commands | v1.3 | 0/2 | Not started | - |
+| 15. Freeze State & Commands | 1/2 | In Progress|  | - |
 | 16. Layout Integration | v1.3 | 0/TBD | Not started | - |

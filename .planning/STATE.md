@@ -1,55 +1,51 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: CI/CD
-status: planning
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-03-18T11:45:22.277Z"
-last_activity: "2026-03-17 - Completed quick task 260317-n0k: fix the failing tests"
+milestone: v1.3
+milestone_name: Freeze Layout
+status: in_progress
+stopped_at: Completed 15-freeze-state-commands/15-01-PLAN.md
+last_updated: "2026-03-19T04:58:51.800Z"
+last_activity: 2026-03-18 — Roadmap created; Phase 15 is next
 progress:
   total_phases: 2
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 0
+  completed_phases: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Session State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-17)
+See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave.
-**Current focus:** Phase 13 — Tooling + CI
+**Current focus:** v1.3 Freeze Layout — Phase 15 ready to plan
 
 ## Current Position
 
-Phase: 13 of 14 (Tooling + CI)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-03-17 - Completed quick task 260317-n0k: fix the failing tests
+Phase: 15 of 16 (Freeze State & Commands)
+Plan: 1 of 2 complete
+Status: In Progress
+Last activity: 2026-03-19 — Completed 15-01 (freeze state layer + Wave 0 test scaffold)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0 (this milestone)
-- Average duration: — (no plans yet)
-- Total execution time: —
+- Total plans completed: 1 (this milestone)
+- Average duration: 4min
+- Total execution time: 4min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 15-freeze-state-commands | 1 | 4min | 4min |
 
 *Updated after each plan completion*
-| Phase 13 P01 | 8m | 2 tasks | 15 files |
-| Phase 13 P02 | 35m | 2 tasks | 20 files |
-| Phase 13 P03 | 2 | 2 tasks | 1 files |
-| Phase 14-release-workflow P01 | 3min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -57,13 +53,12 @@ Progress: [░░░░░░░░░░] 0%
 
 Recent decisions affecting current work:
 - All decisions in PROJECT.md Key Decisions table
-- [Phase 13]: pyproject.toml contains only Ruff config sections — no [project] or per-file-ignores
-- [Phase 13]: Test paths use os.path.join(__file__-relative) pattern matching existing test_center_x.py convention
-- [Phase 13]: ruff auto-fix handled I001/F401/SIM114 rules; manual E501 wraps done for 80+ lines in source and 50 in tests
-- [Phase 13]: Single lint-and-test job — Ruff before pytest; lint failure fast-fails test step
-- [Phase 13]: ubuntu-24.04 explicit (not ubuntu-latest); no pip cache; Python 3.11 only (no matrix)
-- [Phase 13]: Wildcard branches trigger (branches: ["**"]) — all branches get CI coverage
-- [Phase 14-release-workflow]: Two-job release workflow: test job gates build job via needs: test; ZIP uses hardcoded 9-file list; softprops/action-gh-release@v2 with auto-generated notes
+- [v1.3 design]: Freeze group UUID stored as invisible knob on existing hidden layout tab — same mechanism as per-node state in node_layout_state.py
+- [v1.3 design]: Auto-join resolved at crawl time only (preprocessing), no real-time Nuke callbacks
+- [v1.3 design]: Frozen block anchored at root node (most downstream); all other members maintain relative offsets
+- [v1.3 design]: Push-away uses freeze group bounding box as single rigid obstacle
+- [Phase 15-freeze-state-commands]: freeze_group stored as None-defaulted key in existing _DEFAULT_STATE, no new knob, backward compatible via merge logic
+- [Phase 15-freeze-state-commands]: read_freeze_group/write_freeze_group/clear_freeze_group helpers compose on top of read_node_state/write_node_state — never bypass JSON round-trip
 
 ### Pending Todos
 
@@ -71,7 +66,7 @@ None.
 
 ### Blockers/Concerns
 
-- Sibling project anchors (charlesangus/anchors) has the reference CI/CD pattern — inspect before writing workflows
+None.
 
 ### Quick Tasks Completed
 
@@ -81,6 +76,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-18T00:26:46.339Z
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-03-19T04:58:51.798Z
+Stopped at: Completed 15-freeze-state-commands/15-01-PLAN.md
 Resume file: None
