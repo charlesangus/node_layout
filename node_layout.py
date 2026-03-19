@@ -1,4 +1,5 @@
 import math
+import uuid
 
 import nuke
 
@@ -2685,6 +2686,52 @@ def clear_layout_state_upstream():
     try:
         for node in upstream_nodes:
             node_layout_state.clear_node_state(node)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def freeze_selected():
+    """Mark selected nodes as a freeze group with a shared UUID.
+
+    All selected nodes receive the same UUID in their hidden state knob.
+    No visual change occurs in the DAG.  Wrapped in an undo group.
+
+    If any selected nodes are already frozen, they are re-assigned to the
+    new group (the old UUID is replaced).
+    """
+    selected_nodes = nuke.selectedNodes()
+    if not selected_nodes:
+        return
+    group_uuid = str(uuid.uuid4())
+    nuke.Undo.name("Freeze Selected")
+    nuke.Undo.begin()
+    try:
+        for node in selected_nodes:
+            node_layout_state.write_freeze_group(node, group_uuid)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def unfreeze_selected():
+    """Remove freeze group membership from all selected nodes.
+
+    Each selected node's freeze_group state is set to None.
+    Wrapped in an undo group.
+    """
+    selected_nodes = nuke.selectedNodes()
+    if not selected_nodes:
+        return
+    nuke.Undo.name("Unfreeze Selected")
+    nuke.Undo.begin()
+    try:
+        for node in selected_nodes:
+            node_layout_state.clear_freeze_group(node)
     except Exception:
         nuke.Undo.cancel()
         raise
