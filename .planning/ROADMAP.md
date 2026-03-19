@@ -5,6 +5,7 @@
 - ✅ **v1.0 Quality & Preferences** — Phases 1-5 (shipped 2026-03-05)
 - ✅ **v1.1 Layout Engine & State** — Phases 6-12 (shipped 2026-03-17)
 - ✅ **v1.2 CI/CD** — Phases 13-14 (shipped 2026-03-18)
+- 🚧 **v1.3 Freeze Layout** — Phases 15-16 (in progress)
 
 ## Phases
 
@@ -48,6 +49,40 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 </details>
 
+### 🚧 v1.3 Freeze Layout (In Progress)
+
+**Milestone Goal:** Add a freeze command that locks the relative positions of a group of nodes into a rigid block that the layout engine treats as a single unit.
+
+- [ ] **Phase 15: Freeze State & Commands** — Freeze/unfreeze menu commands and UUID state storage
+- [ ] **Phase 16: Layout Integration** — Freeze group detection, auto-join, rigid positioning, and push-away
+
+## Phase Details
+
+### Phase 15: Freeze State & Commands
+**Goal**: Users can freeze and unfreeze node groups, with group membership persisted invisibly in node state
+**Depends on**: Phase 14 (v1.2 complete)
+**Requirements**: FRZE-01, FRZE-02, FRZE-03
+**Success Criteria** (what must be TRUE):
+  1. User can select nodes and run "Freeze Selected" — the nodes are marked as a freeze group with no visible change in the DAG
+  2. User can select frozen nodes and run "Unfreeze Selected" — the nodes lose their freeze group membership
+  3. Freeze group identity (UUID) survives a .nk script save and reload — frozen nodes re-load as members of their group
+  4. Both commands are accessible from the Node Layout menu with keyboard shortcuts
+**Plans:** 2 plans
+Plans:
+- [ ] 15-01-PLAN.md — Wave 0 test scaffolds + freeze_group state helpers in node_layout_state.py
+- [ ] 15-02-PLAN.md — freeze_selected/unfreeze_selected commands + menu registration
+
+### Phase 16: Layout Integration
+**Goal**: The layout engine treats each freeze group as a rigid block — detecting groups before positioning, auto-joining inserted nodes, anchoring via the root node, and moving the block as a unit during push-away
+**Depends on**: Phase 15
+**Requirements**: FRZE-04, FRZE-05, FRZE-06, FRZE-07
+**Success Criteria** (what must be TRUE):
+  1. Running layout on a DAG containing frozen nodes repositions non-frozen nodes while frozen nodes hold their relative positions to each other
+  2. A node inserted (wired) between two frozen nodes in the DAG is automatically treated as part of the freeze group when layout next runs — no manual re-freeze required
+  3. The frozen block as a whole moves when its root node is repositioned by the layout algorithm; all other block members shift by the same delta
+  4. Expand/push-away moves a frozen block rigidly as a unit — no individual block nodes are pushed independently
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -68,3 +103,5 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
 | 12. Fix Fan Layout Logic (INSERTED) | v1.1 | 2/2 | Complete | 2026-03-17 |
 | 13. Tooling + CI | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14. Release Workflow | v1.2 | 1/1 | Complete | 2026-03-18 |
+| 15. Freeze State & Commands | v1.3 | 0/2 | Not started | - |
+| 16. Layout Integration | v1.3 | 0/TBD | Not started | - |
