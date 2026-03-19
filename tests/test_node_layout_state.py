@@ -312,5 +312,72 @@ class TestScaleAccumulation(unittest.TestCase):
         self.assertAlmostEqual(final["h_scale"], 0.64, places=9)
 
 
+# ---------------------------------------------------------------------------
+# TestFreezeGroupState
+# ---------------------------------------------------------------------------
+
+class TestFreezeGroupState(unittest.TestCase):
+
+    def setUp(self):
+        _restore_nuke_stub()
+
+    def test_default_state_contains_freeze_group_key(self):
+        self.assertIn("freeze_group", node_layout_state._DEFAULT_STATE)
+        self.assertIsNone(node_layout_state._DEFAULT_STATE["freeze_group"])
+
+    def test_read_node_state_returns_freeze_group_none_for_new_node(self):
+        node = FakeNode()
+        result = node_layout_state.read_node_state(node)
+        self.assertIn("freeze_group", result)
+        self.assertIsNone(result["freeze_group"])
+
+    def test_read_node_state_returns_freeze_group_none_for_old_node_without_key(self):
+        """Simulate an old node whose JSON has no freeze_group key."""
+        node = FakeNode()
+        knob = _make_state_knob()
+        knob.setValue(json.dumps({"scheme": "compact", "mode": "vertical", "h_scale": 1.0, "v_scale": 1.0}))
+        node._knobs['node_layout_state'] = knob
+        result = node_layout_state.read_node_state(node)
+        self.assertIn("freeze_group", result)
+        self.assertIsNone(result["freeze_group"])
+
+    def test_freeze_group_roundtrips_through_write_and_read(self):
+        node = FakeNode()
+        test_uuid = "a3f1c2e4-8b7d-4e6f-9c2a-1d5e3b7f0a4c"
+        state = dict(node_layout_state._DEFAULT_STATE)
+        state["freeze_group"] = test_uuid
+        node_layout_state.write_node_state(node, state)
+        result = node_layout_state.read_node_state(node)
+        self.assertEqual(result["freeze_group"], test_uuid)
+
+    def test_read_freeze_group_returns_none_for_unfrozen_node(self):
+        node = FakeNode()
+        result = node_layout_state.read_freeze_group(node)
+        self.assertIsNone(result)
+
+    def test_write_freeze_group_and_read_freeze_group_roundtrip(self):
+        node = FakeNode()
+        test_uuid = "b4c2d3e5-9a8b-4f7c-0d1e-2f3a4b5c6d7e"
+        node_layout_state.write_freeze_group(node, test_uuid)
+        result = node_layout_state.read_freeze_group(node)
+        self.assertEqual(result, test_uuid)
+
+    def test_clear_freeze_group_sets_none(self):
+        node = FakeNode()
+        node_layout_state.write_freeze_group(node, "some-uuid-value")
+        node_layout_state.clear_freeze_group(node)
+        result = node_layout_state.read_freeze_group(node)
+        self.assertIsNone(result)
+
+    def test_freeze_group_does_not_affect_other_state_keys(self):
+        node = FakeNode()
+        node_layout_state.write_freeze_group(node, "test-uuid")
+        result = node_layout_state.read_node_state(node)
+        self.assertEqual(result["scheme"], "normal")
+        self.assertEqual(result["mode"], "vertical")
+        self.assertEqual(result["h_scale"], 1.0)
+        self.assertEqual(result["v_scale"], 1.0)
+
+
 if __name__ == '__main__':
     unittest.main()
