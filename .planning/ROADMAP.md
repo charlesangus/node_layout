@@ -69,8 +69,8 @@ Full archive: `.planning/milestones/v1.2-ROADMAP.md`
   4. Both commands are accessible from the Node Layout menu with keyboard shortcuts
 **Plans:** 2/2 plans complete
 Plans:
-- [ ] 15-01-PLAN.md — Wave 0 test scaffolds + freeze_group state helpers in node_layout_state.py
-- [ ] 15-02-PLAN.md — freeze_selected/unfreeze_selected commands + menu registration
+- [x] 15-01-PLAN.md — Wave 0 test scaffolds + freeze_group state helpers in node_layout_state.py
+- [x] 15-02-PLAN.md — freeze_selected/unfreeze_selected commands + menu registration
 
 ### Phase 16: Layout Integration
 **Goal**: The layout engine treats each freeze group as a rigid block — detecting groups before positioning, auto-joining inserted nodes, anchoring via the root node, and moving the block as a unit during push-away
@@ -81,7 +81,10 @@ Plans:
   2. A node inserted (wired) between two frozen nodes in the DAG is automatically treated as part of the freeze group when layout next runs — no manual re-freeze required
   3. The frozen block as a whole moves when its root node is repositioned by the layout algorithm; all other block members shift by the same delta
   4. Expand/push-away moves a frozen block rigidly as a unit — no individual block nodes are pushed independently
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 16-01-PLAN.md — Freeze group preprocessing: detection, auto-join, group merge, scope expansion
+- [ ] 16-02-PLAN.md — Rigid block positioning, freeze-aware push-away, Group View Dot fix
 
 ## Progress
 
@@ -103,5 +106,5 @@ Plans:
 | 12. Fix Fan Layout Logic (INSERTED) | v1.1 | 2/2 | Complete | 2026-03-17 |
 | 13. Tooling + CI | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14. Release Workflow | v1.2 | 1/1 | Complete | 2026-03-18 |
-| 15. Freeze State & Commands | 2/2 | Complete    | 2026-03-19 | - |
-| 16. Layout Integration | v1.3 | 0/TBD | Not started | - |
+| 15. Freeze State & Commands | v1.3 | 2/2 | Complete | 2026-03-19 |
+| 16. Layout Integration | v1.3 | 0/2 | Not started | - |
