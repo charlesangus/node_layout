@@ -1343,7 +1343,18 @@ def compute_node_bounding_box(nodes):
     return (min_x, min_y, max_x, max_y)
 
 
-def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after, current_group=None):
+def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after, current_group=None,
+                            freeze_block_map=None, freeze_groups=None):
+    """Push surrounding nodes to make room after a subtree grows.
+
+    Args:
+        subtree_node_ids: set of id(node) for nodes in the moved subtree (skipped).
+        bbox_before: (min_x, min_y, max_x, max_y) bounding box before placement.
+        bbox_after: (min_x, min_y, max_x, max_y) bounding box after placement.
+        current_group: Nuke group context for node enumeration, or None for root context.
+        freeze_block_map: dict[int, str] mapping id(node) to freeze group UUID, or None.
+        freeze_groups: dict[str, list[Node]] mapping UUID to block member nodes, or None.
+    """
     before_min_x, before_min_y, before_max_x, before_max_y = bbox_before
     after_min_x, after_min_y, after_max_x, after_max_y = bbox_after
 
@@ -1356,11 +1367,62 @@ def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after, current_g
     push_up_amount = before_min_y - after_min_y if grew_up else 0
     push_right_amount = after_max_x - before_max_x if grew_right else 0
 
+    already_translated_blocks = set()  # guard against double-translation of block members
+
     all_dag_nodes = current_group.nodes() if current_group is not None else nuke.allNodes()
     for node in all_dag_nodes:
         if id(node) in subtree_node_ids:
             continue
 
+        # --- Freeze block handling ---
+        # When a node belongs to a freeze group, use the full block bounding box
+        # for both the overlap guard and the delta qualification, then translate
+        # the entire block as a single rigid unit.
+        if freeze_block_map and id(node) in freeze_block_map:
+            block_uuid = freeze_block_map[id(node)]
+
+            # Skip if we already translated this block during this push pass.
+            if block_uuid in already_translated_blocks:
+                continue
+
+            block_members = freeze_groups[block_uuid]
+            block_bbox = compute_node_bounding_box(block_members)
+            if block_bbox is None:
+                continue
+
+            block_left, block_top, block_right, block_bottom = block_bbox
+
+            # If the block's bounding box overlaps the before-footprint, skip the entire block.
+            block_overlaps_before = (
+                block_left < before_max_x and
+                block_right > before_min_x and
+                block_top < before_max_y and
+                block_bottom > before_min_y
+            )
+            if block_overlaps_before:
+                already_translated_blocks.add(block_uuid)  # mark as handled (skip)
+                continue
+
+            # Use block-bbox edges for delta qualification.
+            delta_x = 0
+            delta_y = 0
+
+            if grew_up and block_bottom <= before_min_y:
+                delta_y = -push_up_amount
+
+            if grew_right and block_left >= before_max_x:
+                delta_x = push_right_amount
+
+            if delta_x != 0 or delta_y != 0:
+                already_translated_blocks.add(block_uuid)
+                for block_member in block_members:
+                    block_member.setXpos(block_member.xpos() + delta_x)
+                    block_member.setYpos(block_member.ypos() + delta_y)
+            else:
+                already_translated_blocks.add(block_uuid)  # mark as handled (no push needed)
+            continue
+
+        # --- Standard (non-frozen) node handling ---
         node_left = node.xpos()
         node_right = node.xpos() + node.screenWidth()
         node_top = node.ypos()
@@ -1607,6 +1669,23 @@ def layout_upstream(scheme_multiplier=None):
             freeze_scope_nodes = _expand_scope_for_freeze_groups(all_upstream_nodes, current_group)
             freeze_group_map, node_freeze_uuid = _detect_freeze_groups(freeze_scope_nodes)
 
+            # --- Freeze block rigid positioning setup (FRZE-06) ---
+            # Capture relative offsets of non-root block members BEFORE any positioning.
+            # These offsets are restored after place_subtree moves the block root.
+            freeze_relative_offsets = {}   # id(node) -> (dx, dy) relative to block root
+            freeze_excluded_ids = set()    # non-root block members excluded from place_subtree
+            freeze_block_roots = {}        # uuid -> root node for this layout pass
+            for group_uuid, block_members in freeze_group_map.items():
+                block_root = _find_freeze_block_root(block_members)
+                freeze_block_roots[group_uuid] = block_root
+                for member in block_members:
+                    if id(member) != id(block_root):
+                        freeze_relative_offsets[id(member)] = (
+                            member.xpos() - block_root.xpos(),
+                            member.ypos() - block_root.ypos(),
+                        )
+                        freeze_excluded_ids.add(id(member))
+
             # Capture starting state before any changes
             original_subtree_nodes = collect_subtree_nodes(root)
             bbox_before = compute_node_bounding_box(original_subtree_nodes)
@@ -1687,6 +1766,10 @@ def layout_upstream(scheme_multiplier=None):
                 replay_spine_set = set()
                 cursor = root
                 while cursor is not None:
+                    # Freeze membership overrides horizontal mode — stop spine walk at frozen node
+                    # (unless it is the root itself, which may be the block root).
+                    if id(cursor) in node_freeze_uuid and id(cursor) != id(root):
+                        break
                     cursor_state = node_layout_state.read_node_state(cursor)
                     if cursor_state.get("mode") != "horizontal":
                         break
@@ -1930,18 +2013,39 @@ def layout_upstream(scheme_multiplier=None):
                                     for phase2_node in _phase2_input_nodes:
                                         phase2_node.setYpos(phase2_node.ypos() - _phase2_shift_up)
             else:
+                # Build the vertical node filter excluding non-root freeze block members.
+                # Non-root members will be repositioned via offset after place_subtree.
+                if freeze_excluded_ids:
+                    vertical_freeze_filter = set(
+                        n for n in subtree_nodes_for_count
+                        if id(n) not in freeze_excluded_ids
+                    )
+                else:
+                    vertical_freeze_filter = None
                 compute_dims(
                     root, memo, snap_threshold, node_count,
+                    node_filter=vertical_freeze_filter,
                     scheme_multiplier=root_scheme_multiplier,
                     per_node_h_scale=per_node_h_scale,
                     per_node_v_scale=per_node_v_scale,
                 )
                 place_subtree(
                     root, root.xpos(), root.ypos(), memo, snap_threshold, node_count,
+                    node_filter=vertical_freeze_filter,
                     scheme_multiplier=root_scheme_multiplier,
                     per_node_h_scale=per_node_h_scale,
                     per_node_v_scale=per_node_v_scale,
                 )
+
+            # --- Apply freeze block offsets after place_subtree (FRZE-06) ---
+            # Reposition non-root block members relative to their (now-moved) block root.
+            for group_uuid, block_members in freeze_group_map.items():
+                block_root = freeze_block_roots[group_uuid]
+                for member in block_members:
+                    if id(member) != id(block_root):
+                        offset_dx, offset_dy = freeze_relative_offsets[id(member)]
+                        member.setXpos(block_root.xpos() + offset_dx)
+                        member.setYpos(block_root.ypos() + offset_dy)
 
             # Capture final state from the originally selected node so all touched nodes
             # (horizontal chain, output dot, and consumer's vertical inputs) are included.
@@ -1973,8 +2077,12 @@ def layout_upstream(scheme_multiplier=None):
             bbox_after = compute_node_bounding_box(final_subtree_nodes)
 
             if bbox_before is not None and bbox_after is not None:
-                push_nodes_to_make_room(final_subtree_node_ids, bbox_before, bbox_after,
-                                        current_group)
+                push_nodes_to_make_room(
+                    final_subtree_node_ids, bbox_before, bbox_after,
+                    current_group=current_group,
+                    freeze_block_map=node_freeze_uuid,
+                    freeze_groups=freeze_group_map,
+                )
     except Exception:
         nuke.Undo.cancel()
         raise
@@ -2014,6 +2122,27 @@ def layout_selected(scheme_multiplier=None):
             node_filter = set(expanded_selection)
             selected_nodes = list(node_filter)  # update for downstream use
             freeze_group_map, node_freeze_uuid = _detect_freeze_groups(list(node_filter))
+
+            # --- Freeze block rigid positioning setup (FRZE-06) ---
+            # Capture relative offsets of non-root block members BEFORE any positioning.
+            freeze_relative_offsets = {}   # id(node) -> (dx, dy) relative to block root
+            freeze_excluded_ids = set()    # non-root block members excluded from place_subtree
+            freeze_block_roots = {}        # uuid -> root node for this layout pass
+            for group_uuid, block_members in freeze_group_map.items():
+                block_root = _find_freeze_block_root(block_members)
+                freeze_block_roots[group_uuid] = block_root
+                for member in block_members:
+                    if id(member) != id(block_root):
+                        freeze_relative_offsets[id(member)] = (
+                            member.xpos() - block_root.xpos(),
+                            member.ypos() - block_root.ypos(),
+                        )
+                        freeze_excluded_ids.add(id(member))
+
+            # Remove non-root block members from node_filter so place_subtree skips them.
+            if freeze_excluded_ids:
+                node_filter -= freeze_excluded_ids
+                selected_nodes = [n for n in selected_nodes if id(n) not in freeze_excluded_ids]
 
             roots = find_selection_roots(selected_nodes)
             roots.sort(key=lambda n: n.xpos())
@@ -2086,6 +2215,10 @@ def layout_selected(scheme_multiplier=None):
                     root_spine_set = set()
                     cursor = root
                     while cursor is not None:
+                        # Freeze membership overrides horizontal mode — stop spine walk at frozen
+                        # node (unless it is the root itself, which may be the block root).
+                        if id(cursor) in node_freeze_uuid and id(cursor) != id(root):
+                            break
                         cursor_state = node_layout_state.read_node_state(cursor)
                         if cursor_state.get("mode") != "horizontal":
                             break
@@ -2376,15 +2509,35 @@ def layout_selected(scheme_multiplier=None):
                 )
                 node_layout_state.write_node_state(state_node, stored_state)
 
+            # --- Apply freeze block offsets after all place_subtree calls (FRZE-06) ---
+            # Reposition non-root block members relative to their (now-moved) block roots.
+            for group_uuid, block_members in freeze_group_map.items():
+                block_root = freeze_block_roots[group_uuid]
+                for member in block_members:
+                    if id(member) != id(block_root):
+                        offset_dx, offset_dy = freeze_relative_offsets[id(member)]
+                        member.setXpos(block_root.xpos() + offset_dx)
+                        member.setYpos(block_root.ypos() + offset_dy)
+
             # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
             # returns [] here. Use the original selected_nodes list — the Python objects are
             # the same, but their positions have been updated by place_subtree.
             final_selected_ids = {id(n) for n in node_filter}
-            bbox_after = compute_node_bounding_box(selected_nodes)
+            # Include freeze-excluded members in bbox_after so the full footprint is captured.
+            all_final_nodes = list(selected_nodes)
+            for group_uuid, block_members in freeze_group_map.items():
+                for member in block_members:
+                    if id(member) not in final_selected_ids:
+                        all_final_nodes.append(member)
+            bbox_after = compute_node_bounding_box(all_final_nodes)
 
             if bbox_before and bbox_after:
-                push_nodes_to_make_room(final_selected_ids, bbox_before, bbox_after,
-                                        current_group)
+                push_nodes_to_make_room(
+                    final_selected_ids, bbox_before, bbox_after,
+                    current_group=current_group,
+                    freeze_block_map=node_freeze_uuid,
+                    freeze_groups=freeze_group_map,
+                )
     except Exception:
         nuke.Undo.cancel()
         raise
