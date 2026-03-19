@@ -119,6 +119,21 @@ layout_menu.addCommand(
 )
 
 layout_menu.addSeparator()
+
+layout_menu.addCommand(
+    'Freeze Selected',
+    node_layout.freeze_selected,
+    'ctrl+shift+f',
+    shortcutContext=2,
+)
+layout_menu.addCommand(
+    'Unfreeze Selected',
+    node_layout.unfreeze_selected,
+    'ctrl+shift+u',
+    shortcutContext=2,
+)
+
+layout_menu.addSeparator()
 layout_menu.addCommand(
     "Node Layout Preferences\u2026",
     node_layout_prefs_dialog.show_prefs_dialog,
