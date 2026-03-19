@@ -9,8 +9,8 @@ Requirements for the Freeze Layout milestone. Each maps to roadmap phases.
 
 ### Freeze Commands
 
-- [ ] **FRZE-01**: User can freeze selected nodes into a named group via "Freeze Selected" menu command (with keyboard shortcut)
-- [ ] **FRZE-02**: User can unfreeze selected nodes via "Unfreeze Selected" menu command (with keyboard shortcut)
+- [x] **FRZE-01**: User can freeze selected nodes into a named group via "Freeze Selected" menu command (with keyboard shortcut)
+- [x] **FRZE-02**: User can unfreeze selected nodes via "Unfreeze Selected" menu command (with keyboard shortcut)
 - [x] **FRZE-03**: Freeze group UUID is stored as an invisible knob on the existing hidden layout tab; no visual indicator appears in the DAG
 
 ### Layout Integration
@@ -41,8 +41,8 @@ Requirements for the Freeze Layout milestone. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FRZE-01 | Phase 15 | Pending |
-| FRZE-02 | Phase 15 | Pending |
+| FRZE-01 | Phase 15 | Complete |
+| FRZE-02 | Phase 15 | Complete |
 | FRZE-03 | Phase 15 | Complete |
 | FRZE-04 | Phase 16 | Pending |
 | FRZE-05 | Phase 16 | Pending |

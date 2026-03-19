@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Freeze Layout
 status: in_progress
-stopped_at: Completed 15-freeze-state-commands/15-01-PLAN.md
-last_updated: "2026-03-19T04:58:51.800Z"
-last_activity: 2026-03-18 — Roadmap created; Phase 15 is next
+stopped_at: Completed 15-freeze-state-commands/15-02-PLAN.md
+last_updated: "2026-03-18T09:05:00.000Z"
+last_activity: 2026-03-18 — Completed 15-02 (freeze_selected and unfreeze_selected commands + menu registration)
 progress:
   total_phases: 2
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # Session State
@@ -26,24 +26,24 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Phase: 15 of 16 (Freeze State & Commands)
-Plan: 1 of 2 complete
-Status: In Progress
-Last activity: 2026-03-19 — Completed 15-01 (freeze state layer + Wave 0 test scaffold)
+Plan: 2 of 2 complete
+Status: Phase Complete
+Last activity: 2026-03-18 — Completed 15-02 (freeze_selected + unfreeze_selected commands + menu registration)
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1 (this milestone)
-- Average duration: 4min
-- Total execution time: 4min
+- Total plans completed: 2 (this milestone)
+- Average duration: 4.5min
+- Total execution time: 9min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 15-freeze-state-commands | 1 | 4min | 4min |
+| 15-freeze-state-commands | 2 | 9min | 4.5min |
 
 *Updated after each plan completion*
 
@@ -59,6 +59,8 @@ Recent decisions affecting current work:
 - [v1.3 design]: Push-away uses freeze group bounding box as single rigid obstacle
 - [Phase 15-freeze-state-commands]: freeze_group stored as None-defaulted key in existing _DEFAULT_STATE, no new knob, backward compatible via merge logic
 - [Phase 15-freeze-state-commands]: read_freeze_group/write_freeze_group/clear_freeze_group helpers compose on top of read_node_state/write_node_state — never bypass JSON round-trip
+- [15-02]: uuid imported at module top level in node_layout.py (stdlib, no Nuke dependency — no deferred import needed)
+- [15-02]: Freeze/Unfreeze shortcuts ctrl+shift+f and ctrl+shift+u chosen — verified no conflict with existing menu shortcuts
 
 ### Pending Todos
 
@@ -76,6 +78,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T04:58:51.798Z
-Stopped at: Completed 15-freeze-state-commands/15-01-PLAN.md
+Last session: 2026-03-18T09:05:00.000Z
+Stopped at: Completed 15-freeze-state-commands/15-02-PLAN.md
 Resume file: None
