@@ -1745,6 +1745,15 @@ def layout_upstream(scheme_multiplier=None):
                     if id(bfs_cursor) in bfs_visited:
                         continue
                     bfs_visited.add(id(bfs_cursor))
+                    # Frozen nodes must not become horizontal replay roots — skip as root candidate
+                    # but continue BFS through their inputs so non-frozen horizontal nodes upstream
+                    # can still be found.
+                    if id(bfs_cursor) in node_freeze_uuid:
+                        for bfs_slot in range(bfs_cursor.inputs()):
+                            bfs_inp = bfs_cursor.input(bfs_slot)
+                            if bfs_inp is not None and id(bfs_inp) not in bfs_visited:
+                                bfs_queue.append(bfs_inp)
+                        continue
                     if node_layout_state.read_node_state(bfs_cursor).get("mode") == "horizontal":
                         root = bfs_cursor
                         root_mode = "horizontal"
@@ -2047,6 +2056,81 @@ def layout_upstream(scheme_multiplier=None):
                         member.setXpos(block_root.xpos() + offset_dx)
                         member.setYpos(block_root.ypos() + offset_dy)
 
+            # --- Post-pass: layout non-frozen nodes upstream of freeze blocks (Gap 1 fix) ---
+            # place_subtree cannot traverse through excluded non-root members, so non-frozen nodes
+            # reachable only through them were skipped. Collect those nodes and place them above
+            # the (now-anchored) block.
+            if freeze_group_map:
+                for group_uuid, block_members in freeze_group_map.items():
+                    block_member_ids = {id(m) for m in block_members}
+                    block_root = freeze_block_roots[group_uuid]
+
+                    # BFS from block members' inputs to find non-frozen unreachable nodes.
+                    upstream_non_frozen = []
+                    visited_upstream = set()
+                    upstream_queue = []
+                    for member in block_members:
+                        for upstream_node in get_inputs(member):
+                            if upstream_node is not None and id(upstream_node) not in block_member_ids:
+                                upstream_queue.append((upstream_node, member))
+                    while upstream_queue:
+                        candidate, connecting_member = upstream_queue.pop()
+                        if id(candidate) in visited_upstream or id(candidate) in block_member_ids:
+                            continue
+                        visited_upstream.add(id(candidate))
+                        upstream_non_frozen.append((candidate, connecting_member))
+                        for further_upstream in get_inputs(candidate):
+                            if further_upstream is not None:
+                                upstream_queue.append((further_upstream, connecting_member))
+
+                    if not upstream_non_frozen:
+                        continue
+
+                    # Build a filter for just these upstream nodes.
+                    upstream_filter = {node for node, _ in upstream_non_frozen}
+
+                    # Place each subtree above the block.
+                    # Use the topmost Y of the block as the ceiling.
+                    block_top_y = min(m.ypos() for m in block_members)
+
+                    # Track which upstream roots have already been placed to avoid duplicates.
+                    placed_upstream_roots = set()
+                    for entry_node, connecting_member in upstream_non_frozen:
+                        # Only place nodes that are direct inputs to block members
+                        # (i.e., the entry point into the upstream subgraph).
+                        if any(id(entry_node) == id(inp) for inp in get_inputs(connecting_member)
+                               if inp is not None):
+                            if id(entry_node) in placed_upstream_roots:
+                                continue
+                            placed_upstream_roots.add(id(entry_node))
+                            upstream_memo = {}
+                            compute_dims(
+                                entry_node, upstream_memo, snap_threshold, node_count,
+                                node_filter=upstream_filter,
+                                scheme_multiplier=per_node_scheme.get(
+                                    id(entry_node), current_prefs.get("normal_multiplier")
+                                ),
+                                per_node_h_scale=per_node_h_scale,
+                                per_node_v_scale=per_node_v_scale,
+                            )
+                            gap = vertical_gap_between(
+                                entry_node, connecting_member, snap_threshold,
+                                scheme_multiplier=per_node_scheme.get(
+                                    id(entry_node), current_prefs.get("normal_multiplier")
+                                ),
+                            )
+                            entry_y = block_top_y - gap - entry_node.screenHeight()
+                            place_subtree(
+                                entry_node, connecting_member.xpos(), entry_y,
+                                upstream_memo, snap_threshold, node_count,
+                                node_filter=upstream_filter,
+                                scheme_multiplier=per_node_scheme.get(
+                                    id(entry_node), current_prefs.get("normal_multiplier")
+                                ),
+                                per_node_h_scale=per_node_h_scale,
+                                per_node_v_scale=per_node_v_scale,
+                            )
+
             # Capture final state from the originally selected node so all touched nodes
             # (horizontal chain, output dot, and consumer's vertical inputs) are included.
             final_subtree_nodes = collect_subtree_nodes(
@@ -2141,7 +2225,7 @@ def layout_selected(scheme_multiplier=None):
 
             # Remove non-root block members from node_filter so place_subtree skips them.
             if freeze_excluded_ids:
-                node_filter -= freeze_excluded_ids
+                node_filter = {n for n in node_filter if id(n) not in freeze_excluded_ids}
                 selected_nodes = [n for n in selected_nodes if id(n) not in freeze_excluded_ids]
 
             roots = find_selection_roots(selected_nodes)
@@ -2193,6 +2277,15 @@ def layout_selected(scheme_multiplier=None):
                         if id(bfs_cursor) in bfs_visited:
                             continue
                         bfs_visited.add(id(bfs_cursor))
+                        # Frozen nodes must not become horizontal replay roots — skip as root
+                        # candidate but continue BFS through their inputs so non-frozen horizontal
+                        # nodes upstream can still be found.
+                        if id(bfs_cursor) in node_freeze_uuid:
+                            for bfs_slot in range(bfs_cursor.inputs()):
+                                bfs_inp = bfs_cursor.input(bfs_slot)
+                                if bfs_inp is not None and id(bfs_inp) not in bfs_visited:
+                                    bfs_queue.append(bfs_inp)
+                            continue
                         if (
                             node_layout_state.read_node_state(bfs_cursor).get("mode")
                             == "horizontal"
@@ -2518,6 +2611,93 @@ def layout_selected(scheme_multiplier=None):
                         offset_dx, offset_dy = freeze_relative_offsets[id(member)]
                         member.setXpos(block_root.xpos() + offset_dx)
                         member.setYpos(block_root.ypos() + offset_dy)
+
+            # --- Post-pass: layout non-frozen nodes upstream of freeze blocks (Gap 1 fix) ---
+            # place_subtree cannot traverse through excluded non-root members, so non-frozen nodes
+            # reachable only through them were skipped. Collect those nodes and place them above
+            # the (now-anchored) block.
+            if freeze_group_map:
+                for group_uuid, block_members in freeze_group_map.items():
+                    block_member_ids = {id(m) for m in block_members}
+                    block_root = freeze_block_roots[group_uuid]
+
+                    # BFS from block members' inputs to find non-frozen unreachable nodes.
+                    upstream_non_frozen = []
+                    visited_upstream = set()
+                    upstream_queue = []
+                    for member in block_members:
+                        for upstream_node in get_inputs(member):
+                            if upstream_node is not None and id(upstream_node) not in block_member_ids:
+                                upstream_queue.append((upstream_node, member))
+                    while upstream_queue:
+                        candidate, connecting_member = upstream_queue.pop()
+                        if id(candidate) in visited_upstream or id(candidate) in block_member_ids:
+                            continue
+                        visited_upstream.add(id(candidate))
+                        upstream_non_frozen.append((candidate, connecting_member))
+                        for further_upstream in get_inputs(candidate):
+                            if further_upstream is not None:
+                                upstream_queue.append((further_upstream, connecting_member))
+
+                    if not upstream_non_frozen:
+                        continue
+
+                    # In layout_selected: restrict to nodes that are in the layout scope.
+                    scope_ids = {id(n) for n in node_filter} | {id(n) for n in selected_nodes}
+                    # Add all freeze members to scope_ids (they are the boundary).
+                    for group_id, group_members in freeze_group_map.items():
+                        for group_member in group_members:
+                            scope_ids.add(id(group_member))
+                    upstream_filter = {
+                        node for node, _ in upstream_non_frozen if id(node) in scope_ids
+                    }
+
+                    if not upstream_filter:
+                        continue
+
+                    # Place each subtree above the block.
+                    # Use the topmost Y of the block as the ceiling.
+                    block_top_y = min(m.ypos() for m in block_members)
+
+                    # Track which upstream roots have already been placed to avoid duplicates.
+                    placed_upstream_roots = set()
+                    for entry_node, connecting_member in upstream_non_frozen:
+                        if id(entry_node) not in scope_ids:
+                            continue
+                        # Only place nodes that are direct inputs to block members
+                        # (i.e., the entry point into the upstream subgraph).
+                        if any(id(entry_node) == id(inp) for inp in get_inputs(connecting_member)
+                               if inp is not None):
+                            if id(entry_node) in placed_upstream_roots:
+                                continue
+                            placed_upstream_roots.add(id(entry_node))
+                            upstream_memo = {}
+                            compute_dims(
+                                entry_node, upstream_memo, snap_threshold, node_count,
+                                node_filter=upstream_filter,
+                                scheme_multiplier=per_node_scheme.get(
+                                    id(entry_node), current_prefs.get("normal_multiplier")
+                                ),
+                                per_node_h_scale=per_node_h_scale,
+                                per_node_v_scale=per_node_v_scale,
+                            )
+                            gap = vertical_gap_between(
+                                entry_node, connecting_member, snap_threshold,
+                                scheme_multiplier=per_node_scheme.get(
+                                    id(entry_node), current_prefs.get("normal_multiplier")
+                                ),
+                            )
+                            entry_y = block_top_y - gap - entry_node.screenHeight()
+                            place_subtree(
+                                entry_node, connecting_member.xpos(), entry_y,
+                                upstream_memo, snap_threshold, node_count,
+                                node_filter=upstream_filter,
+                                scheme_multiplier=per_node_scheme.get(
+                                    id(entry_node), current_prefs.get("normal_multiplier")
+                                ),
+                                per_node_h_scale=per_node_h_scale,
+                                per_node_v_scale=per_node_v_scale,
+                            )
 
             # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
             # returns [] here. Use the original selected_nodes list — the Python objects are
