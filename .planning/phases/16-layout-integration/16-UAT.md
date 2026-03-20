@@ -66,29 +66,29 @@ skipped: 0
   missing:
     - "Non-frozen nodes upstream of the freeze block must be collected and positioned above the anchored block after it is placed"
 
-- truth: "Frozen group node positions are preserved (do not change) during layout"
+- truth: "Frozen block members maintain their relative positions during layout (block moves as unit)"
   status: failed
-  reason: "User reported: The frozen group layout is changed."
+  reason: "User reported: The frozen group layout is changed. The nodes were laid out as normal, as if they were not frozen."
   severity: major
   test: 4
-  root_cause: "Only non-root block members are added to freeze_excluded_ids. The block root is included in node_filter and freely repositioned by place_subtree. Offset restoration then moves all members relative to the new root position — the entire block translates to wherever the layout algorithm places the root."
+  root_cause: "In layout_selected (line 2143), `node_filter -= freeze_excluded_ids` is a no-op: node_filter is a set of Nuke node objects but freeze_excluded_ids is a set of integers (id() values). Python set difference between objects and integers is always empty, so non-root freeze members remain in node_filter and are freely repositioned by place_subtree independent of their block root."
   artifacts:
     - path: "node_layout.py"
-      issue: "freeze block root not held at its original absolute position — only relative intra-block offsets preserved, not the block's absolute location"
+      issue: "line 2143: `node_filter -= freeze_excluded_ids` — NO-OP type mismatch (set[Node] - set[int]); correct pattern (already used in layout_upstream at lines 2018-2022) is `node_filter = {n for n in node_filter if id(n) not in freeze_excluded_ids}`"
   missing:
-    - "Capture block root's absolute position before place_subtree; restore it (and all member offsets) afterward so the entire block stays at its original location"
+    - "Replace `node_filter -= freeze_excluded_ids` with `node_filter = {n for n in node_filter if id(n) not in freeze_excluded_ids}` to match the layout_upstream pattern"
 
 - truth: "Dot node positions are correct when Layout Selected is run on a mixed selection containing frozen nodes"
   status: failed
   reason: "User reported: layout selected on a bunch of nodes, some of which are frozen, produces incorrect dot locations"
   severity: major
   test: 4
-  root_cause: "insert_dot_nodes is called with node_filter that already has non-root freeze members removed. Connections passing through excluded members are invisible to dot insertion, so dots at those junctions are misplaced or not created, based on incomplete graph geometry."
+  root_cause: "Direct consequence of the type mismatch bug above. Because non-root freeze members remain in node_filter, insert_dot_nodes traverses through them and creates Dot nodes between freeze group members. After place_subtree runs and offset restoration moves the freeze members, the Dot nodes are stranded at positions that no longer correspond to the freeze members' final locations."
   artifacts:
     - path: "node_layout.py"
-      issue: "insert_dot_nodes called after freeze_excluded_ids removed from node_filter — dot insertion has incomplete graph view"
+      issue: "insert_dot_nodes sees non-root freeze members in node_filter (due to same type mismatch) and creates Dots inside the freeze group; offset restoration then moves the freeze members, stranding the Dots"
   missing:
-    - "Dot insertion must see full block geometry; block root should act as opaque boundary rather than leaving a traversal hole through excluded members"
+    - "Fixing the type mismatch (Gap 2 fix) also fixes this gap — once non-root members are excluded from node_filter, insert_dot_nodes will not traverse through them"
 
 - truth: "Expand/Push-Away runs without error when frozen nodes are present"
   status: failed
