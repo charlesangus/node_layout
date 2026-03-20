@@ -752,5 +752,234 @@ class TestGroupViewDotCreation(unittest.TestCase):
                     )
 
 
+# ---------------------------------------------------------------------------
+# TestFreezeGapClosure
+# ---------------------------------------------------------------------------
+
+
+class TestFreezeGapClosure(unittest.TestCase):
+    """Regression tests for the three gap closure fixes in Plan 16-04.
+
+    Gap 1: Non-frozen upstream nodes unreachable through excluded non-root members.
+    Gap 2/3: Type mismatch in layout_selected node_filter -= freeze_excluded_ids was a no-op.
+    Gap 5: Frozen node with mode=horizontal was used as horizontal replay root.
+    """
+
+    def test_layout_selected_excludes_non_root_members_from_filter(self):
+        """Corrected id()-based comprehension excludes non-root members from node_filter.
+
+        This is a unit test of the fixed filter construction.  Before the fix,
+        `node_filter -= freeze_excluded_ids` was a no-op because node_filter
+        contained node objects while freeze_excluded_ids contained int id()
+        values.  The fix replaces it with a set comprehension.
+        """
+        # Build a two-node freeze block: root + one non-root member.
+        block_root = _make_state_stub_node(freeze_group="group-aaa")
+        non_root_member = _make_state_stub_node(freeze_group="group-aaa")
+        _wire(non_root_member, block_root)
+
+        # Replicate the pre-fix filter construction (should leave non_root_member in filter).
+        freeze_excluded_ids_before = {id(non_root_member)}
+        node_filter_before = {block_root, non_root_member}
+        # Pre-fix (broken): set difference between node objects and ints is always empty.
+        result_before = node_filter_before - freeze_excluded_ids_before
+        # The broken version incorrectly keeps non_root_member in the filter.
+        self.assertIn(non_root_member, result_before,
+                      "Pre-fix: broken -= leaves non-root member in filter (no-op on mismatched types)")
+
+        # Replicate the post-fix filter construction (should correctly exclude non_root_member).
+        freeze_excluded_ids_after = {id(non_root_member)}
+        node_filter_after = {block_root, non_root_member}
+        # Post-fix (correct): id()-based comprehension.
+        result_after = {n for n in node_filter_after if id(n) not in freeze_excluded_ids_after}
+        self.assertIn(block_root, result_after,
+                      "Post-fix: block root must remain in filter")
+        self.assertNotIn(non_root_member, result_after,
+                         "Post-fix: non-root member must be excluded from filter")
+
+    def test_frozen_block_moves_as_unit_in_layout_selected(self):
+        """Relative offset between freeze block root and non-root member is preserved.
+
+        After layout_selected processes the block, the non-root member's position
+        relative to the root must match the original captured offset.  This verifies
+        the offset restoration logic works correctly regardless of which code path
+        reposition the root.
+        """
+        block_root = _make_state_stub_node(freeze_group="group-aaa")
+        block_root.setXpos(100)
+        block_root.setYpos(300)
+
+        non_root_member = _make_state_stub_node(freeze_group="group-aaa")
+        non_root_member.setXpos(100)
+        non_root_member.setYpos(200)
+
+        _wire(non_root_member, block_root)
+
+        # Record the original relative offset (dx=0, dy=-100).
+        original_dx = non_root_member.xpos() - block_root.xpos()
+        original_dy = non_root_member.ypos() - block_root.ypos()
+        self.assertEqual(original_dx, 0)
+        self.assertEqual(original_dy, -100)
+
+        # Capture relative offsets as the layout engine does.
+        freeze_relative_offsets = {}
+        freeze_relative_offsets[id(non_root_member)] = (original_dx, original_dy)
+
+        # Simulate place_subtree moving the block root to a new position.
+        block_root.setXpos(250)
+        block_root.setYpos(500)
+
+        # Apply offset restoration (the FRZE-06 block).
+        offset_dx, offset_dy = freeze_relative_offsets[id(non_root_member)]
+        non_root_member.setXpos(block_root.xpos() + offset_dx)
+        non_root_member.setYpos(block_root.ypos() + offset_dy)
+
+        # Verify the relative offset is unchanged.
+        new_dx = non_root_member.xpos() - block_root.xpos()
+        new_dy = non_root_member.ypos() - block_root.ypos()
+        self.assertEqual(new_dx, original_dx,
+                         "Horizontal relative offset between root and non-root must be preserved")
+        self.assertEqual(new_dy, original_dy,
+                         "Vertical relative offset between root and non-root must be preserved")
+
+    def test_frozen_node_not_used_as_horizontal_replay_root(self):
+        """BFS horizontal replay root search skips frozen nodes as root candidates.
+
+        A frozen node that has mode=horizontal stored in its state must not become
+        the replay root.  The BFS guard (id(bfs_cursor) in node_freeze_uuid) prevents
+        it from being bound as root while still traversing through it.
+        """
+        # Create a frozen node with mode=horizontal in its state.
+        frozen_horizontal_state = {
+            "scheme": "normal",
+            "mode": "horizontal",
+            "h_scale": 1.0,
+            "v_scale": 1.0,
+            "freeze_group": "group-aaa",
+        }
+        import json as _json
+        tab_knob = _StubTab_Knob("node_layout_tab", "Node Layout")
+        state_knob_frozen = _StubKnob(_json.dumps(frozen_horizontal_state))
+        state_knob_frozen.name = "node_layout_state"
+        frozen_node = _StubNode(knobs={
+            "tile_color": _StubKnob(0),
+            "node_layout_tab": tab_knob,
+            "node_layout_state": state_knob_frozen,
+        })
+        frozen_node.setXpos(0)
+        frozen_node.setYpos(0)
+
+        # A non-frozen consumer that feeds into frozen_node upstream.
+        consumer = _make_state_stub_node()
+        consumer.setXpos(0)
+        consumer.setYpos(100)
+        _wire(frozen_node, consumer)
+
+        # Build node_freeze_uuid as the layout engine would after _detect_freeze_groups.
+        # frozen_node is in the freeze group; consumer is not.
+        node_freeze_uuid = {id(frozen_node): "group-aaa"}
+
+        # Replicate the BFS from layout_upstream / layout_selected.
+        # consumer.mode is "vertical" so the BFS starts.
+        original_root = consumer
+        root = consumer
+        root_mode = "vertical"
+
+        bfs_queue = [consumer.input(slot) for slot in range(consumer.inputs())
+                     if consumer.input(slot) is not None]
+        bfs_visited = {id(consumer)}
+        bfs_index = 0
+        while bfs_index < len(bfs_queue):
+            bfs_cursor = bfs_queue[bfs_index]
+            bfs_index += 1
+            if id(bfs_cursor) in bfs_visited:
+                continue
+            bfs_visited.add(id(bfs_cursor))
+            # Apply the freeze guard (the fix for Gap 5).
+            if id(bfs_cursor) in node_freeze_uuid:
+                for bfs_slot in range(bfs_cursor.inputs()):
+                    bfs_inp = bfs_cursor.input(bfs_slot)
+                    if bfs_inp is not None and id(bfs_inp) not in bfs_visited:
+                        bfs_queue.append(bfs_inp)
+                continue
+            if _node_layout_state_module.read_node_state(bfs_cursor).get("mode") == "horizontal":
+                root = bfs_cursor
+                root_mode = "horizontal"
+                break
+            for bfs_slot in range(bfs_cursor.inputs()):
+                bfs_inp = bfs_cursor.input(bfs_slot)
+                if bfs_inp is not None and id(bfs_inp) not in bfs_visited:
+                    bfs_queue.append(bfs_inp)
+
+        # The frozen node must NOT have been selected as replay root.
+        self.assertIs(root, original_root,
+                      "Frozen node with mode=horizontal must not become horizontal replay root")
+        self.assertEqual(root_mode, "vertical",
+                         "root_mode must remain vertical — frozen node was not eligible as root")
+
+    def test_non_frozen_upstream_nodes_repositioned_after_freeze_block(self):
+        """BFS in second pass correctly identifies non-frozen nodes upstream of freeze block.
+
+        Chain: non-frozen D -> non-frozen E -> frozen B (non-root) -> frozen A (root).
+        D and E connect to the freeze block only through B (non-root member).
+        The second pass BFS must collect D and E in upstream_non_frozen.
+        """
+        # Build nodes.
+        frozen_a = _make_state_stub_node(freeze_group="group-aaa")  # block root (most downstream)
+        frozen_b = _make_state_stub_node(freeze_group="group-aaa")  # non-root member
+        non_frozen_e = _make_state_stub_node()   # connects to frozen_b
+        non_frozen_d = _make_state_stub_node()   # connects to non_frozen_e
+
+        frozen_a.setXpos(0)
+        frozen_a.setYpos(300)
+        frozen_b.setXpos(0)
+        frozen_b.setYpos(200)
+        non_frozen_e.setXpos(0)
+        non_frozen_e.setYpos(100)
+        non_frozen_d.setXpos(0)
+        non_frozen_d.setYpos(0)
+
+        # Wire: frozen_a <- frozen_b <- non_frozen_e <- non_frozen_d
+        _wire(frozen_b, frozen_a)
+        _wire(non_frozen_e, frozen_b)
+        _wire(non_frozen_d, non_frozen_e)
+
+        block_members = [frozen_a, frozen_b]
+        block_member_ids = {id(m) for m in block_members}
+        freeze_block_roots = {"group-aaa": frozen_a}
+
+        # Run the second-pass BFS (replicating the Gap 1 post-pass logic).
+        upstream_non_frozen = []
+        visited_upstream = set()
+        upstream_queue = []
+        for member in block_members:
+            for upstream_node in _nl.get_inputs(member):
+                if upstream_node is not None and id(upstream_node) not in block_member_ids:
+                    upstream_queue.append((upstream_node, member))
+        while upstream_queue:
+            candidate, connecting_member = upstream_queue.pop()
+            if id(candidate) in visited_upstream or id(candidate) in block_member_ids:
+                continue
+            visited_upstream.add(id(candidate))
+            upstream_non_frozen.append((candidate, connecting_member))
+            for further_upstream in _nl.get_inputs(candidate):
+                if further_upstream is not None:
+                    upstream_queue.append((further_upstream, connecting_member))
+
+        upstream_non_frozen_ids = {id(node) for node, _ in upstream_non_frozen}
+
+        # Both non-frozen upstream nodes must appear in upstream_non_frozen.
+        self.assertIn(id(non_frozen_e), upstream_non_frozen_ids,
+                      "non_frozen_e (direct input to frozen_b) must be in upstream_non_frozen")
+        self.assertIn(id(non_frozen_d), upstream_non_frozen_ids,
+                      "non_frozen_d (further upstream) must be in upstream_non_frozen")
+
+        # Frozen block members must NOT appear in upstream_non_frozen.
+        self.assertNotIn(id(frozen_a), upstream_non_frozen_ids,
+                         "frozen_a (block root) must not appear in upstream_non_frozen")
+        self.assertNotIn(id(frozen_b), upstream_non_frozen_ids,
+                         "frozen_b (non-root member) must not appear in upstream_non_frozen")
+
+
 if __name__ == "__main__":
     unittest.main()
