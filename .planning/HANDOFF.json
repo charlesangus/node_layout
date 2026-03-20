@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "timestamp": "2026-03-20T11:50:51.695Z",
+  "timestamp": "2026-03-20T12:18:35.552Z",
   "phase": "16",
   "phase_name": "layout-integration",
   "phase_dir": ".planning/phases/16-layout-integration",
@@ -9,47 +9,47 @@
   "total_tasks": null,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Plan 16-01 through 16-04 + spine_set fix", "status": "done", "commit": "prior sessions"},
+    {"id": 1, "name": "Plans 16-01 through 16-04 + spine_set fix", "status": "done", "commit": "prior sessions"},
     {"id": 2, "name": "Fix import util NameError in menu.py", "status": "done", "commit": "uncommitted"},
-    {"id": 3, "name": "Freeze block horizontal+vertical bbox fix — 3-tuple freeze_block_sizes, compute_dims total_w leaf, place_subtree alloc_left model", "status": "done", "commit": "uncommitted"}
+    {"id": 3, "name": "Refactor compute_dims to 3-tuple (W, H, root_x_offset) — eliminates freeze_block_sizes side channel from place_subtree", "status": "done", "commit": "uncommitted"}
   ],
   "remaining_tasks": [
-    {"id": 4, "name": "Live Nuke UAT: verify freeze bbox fix for blocks extending left, right, or both", "status": "not_started"},
+    {"id": 4, "name": "Live Nuke UAT: verify freeze bbox fix AND normal layout unchanged after refactor", "status": "not_started"},
     {"id": 5, "name": "Commit all fixes, update VALIDATION.md and STATE.md", "status": "not_started"},
-    {"id": 6, "name": "Push to remote (31+ commits ahead of origin)", "status": "not_started"}
+    {"id": 6, "name": "Push to remote (31+ commits ahead of origin) to close v1.3 milestone", "status": "not_started"}
   ],
   "blockers": [
     {
-      "description": "Freeze block bbox fix (3rd iteration this session) not yet UAT-confirmed — previous two iterations failed",
+      "description": "Freeze block bbox fix + compute_dims 3-tuple refactor not yet UAT-confirmed in live Nuke",
       "type": "human_action",
-      "workaround": "none — requires live Nuke with a freeze block whose members extend both left and right of the block root"
+      "workaround": "none — requires live Nuke with freeze blocks and normal trees"
     }
   ],
   "human_actions_pending": [
     {
-      "action": "Run live Nuke UAT: freeze a block with members left AND right of block root, run Layout Upstream or Layout Selected, verify no overlap with neighbouring subtrees and root is centered above consumer.",
-      "context": "3rd iteration of bbox fix. alloc_left model: compute_dims leaf returns total_w=right_ext+left_ovh; place_subtree places root at alloc_left+_left_ovh(i) for all 5 layout cases. Also test right-only extension to confirm no regression.",
+      "action": "Run live Nuke UAT: (1) freeze block with members left AND right of root — verify no overlap; (2) normal non-freeze layout — verify no regression from refactor; (3) right-only freeze extension — verify no regression.",
+      "context": "compute_dims now returns (W, H, root_x_offset) 3-tuple. For normal nodes root_x_offset=0 so behavior is identical. For freeze block leaves root_x_offset=left_overhang. place_subtree reads root_x_offset from child_dims[i][2] — no freeze_block_sizes parameter needed. All 335 tests pass.",
       "blocking": true
     }
   ],
   "decisions": [
     {
-      "decision": "freeze_block_sizes extended to 3-tuple: (right_extent, height, left_overhang)",
-      "rationale": "Block root is not at the block left edge when members extend left — left_ovh needed for root placement and centering",
+      "decision": "compute_dims returns 3-tuple (W, H, root_x_offset) instead of 2-tuple",
+      "rationale": "Eliminates freeze_block_sizes side channel from place_subtree. Freeze block bounding box flows through same dims data model as all subtrees. root_x_offset=0 for normal nodes — zero behavioral change.",
       "phase": "16"
     },
     {
-      "decision": "compute_dims leaf returns (total_w, height) where total_w = right_ext + left_ovh",
-      "rationale": "Parent bands must allocate full horizontal width so ancestor subtrees space correctly around the block",
+      "decision": "place_subtree centers ROOT NODE (inp.screenWidth()) above consumer, not allocation band width",
+      "rationale": "Centering by allocation width causes cascading leftward drift in deep chains. Centering root node matches old behavior. alloc_left derived as root_x - root_x_offset for band accounting.",
       "phase": "16"
     },
     {
-      "decision": "place_subtree alloc_left model: root placed at alloc_left + _left_ovh(i) for all 5 input layout cases",
-      "rationale": "Separates band allocation boundary from root placement position. Non-freeze inputs get _left_ovh=0 — identical to prior behaviour.",
+      "decision": "freeze_block_sizes parameter removed from place_subtree, kept on compute_dims",
+      "rationale": "place_subtree reads root_x_offset from child_dims[i][2]. compute_dims still needs freeze_block_sizes as input to compute freeze block leaf dimensions.",
       "phase": "16"
     }
   ],
-  "uncommitted_files": ["menu.py", "node_layout.py", ".planning/phases/16-layout-integration/16-04-PLAN.md"],
-  "next_action": "Ask user to run UAT in live Nuke. If bbox fix passes, commit menu.py and node_layout.py, update VALIDATION.md, then ask about push to remote to close v1.3 milestone.",
-  "context_notes": "Phase 16 all plans were previously completed (prior sessions). This session addressed two UAT bugs: (1) 'util' NameError in menu.py — trivial missing import; (2) Freeze block bbox not respected — neighbours overlapping with frozen blocks. Three iterations of bbox fix. Core insight: compute_dims tracks W as 'rightward from root' with no left-extension concept. Fix: store left_ovh in freeze_block_sizes[2], return total_w from compute_dims leaf, place root at alloc_left+_left_ovh(i) in all 5 place_subtree X-position cases (all_side, n==1, n==2, fan n>=3, non-fan n>=3)."
+  "uncommitted_files": ["menu.py", "node_layout.py", "tests/test_center_x.py", "tests/test_fan_alignment.py", "tests/test_margin_symmetry.py", ".planning/phases/16-layout-integration/16-04-PLAN.md"],
+  "next_action": "Ask user to run UAT in live Nuke — test freeze blocks AND normal layout to confirm refactor didn't change behavior. If passes, commit and push.",
+  "context_notes": "This session: reviewed layout algorithm architecture, identified that compute_dims (W,H) 2-tuple had no way to express left overhang, and that the prior fix (freeze_block_sizes side channel + _left_ovh/_centered_alloc_left closures) was patches on patches. Refactored to 3-tuple (W, H, root_x_offset) model where root_x_offset is embedded in the dims return value. place_subtree uses child_dims[i][2] uniformly. For centering, root is placed at _center_x(inp.screenWidth(), x, node_w), then alloc_left = root_x - child_dims[i][2]. Non-freeze nodes have root_x_offset=0 so all behavior is identical to before the freeze feature existed."
 }
