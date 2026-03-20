@@ -81,7 +81,7 @@ Plans:
   2. A node inserted (wired) between two frozen nodes in the DAG is automatically treated as part of the freeze group when layout next runs — no manual re-freeze required
   3. The frozen block as a whole moves when its root node is repositioned by the layout algorithm; all other block members shift by the same delta
   4. Expand/push-away moves a frozen block rigidly as a unit — no individual block nodes are pushed independently
-**Plans:** 4 plans (2 complete + 2 gap closure)
+**Plans:** 3/4 plans executed
 Plans:
 - [x] 16-01-PLAN.md — Freeze group preprocessing: detection, auto-join, group merge, scope expansion
 - [x] 16-02-PLAN.md — Rigid block positioning, freeze-aware push-away, Group View Dot fix
@@ -109,4 +109,4 @@ Plans:
 | 13. Tooling + CI | v1.2 | 3/3 | Complete | 2026-03-17 |
 | 14. Release Workflow | v1.2 | 1/1 | Complete | 2026-03-18 |
 | 15. Freeze State & Commands | v1.3 | 2/2 | Complete | 2026-03-19 |
-| 16. Layout Integration | v1.3 | 2/4 | Gap Closure | - |
+| 16. Layout Integration | 3/4 | In Progress|  | - |

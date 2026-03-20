@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Freeze Layout
 status: unknown
-stopped_at: Completed 16-02-PLAN.md — Phase 16 and v1.3 Freeze Layout milestone complete
-last_updated: "2026-03-19T13:08:16.359Z"
+stopped_at: Completed 16-03-PLAN.md
+last_updated: "2026-03-20T04:27:32.472Z"
 progress:
   total_phases: 2
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 1
+  total_plans: 6
+  completed_plans: 5
 ---
 
 # Session State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave.
-**Current focus:** Phase 16 — Layout Integration — COMPLETE
+**Current focus:** Phase 16 — layout-integration
 
 ## Current Position
 
-Phase: 16 (Layout Integration) — COMPLETE
-Plan: 2 of 2 — COMPLETE
+Phase: 16 (layout-integration) — EXECUTING
+Plan: 1 of 4
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Plan: 2 of 2 — COMPLETE
 | 16-layout-integration | 2 | 12min | 6min |
 
 *Updated after each plan completion*
+| Phase 16-layout-integration P03 | 1 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,7 @@ Recent decisions affecting current work:
 - [16-02]: Block bbox overlap check: if ANY part of freeze block overlaps before-bbox, entire block is skipped from push
 - [16-02]: Freeze overrides horizontal mode in spine walk — freeze membership in node_freeze_uuid stops spine collection
 - [16-02]: Group View Dot creation already correctly scoped via with current_group: — no nuke.thisGroup() calls needed
+- [Phase 16-layout-integration]: No structural decision needed — import make_room was simply missing; added after import node_layout_prefs_dialog
 
 ### Pending Todos
 
@@ -81,5 +83,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-19T13:05:00Z
-Stopped at: Completed 16-02-PLAN.md — Phase 16 and v1.3 Freeze Layout milestone complete
+Last session: 2026-03-20T04:27:32.468Z
+Stopped at: Completed 16-03-PLAN.md
