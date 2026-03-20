@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Freeze Layout
 status: unknown
-stopped_at: Completed 16-03-PLAN.md
-last_updated: "2026-03-20T04:27:32.472Z"
+stopped_at: Completed 16-04-PLAN.md
+last_updated: "2026-03-20T04:32:23.756Z"
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Session State
@@ -43,6 +43,7 @@ Plan: 1 of 4
 
 *Updated after each plan completion*
 | Phase 16-layout-integration P03 | 1 | 1 tasks | 1 files |
+| Phase 16-layout-integration P04 | 3m22s | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [16-02]: Freeze overrides horizontal mode in spine walk — freeze membership in node_freeze_uuid stops spine collection
 - [16-02]: Group View Dot creation already correctly scoped via with current_group: — no nuke.thisGroup() calls needed
 - [Phase 16-layout-integration]: No structural decision needed — import make_room was simply missing; added after import node_layout_prefs_dialog
+- [Phase 16-layout-integration]: layout_selected node_filter correction uses id()-based set comprehension matching layout_upstream pattern
+- [Phase 16-layout-integration]: upstream_non_frozen second pass BFS in both layout_upstream and layout_selected with scope restriction in layout_selected
+- [Phase 16-layout-integration]: BFS freeze guard skips frozen nodes as horizontal replay root candidates but continues traversal through their inputs
 
 ### Pending Todos
 
@@ -83,5 +87,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-20T04:27:32.468Z
-Stopped at: Completed 16-03-PLAN.md
+Last session: 2026-03-20T04:32:23.753Z
+Stopped at: Completed 16-04-PLAN.md
