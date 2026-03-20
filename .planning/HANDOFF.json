@@ -1,59 +1,55 @@
 {
   "version": "1.0",
-  "timestamp": "2026-03-20T09:37:33.109Z",
+  "timestamp": "2026-03-20T11:50:51.695Z",
   "phase": "16",
   "phase_name": "layout-integration",
   "phase_dir": ".planning/phases/16-layout-integration",
   "plan": 4,
-  "task": 0,
-  "total_tasks": 0,
+  "task": null,
+  "total_tasks": null,
   "status": "paused",
   "completed_tasks": [
-    {"id": 1, "name": "Plan 16-01: Freeze preprocessing", "status": "done", "commit": "prior"},
-    {"id": 2, "name": "Plan 16-02: Rigid block positioning + push-aware", "status": "done", "commit": "prior"},
-    {"id": 3, "name": "Plan 16-03: Fix missing import make_room", "status": "done", "commit": "698c717"},
-    {"id": 4, "name": "Plan 16-04: Fix 3 freeze integration bugs", "status": "done", "commit": "76687a5"},
-    {"id": 5, "name": "Fix horizontal layout spine_set", "status": "done", "commit": "15d84a5"},
-    {"id": 6, "name": "Fix horizontal freeze detection for side-input subtrees + fix vertical band allocation (freeze_block_sizes)", "status": "done", "commit": "pending"}
+    {"id": 1, "name": "Plan 16-01 through 16-04 + spine_set fix", "status": "done", "commit": "prior sessions"},
+    {"id": 2, "name": "Fix import util NameError in menu.py", "status": "done", "commit": "uncommitted"},
+    {"id": 3, "name": "Freeze block horizontal+vertical bbox fix — 3-tuple freeze_block_sizes, compute_dims total_w leaf, place_subtree alloc_left model", "status": "done", "commit": "uncommitted"}
   ],
   "remaining_tasks": [
-    {"id": 7, "name": "Confirm horizontal + vertical layout fixes pass live Nuke UAT", "status": "not_started"}
+    {"id": 4, "name": "Live Nuke UAT: verify freeze bbox fix for blocks extending left, right, or both", "status": "not_started"},
+    {"id": 5, "name": "Commit all fixes, update VALIDATION.md and STATE.md", "status": "not_started"},
+    {"id": 6, "name": "Push to remote (31+ commits ahead of origin)", "status": "not_started"}
   ],
   "blockers": [
     {
-      "description": "Live Nuke UAT required — two root-cause bugs fixed this session but not yet confirmed in Nuke",
+      "description": "Freeze block bbox fix (3rd iteration this session) not yet UAT-confirmed — previous two iterations failed",
       "type": "human_action",
-      "workaround": "none — requires Nuke session"
+      "workaround": "none — requires live Nuke with a freeze block whose members extend both left and right of the block root"
     }
   ],
   "human_actions_pending": [
     {
-      "action": "Test Layout Selected Horizontal with frozen nodes that are side inputs of spine nodes",
-      "context": "Bug 1 root cause: _expand_scope_for_freeze_groups only scanned selected (spine) nodes — frozen blocks in side-input subtrees were never detected. Fix: preliminary spine walk in _layout_selected_horizontal_impl collects side-input subtrees for freeze detection. node_layout.py uncommitted.",
-      "blocking": true
-    },
-    {
-      "action": "Test Layout Selected (vertical) with frozen nodes — check that other subtrees are spaced correctly above the block",
-      "context": "Bug 2 root cause: compute_dims treated freeze block root as a leaf (non-root members excluded from node_filter), returning only root.screenHeight(). Vertical band was too small; non-root members above root collided with nodes in bands above. Fix: freeze_block_sizes dict overrides leaf dims for block roots in compute_dims/place_subtree. node_layout.py uncommitted.",
+      "action": "Run live Nuke UAT: freeze a block with members left AND right of block root, run Layout Upstream or Layout Selected, verify no overlap with neighbouring subtrees and root is centered above consumer.",
+      "context": "3rd iteration of bbox fix. alloc_left model: compute_dims leaf returns total_w=right_ext+left_ovh; place_subtree places root at alloc_left+_left_ovh(i) for all 5 layout cases. Also test right-only extension to confirm no regression.",
       "blocking": true
     }
   ],
   "decisions": [
     {
-      "decision": "Horizontal detection scope widened to include side-input subtrees of preliminary spine",
-      "rationale": "Frozen blocks living entirely in side-input subtrees (not selected by user) have no selected nodes with freeze UUIDs, so the original single-pass expand never found them. Preliminary spine walk collects those subtrees for detection without adding them to selected_nodes/spine_set.",
+      "decision": "freeze_block_sizes extended to 3-tuple: (right_extent, height, left_overhang)",
+      "rationale": "Block root is not at the block left edge when members extend left — left_ovh needed for root placement and centering",
       "phase": "16"
     },
     {
-      "decision": "freeze_block_sizes = {id(root): (root.screenWidth(), block_bounding_box_height)} overrides compute_dims leaf dims",
-      "rationale": "Width is kept at root.screenWidth() to avoid horizontal displacement side effects. Only the height is overridden with the full block bounding box height (max_y - min_y) to give place_subtree a correctly sized vertical band.",
+      "decision": "compute_dims leaf returns (total_w, height) where total_w = right_ext + left_ovh",
+      "rationale": "Parent bands must allocate full horizontal width so ancestor subtrees space correctly around the block",
+      "phase": "16"
+    },
+    {
+      "decision": "place_subtree alloc_left model: root placed at alloc_left + _left_ovh(i) for all 5 input layout cases",
+      "rationale": "Separates band allocation boundary from root placement position. Non-freeze inputs get _left_ovh=0 — identical to prior behaviour.",
       "phase": "16"
     }
   ],
-  "uncommitted_files": [
-    "node_layout.py",
-    ".planning/phases/16-layout-integration/16-04-PLAN.md"
-  ],
-  "next_action": "Commit node_layout.py with the two fixes, then ask user to test horizontal and vertical layout with frozen nodes in a fresh Nuke session. If both pass, ask about push to remote.",
-  "context_notes": "Phase 16 is the final phase of v1.3 Freeze Layout milestone. 335/335 CI tests pass. Two root-cause bugs fixed this session: (1) horizontal freeze detection missed side-input freeze groups — fixed by widening detection scope in _layout_selected_horizontal_impl with a preliminary spine walk; (2) vertical layout allocated too-small bands for freeze block roots because compute_dims returned only root.screenHeight() — fixed by adding freeze_block_sizes parameter to compute_dims and place_subtree, passed from layout_selected. Both fixes are minimal and backward-compatible (freeze_block_sizes=None by default)."
+  "uncommitted_files": ["menu.py", "node_layout.py", ".planning/phases/16-layout-integration/16-04-PLAN.md"],
+  "next_action": "Ask user to run UAT in live Nuke. If bbox fix passes, commit menu.py and node_layout.py, update VALIDATION.md, then ask about push to remote to close v1.3 milestone.",
+  "context_notes": "Phase 16 all plans were previously completed (prior sessions). This session addressed two UAT bugs: (1) 'util' NameError in menu.py — trivial missing import; (2) Freeze block bbox not respected — neighbours overlapping with frozen blocks. Three iterations of bbox fix. Core insight: compute_dims tracks W as 'rightward from root' with no left-extension concept. Fix: store left_ovh in freeze_block_sizes[2], return total_w from compute_dims leaf, place root at alloc_left+_left_ovh(i) in all 5 place_subtree X-position cases (all_side, n==1, n==2, fan n>=3, non-fan n>=3)."
 }
