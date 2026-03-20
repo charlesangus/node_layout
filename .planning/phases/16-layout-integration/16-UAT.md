@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: resolved
 phase: 16-layout-integration
-source: [16-01-SUMMARY.md, 16-02-SUMMARY.md]
+source: [16-01-SUMMARY.md, 16-02-SUMMARY.md, 16-03-SUMMARY.md, 16-04-SUMMARY.md]
 started: 2026-03-19T00:00:00Z
-updated: 2026-03-19T02:00:00Z
+updated: 2026-03-20T00:00:00Z
 ---
 
 ## Current Test
@@ -55,7 +55,7 @@ skipped: 0
 ## Gaps
 
 - truth: "Non-frozen nodes upstream of a frozen block are repositioned normally by layout"
-  status: failed
+  status: resolved
   reason: "User reported: The frozen nodes are positioned correctly. The non-frozen nodes above them are not moved; this is incorrect, they should be laid out normally above the frozen group."
   severity: major
   test: 2
@@ -67,7 +67,7 @@ skipped: 0
     - "Non-frozen nodes upstream of the freeze block must be collected and positioned above the anchored block after it is placed"
 
 - truth: "Frozen block members maintain their relative positions during layout (block moves as unit)"
-  status: failed
+  status: resolved
   reason: "User reported: The frozen group layout is changed. The nodes were laid out as normal, as if they were not frozen."
   severity: major
   test: 4
@@ -79,7 +79,7 @@ skipped: 0
     - "Replace `node_filter -= freeze_excluded_ids` with `node_filter = {n for n in node_filter if id(n) not in freeze_excluded_ids}` to match the layout_upstream pattern"
 
 - truth: "Dot node positions are correct when Layout Selected is run on a mixed selection containing frozen nodes"
-  status: failed
+  status: resolved
   reason: "User reported: layout selected on a bunch of nodes, some of which are frozen, produces incorrect dot locations"
   severity: major
   test: 4
@@ -91,7 +91,7 @@ skipped: 0
     - "Fixing the type mismatch (Gap 2 fix) also fixes this gap — once non-root members are excluded from node_filter, insert_dot_nodes will not traverse through them"
 
 - truth: "Expand/Push-Away runs without error when frozen nodes are present"
-  status: failed
+  status: resolved
   reason: "User reported: NameError: name \"make_room\" is not defined"
   severity: blocker
   test: 5
@@ -103,7 +103,7 @@ skipped: 0
     - "Add 'import make_room' to menu.py after existing imports"
 
 - truth: "Frozen nodes are excluded from horizontal spine walk; freeze membership overrides stored mode=horizontal"
-  status: failed
+  status: resolved
   reason: "User reported: Fail. The frozen nodes are laid out normally."
   severity: major
   test: 6
