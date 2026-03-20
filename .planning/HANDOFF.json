@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-03-20T05:02:50.606Z",
+  "phase": "16",
+  "phase_name": "layout-integration",
+  "phase_dir": ".planning/phases/16-layout-integration",
+  "plan": 4,
+  "task": 0,
+  "total_tasks": 0,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "Plan 16-01: Freeze preprocessing", "status": "done", "commit": "prior"},
+    {"id": 2, "name": "Plan 16-02: Rigid block positioning + push-aware", "status": "done", "commit": "prior"},
+    {"id": 3, "name": "Plan 16-03: Fix missing import make_room", "status": "done", "commit": "698c717"},
+    {"id": 4, "name": "Plan 16-04: Fix 3 freeze integration bugs", "status": "done", "commit": "76687a5"},
+    {"id": 5, "name": "Fix horizontal layout freeze awareness", "status": "done", "commit": "15d84a5"}
+  ],
+  "remaining_tasks": [
+    {"id": 6, "name": "Confirm horizontal + vertical layout fixes pass live Nuke UAT", "status": "not_started"}
+  ],
+  "blockers": [
+    {
+      "description": "Live Nuke UAT required — user reported horizontal still broken and vertical broken again; second fix (15d84a5) committed but not yet confirmed",
+      "type": "human_action",
+      "workaround": "none — requires Nuke session"
+    }
+  ],
+  "human_actions_pending": [
+    {
+      "action": "Test Layout Selected Horizontal with frozen nodes in Nuke",
+      "context": "Fix committed as 15d84a5 — spine_set now includes all freeze members so walk continues through them; offset restoration moves non-root members to relative positions after placement",
+      "blocking": true
+    },
+    {
+      "action": "Test Layout Selected (vertical) with frozen nodes in Nuke",
+      "context": "User reported vertical regression after first bad horizontal fix; second fix should resolve",
+      "blocking": true
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Freeze blocks must move during layout (not stay anchored)",
+      "rationale": "User explicitly confirmed: blocks are supposed to translate as a unit; only relative intra-block positions must be preserved",
+      "phase": "16"
+    },
+    {
+      "decision": "Type mismatch in layout_selected: node_filter -= freeze_excluded_ids is a no-op",
+      "rationale": "set[Node] - set[int] is always empty in Python; fix is set comprehension using id() comparison",
+      "phase": "16"
+    },
+    {
+      "decision": "Horizontal layout spine_set must include all freeze members",
+      "rationale": "Excluding non-root members breaks spine walk when they sit in the input(0) chain; offset restoration handles final positioning",
+      "phase": "16"
+    }
+  ],
+  "uncommitted_files": [
+    ".planning/phases/16-layout-integration/16-04-PLAN.md"
+  ],
+  "next_action": "Ask user to re-test horizontal and vertical layout with frozen nodes in a fresh Nuke session. If both pass, ask about push to remote.",
+  "context_notes": "Phase 16 is the final phase of v1.3 Freeze Layout milestone. All planned work verified in CI (335/335 tests). Only live Nuke confirmation remains. The freeze integration pattern is consistent across layout_upstream, layout_selected, and _layout_selected_horizontal_impl."
+}
