@@ -2782,11 +2782,11 @@ def _layout_selected_horizontal_impl(scheme_multiplier, side_layout_mode, undo_l
                         )
                         freeze_excluded_ids.add(id(member))
 
-            # The selected nodes form the horizontal spine. Exclude non-root freeze members
-            # so only the block root participates in the spine walk on behalf of each group.
-            spine_set = {id(n) for n in selected_nodes if id(n) not in freeze_excluded_ids}
-            spine_nodes_for_roots = [n for n in selected_nodes if id(n) not in freeze_excluded_ids]
-            roots = find_selection_roots(spine_nodes_for_roots)
+            # All selected nodes (including non-root freeze members) form the spine_set so the
+            # spine walk can traverse through freeze group members uninterrupted. Non-root members
+            # will be repositioned by offset restoration after place_subtree_horizontal runs.
+            spine_set = {id(n) for n in selected_nodes}
+            roots = find_selection_roots(selected_nodes)
 
             bbox_before = compute_node_bounding_box(selected_nodes)
             node_count = len(selected_nodes)
@@ -2856,16 +2856,9 @@ def _layout_selected_horizontal_impl(scheme_multiplier, side_layout_mode, undo_l
                 # h_scale and v_scale are NOT reset by re-layout — preserve existing values
                 node_layout_state.write_node_state(state_node, stored_state)
 
-            # Include all freeze members in bbox_after so push-away uses the full footprint.
-            all_placed_nodes = list(selected_nodes)
-            bbox_after = compute_node_bounding_box(all_placed_nodes)
-            # Include all freeze members in push_ids so they are not pushed away.
-            push_ids = set(spine_set)
-            for group_uuid, block_members in freeze_group_map.items():
-                for member in block_members:
-                    push_ids.add(id(member))
+            bbox_after = compute_node_bounding_box(selected_nodes)
             if bbox_before and bbox_after:
-                push_nodes_to_make_room(push_ids, bbox_before, bbox_after, current_group)
+                push_nodes_to_make_room(spine_set, bbox_before, bbox_after, current_group)
     except Exception:
         nuke.Undo.cancel()
         raise
