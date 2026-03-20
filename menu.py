@@ -2,6 +2,7 @@ import nuke
 
 import node_layout
 import node_layout_prefs_dialog
+import make_room
 
 m = nuke.menu("Nuke")
 edit = m.findItem("Edit")
