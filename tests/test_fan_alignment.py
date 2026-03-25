@@ -242,7 +242,7 @@ class TestComputeDimsFanHeight(unittest.TestCase):
         # slot 0=B, slot 1=A1, slot 3=A2 (slot 2 reserved for mask, left None)
         consumer._inputs = [input_b, input_a1, None, input_a2]
 
-        width, height = nl.compute_dims(
+        width, height, _ = nl.compute_dims(
             consumer, self.memo, self.snap_threshold, self.node_count
         )
         # Staircase would give H >= 3*100 + gaps > 300.
@@ -440,7 +440,7 @@ class TestComputeDimsFanWidth(unittest.TestCase):
         consumer = _StubMergeNode(width=80, height=28, xpos=500, ypos=500)
         # slot 0=B, slot 1=A1, slot 2=mask (None), slot 3=A2
         consumer._inputs = [input_b, input_a1, None, input_a2]
-        width, height = nl.compute_dims(
+        width, height, _ = nl.compute_dims(
             consumer, self.memo, self.snap_threshold, self.node_count
         )
         self.assertGreater(

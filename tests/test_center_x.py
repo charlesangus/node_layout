@@ -166,7 +166,7 @@ class TestComputeDimsOverhang(unittest.TestCase):
 
         memo = {}
         dims = _nl.compute_dims(node, memo, snap_threshold=8, node_count=150)
-        w, h = dims
+        w, h, _ = dims
         # With no overhang, W should be node width (80)
         self.assertEqual(w, 80)
 
@@ -192,7 +192,7 @@ class TestComputeDimsOverhang(unittest.TestCase):
 
         memo = {}
         dims = _nl.compute_dims(node, memo, snap_threshold=8, node_count=150)
-        w, h = dims
+        w, h, _ = dims
         self.assertEqual(w, 200)
 
     def test_n1_equal_width_no_overhang(self):
@@ -206,7 +206,7 @@ class TestComputeDimsOverhang(unittest.TestCase):
 
         memo = {}
         dims = _nl.compute_dims(node, memo, snap_threshold=8, node_count=150)
-        w, h = dims
+        w, h, _ = dims
         self.assertEqual(w, 80)
 
 

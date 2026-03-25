@@ -209,7 +209,7 @@ class TestMarginSymmetryN2(unittest.TestCase):
 
         memo = {}
         dims = _nl.compute_dims(parent, memo, snap_threshold=8, node_count=150)
-        w, h = dims
+        w, h, _ = dims
 
         # W = max(child0_w + overhang, node_w + h_margin[1] + child1_w)
         # child0 == node_w == 80, so overhang = 0
@@ -259,7 +259,7 @@ class TestMarginSymmetryN3(unittest.TestCase):
 
         memo = {}
         dims = _nl.compute_dims(parent, memo, snap_threshold=8, node_count=150)
-        w, h = dims
+        w, h, _ = dims
 
         # W = max(child0_w + overhang, node_w + sum(h_margins[1:3]) + sum(side_child widths))
         # overhang = max(0, (80 - 80) // 2) = 0
