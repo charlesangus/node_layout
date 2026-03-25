@@ -85,8 +85,9 @@ None.
 |---|-------------|------|--------|-----------|
 | 260317-n0k | fix the failing tests | 2026-03-17 | 29a0e26 | [260317-n0k-fix-the-failing-tests](./quick/260317-n0k-fix-the-failing-tests/) |
 | 260324-an9 | build 5 freeze test scenarios in live Nuke | 2026-03-24 | d481d96 | [260324-an9-use-the-nuke-mcp-to-generate-some-live-n](./quick/260324-an9-use-the-nuke-mcp-to-generate-some-live-n/) |
+| 260325-k1f | Fix menu.py command strings to use inline import form | 2026-03-25 | 51150be | [260325-k1f-fix-menu-py-command-strings-to-use-inlin](./quick/260325-k1f-fix-menu-py-command-strings-to-use-inlin/) |
 
 ## Session Continuity
 
-Last session: 2026-03-24T11:54:39Z
-Stopped at: Completed quick task 260324-an9
+Last session: 2026-03-25T18:25:42Z
+Stopped at: Completed quick task 260325-k1f
