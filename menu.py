@@ -18,13 +18,29 @@ layout_menu.addCommand(
 layout_menu.addSeparator()
 
 # CMD-01: scheme name at end for tab-menu discoverability
-layout_menu.addCommand('Layout Upstream Compact', "import node_layout; node_layout.layout_upstream_compact()")
-layout_menu.addCommand('Layout Selected Compact', "import node_layout; node_layout.layout_selected_compact()")
-layout_menu.addCommand('Layout Upstream Loose', "import node_layout; node_layout.layout_upstream_loose()")
-layout_menu.addCommand('Layout Selected Loose', "import node_layout; node_layout.layout_selected_loose()")
-layout_menu.addCommand('Clear Layout State Selected', "import node_layout; node_layout.clear_layout_state_selected()")
-layout_menu.addCommand('Clear Layout State Upstream', "import node_layout; node_layout.clear_layout_state_upstream()")
-layout_menu.addCommand('Layout Selected Horizontal', "import node_layout; node_layout.layout_selected_horizontal()")
+layout_menu.addCommand(
+    'Layout Upstream Compact', "import node_layout; node_layout.layout_upstream_compact()"
+)
+layout_menu.addCommand(
+    'Layout Selected Compact', "import node_layout; node_layout.layout_selected_compact()"
+)
+layout_menu.addCommand(
+    'Layout Upstream Loose', "import node_layout; node_layout.layout_upstream_loose()"
+)
+layout_menu.addCommand(
+    'Layout Selected Loose', "import node_layout; node_layout.layout_selected_loose()"
+)
+layout_menu.addCommand(
+    'Clear Layout State Selected',
+    "import node_layout; node_layout.clear_layout_state_selected()",
+)
+layout_menu.addCommand(
+    'Clear Layout State Upstream',
+    "import node_layout; node_layout.clear_layout_state_upstream()",
+)
+layout_menu.addCommand(
+    'Layout Selected Horizontal', "import node_layout; node_layout.layout_selected_horizontal()"
+)
 layout_menu.addCommand(
     'Layout Selected Horizontal (Place Only)',
     "import node_layout; node_layout.layout_selected_horizontal_place_only()",
@@ -57,14 +73,30 @@ layout_menu.addCommand(
     shortcutContext=2,
 )
 
-layout_menu.addCommand('Shrink Selected Horizontal', "import node_layout; node_layout.shrink_selected_horizontal()")
-layout_menu.addCommand('Shrink Selected Vertical',   "import node_layout; node_layout.shrink_selected_vertical()")
-layout_menu.addCommand('Expand Selected Horizontal', "import node_layout; node_layout.expand_selected_horizontal()")
-layout_menu.addCommand('Expand Selected Vertical',   "import node_layout; node_layout.expand_selected_vertical()")
-layout_menu.addCommand('Shrink Upstream Horizontal', "import node_layout; node_layout.shrink_upstream_horizontal()")
-layout_menu.addCommand('Shrink Upstream Vertical',   "import node_layout; node_layout.shrink_upstream_vertical()")
-layout_menu.addCommand('Expand Upstream Horizontal', "import node_layout; node_layout.expand_upstream_horizontal()")
-layout_menu.addCommand('Expand Upstream Vertical',   "import node_layout; node_layout.expand_upstream_vertical()")
+layout_menu.addCommand(
+    'Shrink Selected Horizontal', "import node_layout; node_layout.shrink_selected_horizontal()"
+)
+layout_menu.addCommand(
+    'Shrink Selected Vertical', "import node_layout; node_layout.shrink_selected_vertical()"
+)
+layout_menu.addCommand(
+    'Expand Selected Horizontal', "import node_layout; node_layout.expand_selected_horizontal()"
+)
+layout_menu.addCommand(
+    'Expand Selected Vertical', "import node_layout; node_layout.expand_selected_vertical()"
+)
+layout_menu.addCommand(
+    'Shrink Upstream Horizontal', "import node_layout; node_layout.shrink_upstream_horizontal()"
+)
+layout_menu.addCommand(
+    'Shrink Upstream Vertical', "import node_layout; node_layout.shrink_upstream_vertical()"
+)
+layout_menu.addCommand(
+    'Expand Upstream Horizontal', "import node_layout; node_layout.expand_upstream_horizontal()"
+)
+layout_menu.addCommand(
+    'Expand Upstream Vertical', "import node_layout; node_layout.expand_upstream_vertical()"
+)
 layout_menu.addCommand(
     'Repeat Last Scale',
     "import node_layout; node_layout.repeat_last_scale()",
@@ -74,7 +106,9 @@ layout_menu.addCommand(
 
 layout_menu.addSeparator()
 
-layout_menu.addCommand("Sort By Filename", "import util; util.sort_by_filename()", shortcutContext=2,)
+layout_menu.addCommand(
+    "Sort By Filename", "import util; util.sort_by_filename()", shortcutContext=2,
+)
 layout_menu.addCommand(
     "Select Upstream Ignoring Hidden",
     "import util; util.select_upstream_ignoring_hidden()",
@@ -84,7 +118,9 @@ layout_menu.addCommand(
 
 layout_menu.addSeparator()
 
-layout_menu.addCommand("Make Room Above", "import make_room; make_room.make_room()", "[", shortcutContext=2,)
+layout_menu.addCommand(
+    "Make Room Above", "import make_room; make_room.make_room()", "[", shortcutContext=2,
+)
 layout_menu.addCommand(
     "Make Room Below",
     "import make_room; make_room.make_room(direction='down')",

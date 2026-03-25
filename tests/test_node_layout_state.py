@@ -339,7 +339,9 @@ class TestFreezeGroupState(unittest.TestCase):
         """Simulate an old node whose JSON has no freeze_group key."""
         node = FakeNode()
         knob = _make_state_knob()
-        knob.setValue(json.dumps({"scheme": "compact", "mode": "vertical", "h_scale": 1.0, "v_scale": 1.0}))
+        knob.setValue(json.dumps({
+            "scheme": "compact", "mode": "vertical", "h_scale": 1.0, "v_scale": 1.0
+        }))
         node._knobs['node_layout_state'] = knob
         result = node_layout_state.read_node_state(node)
         self.assertIn("freeze_group", result)

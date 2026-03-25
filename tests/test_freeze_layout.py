@@ -571,6 +571,10 @@ class TestFreezeBlockPositioning(unittest.TestCase):
 class TestFreezeBlockPush(unittest.TestCase):
     """Tests that push_nodes_to_make_room treats frozen blocks as rigid units."""
 
+    def _make_freeze_block(self, members, root, block_uuid):
+        """Helper to create a FreezeBlock for testing push_nodes_to_make_room."""
+        return _nl.FreezeBlock(root=root, members=members, uuid=block_uuid)
+
     def test_push_translates_block_as_unit(self):
         """When a push qualifies for a block member, all block members shift by the same delta."""
         # Block members at (500, 0) and (500, 50)
@@ -580,14 +584,11 @@ class TestFreezeBlockPush(unittest.TestCase):
         # Non-frozen node at (600, 0)
         other_node = _StubNode(width=80, height=28, xpos=600, ypos=0)
 
-        block_uuid = "block-xxx"
-        freeze_block_map = {
-            id(block_member_1): block_uuid,
-            id(block_member_2): block_uuid,
-        }
-        freeze_groups = {
-            block_uuid: [block_member_1, block_member_2],
-        }
+        freeze_blocks = [
+            self._make_freeze_block(
+                [block_member_1, block_member_2], block_member_2, "block-xxx"
+            )
+        ]
 
         # Subtree that grew right: before (0,0,100,100), after (0,0,200,100)
         bbox_before = (0, 0, 100, 100)
@@ -602,8 +603,7 @@ class TestFreezeBlockPush(unittest.TestCase):
         _nl.push_nodes_to_make_room(
             subtree_node_ids, bbox_before, bbox_after,
             current_group=context_stub,
-            freeze_block_map=freeze_block_map,
-            freeze_groups=freeze_groups,
+            freeze_blocks=freeze_blocks,
         )
 
         # Both block members should have shifted right by 100
@@ -620,14 +620,11 @@ class TestFreezeBlockPush(unittest.TestCase):
         block_member_1 = _StubNode(width=80, height=28, xpos=500, ypos=0)
         block_member_2 = _StubNode(width=80, height=28, xpos=500, ypos=50)
 
-        block_uuid = "block-yyy"
-        freeze_block_map = {
-            id(block_member_1): block_uuid,
-            id(block_member_2): block_uuid,
-        }
-        freeze_groups = {
-            block_uuid: [block_member_1, block_member_2],
-        }
+        freeze_blocks = [
+            self._make_freeze_block(
+                [block_member_1, block_member_2], block_member_2, "block-yyy"
+            )
+        ]
 
         bbox_before = (0, 0, 100, 100)
         bbox_after = (0, 0, 200, 100)
@@ -640,8 +637,7 @@ class TestFreezeBlockPush(unittest.TestCase):
         _nl.push_nodes_to_make_room(
             subtree_node_ids, bbox_before, bbox_after,
             current_group=context_stub,
-            freeze_block_map=freeze_block_map,
-            freeze_groups=freeze_groups,
+            freeze_blocks=freeze_blocks,
         )
 
         # Each block member should have moved exactly 100 (not 200)
@@ -658,14 +654,11 @@ class TestFreezeBlockPush(unittest.TestCase):
         # member_outside is at (200, 200) — does not overlap but same block
         member_outside = _StubNode(width=80, height=28, xpos=200, ypos=200)
 
-        block_uuid = "block-zzz"
-        freeze_block_map = {
-            id(member_inside): block_uuid,
-            id(member_outside): block_uuid,
-        }
-        freeze_groups = {
-            block_uuid: [member_inside, member_outside],
-        }
+        freeze_blocks = [
+            self._make_freeze_block(
+                [member_inside, member_outside], member_outside, "block-zzz"
+            )
+        ]
 
         bbox_before = (0, 0, 100, 100)
         bbox_after = (0, 0, 200, 100)
@@ -678,8 +671,7 @@ class TestFreezeBlockPush(unittest.TestCase):
         _nl.push_nodes_to_make_room(
             subtree_node_ids, bbox_before, bbox_after,
             current_group=context_stub,
-            freeze_block_map=freeze_block_map,
-            freeze_groups=freeze_groups,
+            freeze_blocks=freeze_blocks,
         )
 
         # Because the block bbox includes member_inside which overlaps bbox_before,
@@ -784,8 +776,10 @@ class TestFreezeGapClosure(unittest.TestCase):
         # Pre-fix (broken): set difference between node objects and ints is always empty.
         result_before = node_filter_before - freeze_excluded_ids_before
         # The broken version incorrectly keeps non_root_member in the filter.
-        self.assertIn(non_root_member, result_before,
-                      "Pre-fix: broken -= leaves non-root member in filter (no-op on mismatched types)")
+        self.assertIn(
+            non_root_member, result_before,
+            "Pre-fix: broken -= leaves non-root member in filter (no-op on mismatched types)",
+        )
 
         # Replicate the post-fix filter construction (should correctly exclude non_root_member).
         freeze_excluded_ids_after = {id(non_root_member)}
@@ -946,8 +940,6 @@ class TestFreezeGapClosure(unittest.TestCase):
 
         block_members = [frozen_a, frozen_b]
         block_member_ids = {id(m) for m in block_members}
-        freeze_block_roots = {"group-aaa": frozen_a}
-
         # Run the second-pass BFS (replicating the Gap 1 post-pass logic).
         upstream_non_frozen = []
         visited_upstream = set()
@@ -979,6 +971,108 @@ class TestFreezeGapClosure(unittest.TestCase):
                          "frozen_a (block root) must not appear in upstream_non_frozen")
         self.assertNotIn(id(frozen_b), upstream_non_frozen_ids,
                          "frozen_b (non-root member) must not appear in upstream_non_frozen")
+
+
+# ---------------------------------------------------------------------------
+# TestFreezeBlockClass
+# ---------------------------------------------------------------------------
+
+
+class TestFreezeBlockClass(unittest.TestCase):
+    """Tests for the FreezeBlock dataclass that encapsulates freeze state."""
+
+    def test_leaf_dims_returns_correct_tuple(self):
+        """leaf_dims property returns (total_w, block_height, left_overhang)."""
+        root = _make_state_stub_node(freeze_group="group-aaa")
+        root.setXpos(100)
+        root.setYpos(200)
+
+        member = _make_state_stub_node(freeze_group="group-aaa")
+        member.setXpos(50)
+        member.setYpos(150)
+        _wire(member, root)
+
+        block = _nl.FreezeBlock(root=root, members=[root, member], uuid="group-aaa")
+
+        # root at x=100, member at x=50 -> left_overhang = 100 - 50 = 50
+        # root right edge = 100 + 80 = 180, member right edge = 50 + 80 = 130
+        # right_extent = max(180, 130) - 100 = 80
+        # total_w = right_extent + left_overhang = 80 + 50 = 130
+        # block_height = max(200+28, 150+28) - min(200, 150) = 228 - 150 = 78
+        total_w, height, left_ovh = block.leaf_dims
+        self.assertEqual(total_w, 130)
+        self.assertEqual(height, 78)
+        self.assertEqual(left_ovh, 50)
+
+    def test_restore_positions_moves_members_relative_to_root(self):
+        """restore_positions repositions non-root members relative to root's new position."""
+        root = _make_state_stub_node(freeze_group="group-aaa")
+        root.setXpos(100)
+        root.setYpos(300)
+
+        member = _make_state_stub_node(freeze_group="group-aaa")
+        member.setXpos(100)
+        member.setYpos(200)
+        _wire(member, root)
+
+        block = _nl.FreezeBlock(root=root, members=[root, member], uuid="group-aaa")
+
+        # Simulate root moving
+        root.setXpos(300)
+        root.setYpos(500)
+        block.restore_positions()
+
+        self.assertEqual(member.xpos(), 300)
+        self.assertEqual(member.ypos(), 400)
+
+    def test_get_external_inputs_finds_outside_connections(self):
+        """get_external_inputs returns inputs from outside the block."""
+        root = _make_state_stub_node(freeze_group="group-aaa")
+        member = _make_state_stub_node(freeze_group="group-aaa")
+        external = _make_state_stub_node()
+
+        _wire(member, root)
+        _wire(external, member)
+
+        block = _nl.FreezeBlock(root=root, members=[root, member], uuid="group-aaa")
+        external_inputs = block.get_external_inputs(_nl.get_inputs)
+
+        self.assertEqual(len(external_inputs), 1)
+        self.assertIs(external_inputs[0][0], external)
+        self.assertIs(external_inputs[0][1], member)
+
+    def test_non_root_ids_excludes_root(self):
+        """non_root_ids property contains member ids but not root id."""
+        root = _make_state_stub_node(freeze_group="group-aaa")
+        member = _make_state_stub_node(freeze_group="group-aaa")
+        _wire(member, root)
+
+        block = _nl.FreezeBlock(root=root, members=[root, member], uuid="group-aaa")
+
+        self.assertNotIn(id(root), block.non_root_ids)
+        self.assertIn(id(member), block.non_root_ids)
+
+    def test_build_freeze_blocks_creates_correct_structures(self):
+        """_build_freeze_blocks returns blocks, dimension_overrides,
+        all_non_root_ids, all_member_ids."""
+        root = _make_state_stub_node(freeze_group="group-aaa")
+        root.setXpos(100)
+        root.setYpos(300)
+
+        member = _make_state_stub_node(freeze_group="group-aaa")
+        member.setXpos(100)
+        member.setYpos(200)
+        _wire(member, root)
+
+        freeze_group_map = {"group-aaa": [root, member]}
+        blocks, dim_overrides, non_root_ids, member_ids = _nl._build_freeze_blocks(freeze_group_map)
+
+        self.assertEqual(len(blocks), 1)
+        self.assertIn(id(root), dim_overrides)
+        self.assertIn(id(member), non_root_ids)
+        self.assertNotIn(id(root), non_root_ids)
+        self.assertIn(id(root), member_ids)
+        self.assertIn(id(member), member_ids)
 
 
 if __name__ == "__main__":

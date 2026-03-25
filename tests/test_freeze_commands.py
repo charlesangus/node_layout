@@ -390,7 +390,9 @@ class TestFreezeSelectedBehavior(unittest.TestCase):
         freeze_groups = []
         for node in nodes:
             state_knob = node.knob("node_layout_state")
-            self.assertIsNotNone(state_knob, "node_layout_state knob missing after freeze_selected()")
+            self.assertIsNotNone(
+                state_knob, "node_layout_state knob missing after freeze_selected()"
+            )
             state = json.loads(state_knob.value())
             freeze_group = state.get("freeze_group")
             self.assertIsNotNone(
