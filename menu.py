@@ -107,17 +107,17 @@ layout_menu.addCommand(
 layout_menu.addSeparator()
 
 layout_menu.addCommand(
-    "Sort By Filename", "import util; util.sort_by_filename()", shortcutContext=2,
+    "Sort By Filename", "import node_layout_util; node_layout_util.sort_by_filename()", shortcutContext=2,
 )
 layout_menu.addCommand(
     "Select Upstream Ignoring Hidden",
-    "import util; util.select_upstream_ignoring_hidden()",
+    "import node_layout_util; node_layout_util.select_upstream_ignoring_hidden()",
     "E",
     shortcutContext=2,
 )
 layout_menu.addCommand(
     "Select Hidden Outputs",
-    "import util; util.select_hidden_outputs()",
+    "import node_layout_util; node_layout_util.select_hidden_outputs()",
     shortcutContext=2,
 )
 
