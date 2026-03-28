@@ -679,6 +679,17 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                     per_node_v_scale=per_node_v_scale,
                     dimension_overrides=dimension_overrides,
                 )
+                # When the side input is a freeze block root, the block's restored
+                # bounding box is typically wider than what compute_dims returns
+                # (which treats frozen members as a normal vertical chain).  Override
+                # side_w and side_root_x_offset with the block's true dimensions so
+                # the advance formula reserves enough horizontal space.
+                if dimension_overrides and id(side_node) in dimension_overrides:
+                    block = dimension_overrides[id(side_node)]
+                    freeze_block_total_width = block.right_extent + block.left_overhang
+                    if freeze_block_total_width > side_w:
+                        side_w = freeze_block_total_width
+                        side_root_x_offset = block.left_overhang
                 # centering_offset: displacement from spine node's left edge to side
                 # node's left edge.  Negative when side node is wider than spine node
                 # (side subtree extends leftward past the spine node's left edge).
@@ -807,6 +818,36 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                     per_node_h_scale=per_node_h_scale,
                     per_node_v_scale=per_node_v_scale,
                 )
+                # When the side input is a freeze block root, place_subtree laid
+                # out all nodes (including frozen members) in a normal vertical
+                # chain.  Now restore the frozen members to their root-relative
+                # offsets and translate any external inputs (non-frozen nodes that
+                # feed into the block) to follow their connecting member's move.
+                if dimension_overrides and id(side_node) in dimension_overrides:
+                    block = dimension_overrides[id(side_node)]
+                    # Snapshot non-root member positions before restore
+                    positions_before_restore = {}
+                    for member in block.members:
+                        if id(member) != block.root_id:
+                            positions_before_restore[id(member)] = (
+                                member.xpos(), member.ypos()
+                            )
+                    block.restore_positions()
+                    # Translate each external input subtree by the delta of its
+                    # connecting freeze member's move
+                    for external_input, connecting_member in block.get_external_inputs(get_inputs):
+                        if id(connecting_member) not in positions_before_restore:
+                            continue
+                        old_x, old_y = positions_before_restore[id(connecting_member)]
+                        member_delta_x = connecting_member.xpos() - old_x
+                        member_delta_y = connecting_member.ypos() - old_y
+                        for external_subtree_node in collect_subtree_nodes(external_input):
+                            external_subtree_node.setXpos(
+                                external_subtree_node.xpos() + member_delta_x
+                            )
+                            external_subtree_node.setYpos(
+                                external_subtree_node.ypos() + member_delta_y
+                            )
             else:
                 # Translate the entire side subtree as a unit (preserving its
                 # internal layout) so that the subtree root lands at (side_x, side_y).
@@ -849,9 +890,13 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
 
                 # Position the Dot at spine Y, one step to the LEFT of the spine node.
                 # dot_x = one step_x gap left of cur_x, accounting for the Dot's own width.
+                # When the last spine node has side inputs with freeze blocks that
+                # extend leftward past the spine node, the Dot must clear that extent
+                # so the upstream subtree doesn't overlap frozen members.
                 # dot_y = vertically centered on the spine node tile.
                 if leftmost_dot is not None:
-                    dot_x = cur_x - step_x - leftmost_dot.screenWidth()
+                    last_spine_left_extent = left_extents[index] if index < len(left_extents) else 0
+                    dot_x = cur_x - step_x - leftmost_dot.screenWidth() - last_spine_left_extent
                     dot_y = cur_y + (spine_node.screenHeight() - leftmost_dot.screenHeight()) // 2
                     leftmost_dot.setXpos(dot_x)
                     leftmost_dot.setYpos(dot_y)
