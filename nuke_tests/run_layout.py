@@ -36,9 +36,9 @@ _WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _WORKSPACE not in sys.path:
     sys.path.insert(0, _WORKSPACE)
 
-import nuke  # noqa: E402 (must come after sys.path setup; provided by Nuke runtime)
 import node_layout  # noqa: E402
 import node_layout_state  # noqa: E402
+import nuke  # noqa: E402 (must come after sys.path setup; provided by Nuke runtime)
 
 # ---------------------------------------------------------------------------
 # Terminal-mode patches
@@ -142,7 +142,8 @@ def main():
         if not selected:
             raise ValueError("No nodes selected for layout_selected_horizontal")
 
-        print(f"[run_layout] Running layout_selected_horizontal (selected: {[n.name() for n in selected]})")
+        selected_names = [n.name() for n in selected]
+        print(f"[run_layout] Running layout_selected_horizontal (selected: {selected_names})")
         node_layout.layout_selected_horizontal()
 
     else:

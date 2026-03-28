@@ -33,7 +33,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import unittest
 
 # Make sure dag_viz is importable from this file's directory.
