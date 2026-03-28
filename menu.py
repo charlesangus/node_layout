@@ -115,6 +115,11 @@ layout_menu.addCommand(
     "E",
     shortcutContext=2,
 )
+layout_menu.addCommand(
+    "Select Hidden Outputs",
+    "import util; util.select_hidden_outputs()",
+    shortcutContext=2,
+)
 
 layout_menu.addSeparator()
 
