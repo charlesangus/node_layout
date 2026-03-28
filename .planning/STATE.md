@@ -90,5 +90,6 @@ None.
 
 ## Session Continuity
 
+Last activity: 2026-03-28 - Completed quick task 260328-5o4: add a select hidden outputs function
 Last session: 2026-03-28T00:00:00Z
 Stopped at: Completed quick task 260328-5o4
