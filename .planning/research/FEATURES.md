@@ -1,37 +1,98 @@
 # Feature Landscape
 
-**Domain:** Nuke DAG auto-layout plugin — v1.1 new features
-**Researched:** 2026-03-05
-**Milestone context:** Subsequent milestone adding to existing v1.0 plugin
+**Domain:** Nuke DAG layout plugin — v1.4 Leader Key modal input system
+**Researched:** 2026-03-28
+**Milestone context:** Subsequent milestone adding modal leader-key dispatch and keyboard overlay to an existing plugin with all underlying commands already implemented.
+
+---
+
+## Context: What Already Exists
+
+Every command this milestone dispatches to is already implemented and tested:
+
+- `layout_upstream()` / `layout_selected()` — vertical layout
+- `layout_selected_horizontal()` — horizontal B-spine layout
+- Freeze / unfreeze / clear freeze group
+- Move selected nodes (W/A/S/D directions)
+- Shrink / expand selected (Q/E)
+
+The v1.4 milestone is purely a **UX layer**: intercept a trigger key, enter modal state, dispatch to existing functions, display an overlay, exit cleanly. No new layout engine work is needed.
+
+---
+
+## Analogous Systems in the Wild
+
+### Vim + which-key.nvim (highest relevance)
+
+The canonical leader-key pattern. A prefix key (`<leader>`) arms the input system; the next key dispatches a command. The which-key.nvim plugin adds a timed hint popup. Key design decisions from this ecosystem:
+
+- **Delay before popup, not before dispatch.** The keystroke dispatches instantly. The hint overlay only appears if the user pauses (configurable, default 200 ms in which-key, 0 ms is valid for always-show). This means fast users never see the overlay; slow or learning users always do. Confidence: HIGH (confirmed in which-key.nvim docs).
+- **Foreign key behavior is a critical design choice.** Vim leader mode exits immediately on any unrecognized key. The unrecognized key is then executed as a normal Nuke shortcut (pass-through). The alternative (swallow the key and flash an error) is universally disliked. Confidence: HIGH (Vim behavior is well-documented; community consensus is strong).
+- **Sticky vs single-shot keys.** In which-key/Hydra terminology: single-shot keys exit the mode after executing; sticky/repeating keys keep the mode alive. WASD movement is the canonical sticky case — the user presses W several times without re-pressing the leader. All other commands in this milestone are single-shot (one dispatch, mode exits). Confidence: HIGH (Hydra README explicitly models this as "red" vs "blue" heads).
+
+### Emacs Hydra / Transient (high relevance for WASD chaining)
+
+Hydra is the Emacs equivalent of what this milestone needs:
+
+- **Red heads (sticky):** After calling, mode stays active. The user presses W/A/S/D multiple times, moving nodes one step at a time. Mode stays until an explicit exit or a non-WASD key is pressed.
+- **Blue heads (single-shot):** V, Z, F, C, Q, E — each dispatches once and drops back to normal mode.
+- **Foreign keys on a sticky hydra exit cleanly and pass through.** This prevents the user from getting "stuck" if they absentmindedly type something unrelated.
+- **Hint display at session start.** Hydra shows hints immediately (or after a timer) at the bottom of the screen. For VFX tools, positioning in a fixed corner of the DAG is the equivalent.
+- Confidence: HIGH (Hydra README and Emacs repeat-mode documentation confirm these patterns).
+
+### Blender Modal Operators (medium relevance)
+
+Blender's modal operator pattern is the closest analogue in a creative tool:
+
+- Modal operators receive all keyboard events while active. Any event not handled explicitly by the operator passes through or cancels it.
+- ESC cancels. Right-click cancels. Any unhandled key type cancels and passes through (similar to Vim foreign key behavior).
+- Status bar text updates to show available keys while modal is active — this is Blender's equivalent of the overlay.
+- Confidence: MEDIUM (Blender Python API docs confirmed; exact behavior slightly version-dependent).
+
+### Maya Hotbox / W_hotbox for Nuke (directly relevant UX precedent)
+
+W_hotbox is a modal context menu for Nuke modeled on Maya's hotbox:
+
+- Press-and-hold trigger: overlay appears while key is depressed, dismisses on release. This is a different trigger model than a leader key (toggle vs hold), but the visual layer architecture is the same.
+- The overlay is a selection-aware context menu positioned under the cursor.
+- The design principle: overlay appears near the cursor, not at a fixed screen edge, because the user's attention is already on the cursor.
+- For the node_layout leader key, the overlay is not cursor-positioned (it's a fixed panel) because the commands apply to the entire selection, not the hovered node. A bottom-of-DAG or top-of-DAG fixed position is more appropriate.
+- Confidence: MEDIUM (W_hotbox behavior observed from Nukepedia and community tutorials; not official Foundry documentation).
 
 ---
 
 ## Table Stakes
 
-Features users expect given what the plugin already does. Missing or broken = the new milestone feels incomplete or regressive.
+Features users expect from a leader-key modal input system. Missing or broken = the feature feels incomplete or broken.
 
-| Feature | Why Expected | Complexity | Dependencies on Existing Code |
-|---------|--------------|------------|-------------------------------|
-| Spacing rebalance (less vertical, more horizontal) | Current default spacing is too vertical-heavy; users doing re-layout find trees too tall. Horizontal gap preferences are absent from the prefs dialog entirely. | Low | Adds new prefs keys to `node_layout_prefs.py`; new fields in prefs dialog; new constants passed into `compute_dims` / `place_subtree` horizontal margin paths |
-| Horizontal prefs for secondary vs mask gaps | Secondary inputs already get a different margin than primary; mask inputs already get a reduced ratio. But both share a single `base_subtree_margin`. Differentiating horizontal gap for mask separately is the natural completion of this system. | Low-Medium | `_subtree_margin()` already has `_is_mask_input()` branching; needs a second pref key and separate computation path for horizontal |
-| Rename Compact/Loose commands | Commands are currently named "Compact Layout Upstream" / "Loose Layout Upstream". Tab-menu discoverability in Nuke requires scheme name at end (Nuke's tab-menu search is prefix-based). Users typing "Layout" should see all variants. | Low | Pure `menu.py` rename; no engine changes |
-| Expand Selected/Upstream push-away | Expand already scales node positions. When the scaled tree grows beyond its original bounding box, it collides with surrounding nodes. The push logic already exists for layout operations; Expand should reuse it. | Medium | `push_nodes_to_make_room()` exists in `node_layout.py`; `expand_selected()` and `expand_upstream()` need to capture pre/post bounding boxes and call it |
-| Group context fix for Dot node creation | When the user runs Layout Upstream while inside a Nuke Group DAG, `nuke.nodes.Dot()` creates nodes in the root context, not the group context. This is a silent correctness bug — wires appear connected but the new Dot lives outside the group. | Medium | `insert_dot_nodes()` and `place_subtree()` both call `nuke.nodes.Dot()`; need `group.begin()` / `group.end()` (or `with group:`) wrapper at the entry points |
+| Feature | Why Expected | Complexity | Notes |
+|---------|--------------|------------|-------|
+| Leader key arms mode exactly once | The Shift+E press is consumed, nothing else executes; next keypress is the command key. Mode is active from leader press to command dispatch (or cancel). | Low | Must intercept the Shift+E event before Nuke's own shortcut handler sees it — requires QApplication.installEventFilter or equivalent. |
+| Single-shot commands exit mode immediately | V, Z, F, C, Q, E each dispatch their command and drop back to normal mode. User is never "stuck" in leader mode after a single-shot command. | Low | State flag `_in_leader_mode` reset after dispatch. |
+| WASD stays in leader mode after each move | Each W/A/S/D keypress executes the move and keeps mode alive. The user can press WASD in any order repeatedly without re-pressing Shift+E. | Low-Medium | State flag NOT reset after WASD dispatch. Different code path from single-shot keys. |
+| Any unrecognized key cancels mode | Typing a letter not in the keymap (e.g., pressing T) cancels leader mode. The T is consumed (not passed to Nuke). Rationale: passing through the unrecognized key risks triggering unrelated Nuke commands mid-sequence. | Low | This is the standard behavior for a fixed keymap. Note: Vim passes through foreign keys; for a small fixed keymap, swallowing is safer to avoid e.g. accidentally opening a node panel. |
+| Mouse click cancels mode | Clicking in the DAG cancels leader mode. The mouse event is not consumed — the click still lands (e.g., to select a node). | Low | installEventFilter must intercept mouse events on the DAG and cancel mode, then let the event propagate normally. |
+| ESC cancels mode | Users expect Escape to be a universal cancel in any modal state. | Low | Map ESC key event to mode cancel. |
+| Overlay appears immediately on leader press (when delay = 0) | With default pref "hint popup delay" = 0, the overlay is visible from the moment the user presses Shift+E. No separate delay step needed for the default case. | Low | If delay > 0: use QTimer to defer overlay display; the overlay still must appear before the user could press a second key at a normal typing speed (200 ms window). |
+| Overlay disappears on mode exit | Whether the user executes a command or cancels, the overlay is removed from the DAG before any command runs (or at latest on the same UI update tick). | Low | Call overlay.hide() (or overlay.close()) immediately on any exit path: command dispatch, foreign key, ESC, mouse click. |
+| Overlay shows exactly which keys are active | Users must be able to read the available keybindings while in leader mode. Minimum: key letter + short label per binding. No extraneous information. | Medium | The set of keys is fixed (V, Z, F, C, W, A, S, D, Q, E, ESC); labels should be derived from the same source of truth as the dispatch table to avoid drift. |
+| Commands run inside undo groups | V (layout), Z (horizontal layout), F (freeze toggle), C (clear freeze) must each be wrapped in a Nuke undo group, consistent with all other node_layout commands. | Low | The underlying commands already do this; the leader key dispatcher just calls them. No extra undo wrapping needed at the dispatch layer unless the overlay itself modifies state. |
+| Mode does not fire if nothing is selected for selection-required commands | V with 2+ nodes selected runs layout_selected; V with 1 node runs layout_upstream; V with 0 nodes selected should cancel mode and do nothing (existing fail-silent contract). | Low | Existing commands already handle this; no change needed at dispatch layer. |
 
 ---
 
 ## Differentiators
 
-Features that meaningfully improve layout quality or user control beyond what the current plugin offers. Not expected by users yet, but high value once available.
+Features that meaningfully improve the UX above the minimum viable leader key.
 
-| Feature | Value Proposition | Complexity | Dependencies on Existing Code |
-|---------|-------------------|------------|-------------------------------|
-| Multi-input fan alignment (same Y for 2+ non-mask inputs) | When a node has multiple A-inputs, the current engine places their subtree roots in a staircase pattern. Aligning them all to the same Y makes the compositing structure visually readable at a glance — the fan reads as a true merge point rather than a diagonal tangle. | High | Core change to `place_subtree()` Y staircase logic; `compute_dims()` must measure the fan's total height differently; backward-compat with single-input paths critical |
-| Mask side-swap when 2+ non-mask inputs present | Today, mask always goes rightmost. With 2+ non-mask inputs already fanned right, putting mask right as well clusters too many branches. Moving mask to the left (as a negative-X offset from the consumer) removes visual clutter on the right side. The mask-always-right rule was explicitly noted as causing layout problems at 2+ non-mask count. | High | Requires `_reorder_inputs_mask_last()` to reverse for the ≥2 non-mask case; `place_subtree()` X positioning logic needs a left-side placement branch; `compute_dims()` width calculation must account for leftward expansion |
-| Per-node state storage (hidden tab on each node) | Stores `layout_mode` (vertical/horizontal), `scheme` (compact/normal/loose), and `scale_factor` per node as hidden knobs. Layout and shrink/expand commands write these; re-layout reads them and honors them. This is what makes "least-surprise re-layout" possible — a node you've already compacted stays compact on next run. | Medium-High | New helper functions: `_ensure_node_layout_tab(node)`, `_read_node_state(node)`, `_write_node_state(node, ...)`; all entry points write state after layout; all entry points read and apply state before computing dims. The existing diamond-dot tab pattern (`node_layout_tab`) provides the exact knob-creation pattern to follow. |
-| Horizontal B-spine layout command | The user explicitly identifies a spine of nodes that flows left-to-right rather than top-to-bottom. The command lays out the selected chain left-to-right (root leftmost, input[0] child rightmost), stores `layout_mode=horizontal` in per-node knobs, and normal re-layout replays this orientation automatically. Addresses the niche but real workflow where a compositing operator builds a horizontal processing chain and wants auto-layout to respect it. | High | Requires a new layout traversal branch in `place_subtree()` (or a parallel `place_subtree_horizontal()`) that swaps the X/Y role of inputs; `compute_dims()` needs a horizontal dimension variant; depends on per-node state storage being in place first |
-| Shrink/Expand H/V/Both modes | Currently Shrink/Expand scale both axes uniformly. Users sometimes want to compress only vertical spacing (to fit more of the tree on screen) or only horizontal (to tighten a wide fan without squashing height). Separate menu entries + modifier key variants for H-only, V-only, and Both. | Medium | Extends `_scale_selected_nodes()` and `_scale_upstream_nodes()` with an `axes` parameter ('x', 'y', 'both'); new menu entries in `menu.py`; writes axis mode to per-node state if state storage is implemented |
-| Dot font size as subtree margin signal | Nuke compositors sometimes increase the font size on a Dot node to visually mark a section boundary in the DAG. Scaling `_subtree_margin()` based on the font size of a Dot at the subtree root lets the compositor's own visual signals drive layout spacing — the bigger the section Dot, the more breathing room the layout gives that branch. | Medium | `_subtree_margin()` must check for Dot node and read `label_size` knob (or equivalent); prefs may need a font-scaling constant |
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Context-aware V dispatch (1 node → upstream, 2+ → selection) | Instead of two separate menu commands, one key handles both cases intelligently. Power users don't need to think about which layout command to invoke. | Low | Already specified in PROJECT.md; the dispatch logic is a single `len(nuke.selectedNodes())` check. |
+| F as freeze/unfreeze toggle (not two separate keys) | Reduces cognitive load. Single mnemonic (F = freeze) covers both directions. | Low | Needs to inspect current freeze state of selection to determine direction. Existing freeze/unfreeze commands cover both paths. |
+| Hint popup delay configurable to 0 | Experienced users can set delay=0 to always see the overlay; they can also set delay=500 or higher to never see it during fast operation. This matches the which-key.nvim mental model exactly. | Low | One new pref key: `leader_hint_delay_ms` (int, default 0). Stored in node_layout_prefs.json. |
+| Overlay positioned at a fixed corner of the DAG | Users know exactly where to look without hunting. Fixed-corner positioning is less disorienting than cursor-relative positioning for a command dispatch overlay (vs a context menu). | Low-Medium | The DAG widget's geometry is accessible via Qt; overlay can be parented to the DAG widget and anchored to e.g. top-left or bottom-right corner with a fixed margin. |
+| Icon-style keyboard layout in overlay (not a flat list) | Arranging keys in a rough QWERTY-row layout makes spatial memory possible. WASD appears as a cluster; Q/E flank it. V/Z appear in a separate group. Users remember positions, not just labels. | Medium | Requires custom QWidget layout rather than a plain QLabel or QTextEdit. A QGridLayout or manual paintEvent drawing with key-shaped boxes. |
+| Overlay key highlighting while WASD chaining | While in leader mode with WASD active, the W/A/S/D keys in the overlay are visually distinct (e.g., highlighted or brighter) to reinforce that the user is still in the mode. | Medium | Requires the overlay widget to have mutable visual state (not a static label). The same mechanism would highlight ESC as always-available. |
 
 ---
 
@@ -41,163 +102,196 @@ Features to explicitly avoid in this milestone.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Full Sugiyama / layered-graph layout algorithm | General-purpose DAG layout (Dagre, d3-dag, Graphviz) solves edge crossing minimization via NP-hard layer assignment. The codebase's tree-layout approach is intentionally simpler and faster because Nuke DAGs are trees in practice (diamonds handled via Dot insertion). Replacing the engine would be a full rewrite with no user-visible benefit for the common case. | Keep the existing two-phase (compute_dims + place_subtree) approach; extend it for horizontal mode rather than replacing it |
-| Physics-based force layout | Force-directed layouts (Fruchterman-Reingold, spring-embedder) produce non-deterministic results and require iterative convergence. Artists need deterministic, repeatable layout so they can undo and redo reliably. | Keep deterministic recursive tree placement |
-| GUI-based layout mode toggle on each node | Adding a visible UI element (checkbox, dropdown) to every node's parameter panel would clutter the node properties and add visual noise to every node in the DAG. | Use hidden knobs on a hidden tab — same pattern as the existing diamond-dot marker. The user doesn't interact with state directly; commands write it silently. |
-| Keyboard shortcut customization in prefs | Already explicitly out of scope in v1.0 PROJECT.md. Conflict probability is low; documenting in README is sufficient. | Document taken shortcuts in README |
-| Layout for entire DAG (no selection) | Running layout on the full DAG with no selection has unpredictable results on complex scripts with deliberate manual arrangements. The existing "Layout Upstream from selected node" scope is correct — it's opt-in. | Keep the selection-scoped entry points |
-| Undo granularity per-node | Each node move being individually undoable was the pre-v1.0 state. v1.0 fixed this by wrapping in Nuke undo groups. All new commands must follow the same try/except/else undo group pattern. | Enforce undo group wrapping on every new entry point |
+| Timeout to auto-cancel leader mode | Which-key has a timeout option; Vim does not. For a VFX tool where the user might pause mid-sequence to think or look at the DAG, a timeout creates false cancellations that feel like bugs. The overlay makes it obvious you are in leader mode. | No timeout. Only explicit cancellation: command dispatch (single-shot), ESC, unrecognized key, mouse click. |
+| Nested leader sequences (leader → sub-mode → command) | Two-level sequences (e.g., Shift+E → G → something) increase cognitive load with no benefit given the small command set. All commands are reachable in one key from leader. | Keep the keymap flat: leader + one key = command. |
+| Visual feedback for each WASD press (flash / animation) | Animating the overlay or flashing nodes on each WASD movement adds visual noise and frame budget cost. Move commands already provide instant spatial feedback via node position change. | Let node position change be the feedback. The overlay persisting is sufficient signal that mode is still active. |
+| Auditory feedback (beep on invalid key) | Nuke doesn't use audio feedback; introducing it would be jarring and inconsistent with the host application. | Silently swallow the unrecognized key and cancel mode. |
+| Customizable keymap in prefs | Explicitly out of scope per PROJECT.md. Conflict probability is low; document fixed bindings in README. | Document all leader key bindings in README. |
+| Overlay that steals keyboard focus from the DAG | If the overlay widget gains keyboard focus, key events go to it rather than being intercepted at the application level. Mode breaks immediately on overlay display. | Overlay must have Qt.WindowDoesNotAcceptFocus + Qt.FramelessWindowHint flags. Never call overlay.setFocus() or overlay.activateWindow(). |
+| Per-command undo granularity at the leader-key layer | The dispatcher is a thin routing layer. It must not add any undo wrapping beyond what the underlying commands already implement. Double-wrapping undo groups breaks Nuke's undo stack. | Call existing commands directly, without additional undo wrapping at the dispatch layer. |
 
 ---
 
 ## Feature Dependencies
 
 ```
-Spacing rebalance
-  → adds horizontal pref keys (needed by all spacing paths)
-  → Horizontal B-spine layout uses horizontal spacing constants
+Shift+E intercept (QApplication eventFilter)
+  → arms _in_leader_mode flag
+  → triggers overlay display (immediate, or after QTimer(delay))
 
-Per-node state storage
-  → required before Horizontal B-spine layout (horizontal mode stored in knobs, replayed by normal layout)
-  → required before Shrink/Expand H/V/Both (axis mode stored per-node)
-  → required before per-scheme re-layout memory
+Overlay widget
+  → parented to DAG widget (requires find_dag_widget() helper)
+  → positioned at fixed corner via Qt geometry
+  → must NOT steal keyboard focus (WindowDoesNotAcceptFocus flag)
+  → hidden on any mode-exit path
 
-Multi-input fan alignment
-  → mask side-swap is a direct consequence of fan alignment being active (mask goes left when non-mask inputs fill the right side)
-  → mask side-swap depends on multi-input fan alignment being implemented first
+Leader mode dispatch table
+  → V: layout_upstream() if 1 selected, layout_selected() if 2+ selected
+  → Z: layout_selected_horizontal()
+  → F: freeze_selected() if unfrozen, unfreeze_selected() if frozen
+  → C: clear_freeze_group()
+  → W/A/S/D: move_selected_nodes(direction) + keep mode alive
+  → Q: shrink_selected()
+  → E: expand_selected()
+  → ESC / unrecognized / mouse: cancel mode, hide overlay
 
-Expand push-away
-  → reuses push_nodes_to_make_room() which exists
-  → no dependencies on new features; can be implemented independently
+Mode exit cleanup
+  → overlay.hide()
+  → _in_leader_mode = False
+  → unrecognized key: swallow event (do not propagate)
+  → mouse click: cancel mode, propagate event
 
-Horizontal B-spine layout
-  → depends on per-node state storage (without storage, replayed by normal layout is impossible)
-  → depends on spacing rebalance for correct horizontal gap values
+New pref: leader_hint_delay_ms
+  → read at leader-key press time
+  → 0 = overlay shows immediately
+  → >0 = QTimer delays overlay display; if mode exits before timer fires, cancel timer
 
-Group context fix
-  → no dependencies; pure bug fix at entry-point level
-  → must be done before or with any feature that adds new nuke.nodes.Dot() calls (horizontal mode, fan alignment)
-
-Shrink/Expand H/V/Both
-  → extends existing shrink/expand functions
-  → optionally writes to per-node state storage (if state storage ships first)
-  → can ship independently of state storage with Both mode as default fallback
-
-Dot font size → subtree margin
-  → independent of all other features; purely in _subtree_margin()
-  → adds one pref key
-
-Command renames
-  → independent of all other features; pure menu.py change
+find_dag_widget() helper
+  → iterate QApplication.instance().allWidgets()
+  → match objectName() == "DAG" for root context
+  → objectName() == "DAG.GroupName" for group context (Nuke 16+)
+  → Nuke 11–15: DAG was a QOpenGLWidget; Nuke 16+: DAG is a standard QWidget
+  → helper must handle both cases (check by objectName, not class type)
 ```
 
 ---
 
-## UX Considerations by Feature Area
+## UX Expectations by Area
 
-### Horizontal B-spine Layout
+### Modal Entry and Exit
 
-**Expected behavior:** The user selects a chain of nodes and invokes "Layout Horizontal". The root node stays fixed; input[0] of each node moves to the right of the consumer (in the current engine, input[0] goes above). The resulting chain reads left-to-right. Side inputs (if any) on a horizontal node go above or below, not left.
+**Entry:** Shift+E is consumed. No other action fires. Leader mode becomes active. The overlay appears (immediately or after delay). The status bar text (if accessible) is not used — the overlay is the sole feedback mechanism.
 
-**Edge cases:**
-- A horizontal node whose input[0] is also horizontal: the chain continues rightward
-- A horizontal node whose input[0] feeds a vertical subtree: the horizontal layout terminates and the vertical subtree is laid out normally above/below the junction point
-- Diamond patterns on horizontal chains: the same Dot-insertion strategy applies; Dots get laid out horizontally inline
-- Re-layout (normal Layout Upstream) encountering a node with `layout_mode=horizontal`: must switch to horizontal traversal for that node's subtree
+**Single-shot exit:** User presses V, Z, F, C, Q, or E. Command runs. Overlay hides. Mode exits. Net result: one keystroke beyond the leader dispatches one command. The user is immediately back in normal Nuke operation.
 
-**UX rule:** The horizontal command writes state; normal layout replays it. The user does not need to re-invoke the horizontal command on re-layout.
+**Chained exit:** User presses W, A, S, or D one or more times. Each keypress moves nodes and keeps mode alive. User presses ESC, any non-WASD key, or clicks to exit. Overlay hides. Mode exits.
 
-### Multi-Input Fan Alignment
+**Cancellation:** User presses ESC, an unrecognized key, or clicks in the DAG. Mode exits. The cancellation event is consumed (not passed to Nuke) to avoid side effects.
 
-**Expected behavior:** For a node with 2+ non-mask inputs, all subtree roots align to the same Y position. They spread leftward and rightward from the consumer's center. The mask input (if any) moves to the left of the consumer rather than the right.
+**Re-entry:** After any exit, the user can press Shift+E again to re-enter leader mode. No cooldown.
 
-**Edge cases:**
-- Fan with 2 non-mask + 1 mask: mask goes left, non-mask inputs spread right
-- Fan with 3+ non-mask: spread symmetrically or weighted by subtree width
-- Fan where subtrees differ dramatically in height: alignment is at the top of each subtree root node (same Y for xpos), not bottom-aligned
-- Interaction with scheme multiplier: fan gap between subtrees uses horizontal spacing constants, not vertical ones
+### WASD Chaining Feel
 
-**UX rule:** No user action needed to trigger fan alignment — it applies automatically when 2+ non-mask inputs are detected on any node during layout.
+The expected UX is identical to how users navigate in a game with arrow keys, or how they nudge objects in Adobe Illustrator / After Effects. Each keypress is one discrete move (not a held-key scroll). The move increment must be large enough to be visually useful but not so large that precise placement becomes impossible — the existing `move_selected_nodes()` increment applies. The user holds no keys; they type individual keypresses.
 
-### Per-Node State Storage
+**Critical pitfall to avoid:** If the keydown event fires a move, and the key-repeat mechanism in the OS then fires additional events while the key is held, nodes will overshoot. The event filter must dispatch on the first key event for a given key and discard subsequent key-repeat events for that key (`QKeyEvent.isAutoRepeat()` returns True for OS-generated repeats). Confidence: HIGH (Qt QKeyEvent.isAutoRepeat() is documented; this is a real and common pitfall).
 
-**Expected behavior:** After any layout or scale command, each affected node gains (or updates) a hidden "Node Layout" tab with three knobs:
-- `node_layout_mode` (String_Knob, values: "vertical" / "horizontal")
-- `node_layout_scheme` (String_Knob, values: "compact" / "normal" / "loose")
-- `node_layout_scale_factor` (Double_Knob, default 1.0)
+### Overlay Design
 
-Knobs are hidden (INVISIBLE flag) so they don't appear in the parameter panel. They persist when the .nk script is saved and reopened. Re-layout reads these knobs and honors them.
+**Information hierarchy:**
+1. The keys that dispatch commands (primary) — shown large with a key-cap visual style
+2. The label for each command (secondary) — short, shown directly on or below each key cap
+3. The ESC / cancel path (tertiary) — shown but visually de-emphasized
 
-**Edge cases:**
-- Node that already has the tab from a previous layout: update values, do not create duplicate tab or knobs
-- Node that has the tab but is missing one knob (partial state from a plugin update): add the missing knob, preserve existing values
-- Node created by the plugin (Dot nodes for diamond resolution and side input routing): these should also receive state storage so their mode is preserved
-- Knob creation must happen inside the correct group context — same fix needed as the group context bug
+**Density:** The keymap is small (10 action keys + ESC). There is no need for scrolling, sections, or a search box. The entire overlay should fit in a ~250×150 px panel.
 
-**UX rule:** State is written silently. No dialog, no prompt. The user sees consistent re-layout behavior; they do not need to know about the knobs.
+**Key grouping (QWERTY spatial layout):**
+```
+[Q]   [W]   [E]
+[A]   [S]   [D]
 
-### Axis-Aware Shrink/Expand
+      [V]   [Z]
+      [F]   [C]
 
-**Expected behavior:** Three variants per direction:
-- H-only: scale only X offsets from the anchor node; Y positions unchanged
-- V-only: scale only Y offsets from the anchor node; X positions unchanged
-- Both: existing behavior (scale both X and Y offsets uniformly)
+            [ESC]
+```
+This layout exploits existing muscle memory: WASD as a movement cluster (identical to gaming), Q/E flanking as scale-down/up. V/Z/F/C are grouped separately as they are single-shot structural commands.
 
-**Edge cases:**
-- H-only shrink on a very narrow subtree: must respect `snap_min` floor on X just as V-only shrink respects it on Y
-- Shrink H-only on a horizontal B-spine: compresses the spine; nodes may land closer than snap threshold
-- Upstream variant applies to all nodes in the upstream tree, not just the selection
+**Color coding (optional differentiator):**
+- WASD and Q/E in one color (sticky / repeating mode)
+- V/Z/F/C in another color (single-shot exit mode)
+- ESC in a neutral/muted color
 
-**UX rule:** Separate menu entries for each variant (six new entries: Shrink H / Expand H / Shrink V / Expand V / Shrink Both / Expand Both, or reuse current Both entries + add H and V). Modifier keys are a secondary UX surface; menu discoverability is the primary requirement.
+This directly mirrors Hydra's color coding for head types and gives users an immediate visual cue about which keys exit vs. persist the mode.
 
-### Expand Push-Away
+**Font and contrast:** Text must be readable against the DAG background, which varies by user theme. A semi-transparent dark background panel with light text is the safest default (used by W_hotbox and similar tools in the Nuke ecosystem).
 
-**Expected behavior:** After Expand Selected or Expand Upstream scales the tree, if the new bounding box is larger than the pre-expand bounding box, nodes outside the subtree that would overlap are pushed away. Direction of push follows the same logic as `push_nodes_to_make_room()`: up if tree grew upward, right if tree grew rightward.
+**No decorative elements.** No animation, no border glow, no gradient. Power users find decoration distracting; clarity is the value.
 
-**Edge cases:**
-- Expand Upstream growing in both directions: push applies in both directions simultaneously
-- Expand Selected where the selection is not a complete subtree: push still applies based on total bounding box growth
-- Very large DAGs: push_nodes_to_make_room calls nuke.allNodes() — same O(n) performance profile as existing layout
+### Overlay Focus Safety
 
-**UX rule:** Push is automatic and always happens after expand. There is no option to expand without push.
+This is the most critical technical constraint for the overlay. If the overlay widget receives keyboard focus, all subsequent key events go to it rather than being processed by the event filter. The leader mode input system breaks entirely.
+
+Required Qt flags on the overlay window:
+- `Qt.WindowDoesNotAcceptFocus` — window never gets keyboard focus
+- `Qt.FramelessWindowHint` — no window chrome
+- `Qt.ToolTip` or `Qt.SubWindow` with explicit `setAttribute(Qt.WA_ShowWithoutActivating)` — prevents activation on show
+
+Never call `.show()` via `QDialog.exec_()` or any blocking show method. Use `QWidget.show()` only. Confidence: HIGH (Qt documentation on focus policies is authoritative; this is a documented requirement for non-focus overlay windows).
 
 ---
 
-## MVP Recommendation for v1.1
+## Edge Cases to Handle
 
-**Ship together (interdependent group):**
-1. Spacing rebalance + horizontal prefs (foundation for everything else)
-2. Multi-input fan alignment + mask side-swap (atomic pair; side-swap is meaningless without fan)
-3. Per-node state storage (enables B-spine replay and H/V/Both modes)
+| Edge Case | Expected Behavior | Risk if Not Handled |
+|-----------|-------------------|---------------------|
+| No DAG widget found (e.g., running headless or in a group context with a different name) | Leader mode enters but overlay silently does not display. Commands still dispatch normally. Log a warning at most. | No overlay → user confusion, but commands still work. Acceptable degradation. |
+| Multiple DAG panels open (Nuke allows tiling multiple DAGs) | Event filter intercepts keys for the DAG that had focus when Shift+E was pressed. Overlay appears on that DAG. Other DAGs are unaffected. | Incorrect DAG gets overlay, or event filter intercepts keys on wrong DAG. Must track which DAG received the arming keypress. |
+| Shift+E pressed while a dialog is open | QApplication event filter fires for all events. Must check if a Nuke dialog or property panel has focus and NOT arm leader mode in that case. Otherwise typing in a dialog field triggers the leader key mid-text-entry. | Catastrophic — interrupts user typing in dialogs. Must be guarded. |
+| Key-repeat events for WASD | OS generates repeated keydown events when a key is held. These must be discarded (`QKeyEvent.isAutoRepeat() == True`). Only the initial press triggers a move. | Nodes fly across the DAG while the key is held. Very bad UX. |
+| Unrecognized key is a Nuke built-in shortcut | If the user accidentally presses a Nuke shortcut key (e.g., Tab to open the node browser), that key is swallowed by the leader mode event filter. It does not reach Nuke. Mode cancels. The user must re-press Tab after mode exits. | Minor confusion. Acceptable given the small keymap and the clarity of the overlay. Alternative (pass through) risks executing unintended Nuke commands mid-leader-sequence. |
+| Nuke undo stack interaction | V, Z, F, C, Q, E each produce one undo entry (their existing undo groups). Pressing WASD 5 times produces 5 undo entries. The leader mode itself produces no undo entry (it is not a state change, only a UI mode). | If the leader key itself were wrapped in an undo group, Ctrl+Z after a WASD session would undo the entire session as one block — unexpected behavior. |
+| Shift+E pressed while already in leader mode | Treat as a no-op or as a cancel. Do not create nested leader modes. | Double-entry: two overlays, two event filters. Must guard with `if _in_leader_mode: return`. |
+| Nuke 11–15 vs Nuke 16+ DAG widget type | In Nuke 11–15, the DAG is a QGLWidget/QOpenGLWidget. In Nuke 16+, it is a standard QWidget. The find_dag_widget() helper must use objectName-based detection (works in both versions) rather than class-type detection (breaks in one version). | Widget not found → no event filter installed → leader key press reaches Nuke's default handler (currently Layout Upstream) instead of entering leader mode. |
+| V with 0 nodes selected | Do nothing and cancel mode. Existing commands fail silently; leader mode should mirror that. | No breakage; just confirm silence is the contract. |
+| F with a mixed selection (some frozen, some not) | Existing freeze/unfreeze commands handle this. Leader key dispatch does not need to add logic. Pass through to existing command. | No edge case at the leader layer; ensure the existing command's behavior is acceptable. |
 
-**Ship together (consequent group):**
-4. Horizontal B-spine layout command (requires state storage from above)
-5. Shrink/Expand H/V/Both modes (requires state storage; extends current commands)
-6. Expand push-away (simple add-on to existing expand commands; no new dependencies)
+---
 
-**Ship independently (isolated):**
-7. Command renames — pure menu.py; do first as it has zero risk
-8. Group context bug fix — do early; affects any feature that creates Dot nodes
-9. Dot font size → subtree margin scaling — isolated to `_subtree_margin()`; lowest risk, add last
+## MVP Recommendation for v1.4
+
+**Phase 1 (core modal mechanics, no overlay):**
+1. `find_dag_widget()` helper — needed before any DAG-targeted behavior
+2. QApplication event filter — intercepts Shift+E, arms leader mode, intercepts subsequent keys, cancels on ESC/mouse/unrecognized
+3. Dispatch table — routes keys to existing commands; WASD does not exit, all others do
+4. New pref key: `leader_hint_delay_ms` (int, default 0) — pref infrastructure only, no overlay yet
+
+**Phase 2 (overlay):**
+5. Overlay widget — QWidget with no focus, parented to DAG, positioned at fixed corner
+6. Key-cap layout — QWERTY-style grid with WASD cluster and single-shot group
+7. Delay logic — QTimer gates overlay appearance when delay > 0
+
+**Ship together:** Both phases are in scope for v1.4. Phase 1 is the foundation; Phase 2 is small once the overlay widget is wired to the existing mode flag.
 
 **Defer indefinitely:**
-- The anti-features listed above (full Sugiyama, physics layout, GUI toggles on nodes, full-DAG layout)
+- Color-coded key types in overlay (nice-to-have; add in a future polish pass)
+- Overlay key highlighting during WASD chaining (same)
+- Any form of keyboard shortcut customization
+
+---
+
+## Complexity Summary
+
+| Component | Estimated Complexity | Confidence |
+|-----------|---------------------|------------|
+| QApplication event filter (Shift+E intercept) | Low-Medium | HIGH — well-documented Qt pattern, used in Nuke community tools |
+| find_dag_widget() across Nuke versions | Low | HIGH — objectName "DAG" approach confirmed for Nuke 16+; works in older versions too |
+| Dispatch table with sticky/single-shot distinction | Low | HIGH — simple state machine with `_in_leader_mode` flag |
+| Key-repeat guard (QKeyEvent.isAutoRepeat) | Low | HIGH — Qt API; straightforward |
+| Overlay widget (no focus, parented to DAG) | Medium | HIGH — Qt focus flags well-documented; DAG overlay pattern has prior art (Erwan Leroy's nuke_nodegraph_utils) |
+| Overlay key-cap layout (custom QWidget) | Medium | MEDIUM — requires custom painting or QGridLayout; no prior art in node_layout codebase |
+| Dialog-focus guard (prevent Shift+E in text fields) | Low-Medium | MEDIUM — requires checking QApplication.focusWidget() class type at event filter time |
+| New pref key + dialog field | Low | HIGH — follows existing Labelmaker/node_layout prefs pattern exactly |
+| QTimer for hint delay | Low | HIGH — standard Qt pattern |
 
 ---
 
 ## Sources
 
-- Nuke compositing best practices (vertical spine convention, mask input clipping in horizontal layout): [keheka.com](https://www.keheka.com/best-practices-for-compositing-for-nuke/), [We Suck Less forum discussion](https://www.steakunderwater.com/wesuckless/viewtopic.php?t=4946)
-- Nuke Python knob invisibility flag pattern: [Nukepedia Some Flags](http://www.nukepedia.com/python/some-flags), [Ben McEwan — Dynamic Knobs](https://benmcewan.com/blog/2020/06/20/dynamic-knobs-in-nuke/)
-- Nuke group context and node creation: [Nuke Python Dev Guide (v13)](https://learn.foundry.com/nuke/developers/130/pythondevguide/dag.html), [Conrad Olson — Add Nodes Inside Group](https://conradolson.com/add-nodes-inside-a-group-with-python)
-- Custom knob persistent state (updateValue pattern, INVISIBLE flag): [Erwan Leroy — Custom QT Knobs](https://erwanleroy.com/custom-qt-knobs-for-nuke-nodes-making-stars-gizmo-part-1-2/)
-- DAG layout algorithms (Sugiyama layered layout, same-rank Y alignment): [Layered Graph Drawing — Wikipedia](https://en.wikipedia.org/wiki/Layered_graph_drawing), [d3-dag](https://github.com/erikbrinkman/d3-dag)
-- Node overlap removal on expand: [GSoC 2024 Graphite Interactive Auto-Layout](https://github.com/GraphiteEditor/Graphite/discussions/1769), [Noverlap anti-collision](https://graphology.github.io/standard-library/layout-noverlap.html)
-- Nuke Tab_Knob and knob flags reference: [Nuke Python API — Tab_Knob](https://learn.foundry.com/nuke/developers/140/pythonreference/_autosummary/nuke.Tab_Knob.html), [NDK Knob Flags](https://learn.foundry.com/nuke/developers/63/ndkdevguide/knobs-and-handles/knobflags.html)
+- Vim leader key and which-key.nvim hint popup delay: [folke/which-key.nvim GitHub](https://github.com/folke/which-key.nvim), [vim-which-key liuchengxu](https://liuchengxu.github.io/vim-which-key/), [DEV Community — Leader keys and keyboard sequences](https://dev.to/stroiman/leader-keys-and-mapping-keyboard-sequences-3ehm)
+- Emacs Hydra sticky vs single-shot head types: [abo-abo/hydra GitHub](https://github.com/abo-abo/hydra), [Persistent prefix keymaps — Karthinks](https://karthinks.com/software/persistent-prefix-keymaps-in-emacs/)
+- Blender modal operator event handling: [Blender Python API — Operator](https://docs.blender.org/api/current/bpy.types.Operator.html), [Modal Addon Keymaps — Blender Developer Forum](https://devtalk.blender.org/t/modal-addon-keymaps/17444)
+- W_hotbox Nuke press-and-hold overlay pattern: [W_hotbox — Nukepedia](https://www.nukepedia.com/tools/python/ui/w_hotbox/), [melMass/W_hotbox GitHub](https://github.com/melMass/W_hotbox)
+- Nuke DAG widget finding (objectName approach, Nuke 16 QWidget migration): [Erwan Leroy — Updating for Nuke 16 and PySide6](https://erwanleroy.com/updating-your-python-scripts-for-nuke-16-and-pyside6/), [Erwan Leroy — Nuke Node Graph Utilities](https://erwanleroy.com/nuke-node-graph-utilities-using-qt-pyside2/), [herronelou/nuke_nodegraph_utils GitHub](https://github.com/herronelou/nuke_nodegraph_utils)
+- Qt event filter and focus management: [Qt Keyboard Focus in Widgets](https://doc.qt.io/qt-6/focus.html), [Qt QKeyEvent](https://doc.qt.io/qtforpython-6/PySide6/QtGui/QKeyEvent.html), [Qt Event System](https://doc.qt.io/qtforpython-6.8/overviews/qtcore-eventsandfilters.html)
+- Qt overlay window without focus: [Qt QWidget documentation](https://doc.qt.io/qtforpython-6/PySide6/QtWidgets/QWidget.html), Qt WindowDoesNotAcceptFocus flag
+- NN/G instructional overlay guidelines: [NN/G — Instructional Overlays and Coach Marks](https://www.nngroup.com/articles/mobile-instructional-overlay/)
+- Focus stealing as a mode error: [Focus stealing — Wikipedia](https://en.wikipedia.org/wiki/Focus_stealing)
 
 **Confidence notes:**
-- Horizontal layout clipping the mask input: MEDIUM — multiple community sources confirm; no single Foundry official doc
-- INVISIBLE knob flag usage for state storage: HIGH — pattern is documented in official NDK and observed in multiple community implementations
-- group.begin()/end() for Dot creation group context fix: HIGH — standard Nuke Python API pattern; confirmed by official documentation
-- Fan alignment Y-alignment behavior: MEDIUM — derived from Sugiyama rank-alignment principles; specific Nuke implementation is author's design decision
-- Dot font size knob name (`label_size`): LOW — not verified against Nuke API; needs confirmation against actual Dot node knobs before implementation
+- Event filter pattern for Nuke DAG keyboard intercept: HIGH — multiple community implementations confirm; Qt API is authoritative
+- QKeyEvent.isAutoRepeat() for key-repeat guard: HIGH — Qt API, well-documented
+- Qt.WindowDoesNotAcceptFocus for overlay: HIGH — Qt API, well-documented
+- Overlay parenting to DAG widget: MEDIUM — prior art from nuke_nodegraph_utils; exact API calls need verification against Nuke 11–15 vs 16+ DAG widget type differences
+- Dialog-focus guard approach (focusWidget() class check): MEDIUM — standard Qt idiom; exact implementation needs testing in Nuke
+- Blender modal operator exact cancellation behavior: MEDIUM — derived from Blender Python API docs; minor version variation possible
