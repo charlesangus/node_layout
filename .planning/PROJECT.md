@@ -71,7 +71,7 @@ Layout operations must be reliable, undoable, and configurable — users need to
 - [ ] Leader mode dispatches V/Z/F/C/W/A/S/D/Q/E to existing commands
 - [ ] WASD movement chains — leader mode persists between move steps
 - [ ] Any unrecognized key or mouse click cancels leader mode
-- [ ] Icon-style keyboard overlay displayed over active DAG while in leader mode
+- ✓ Icon-style keyboard overlay (`LeaderKeyOverlay` HUD widget) implemented — v1.4 (Phase 18)
 - ✓ New pref: "hint popup delay (ms)" with default 0 — v1.4 (Phase 17)
 
 ### Out of Scope
@@ -90,10 +90,10 @@ Layout operations must be reliable, undoable, and configurable — users need to
 
 **Shipped:** v1.2 CI/CD (2026-03-18)
 **Shipped:** v1.3 Freeze Layout (2026-03-19) — Phase 16 complete
-**In Progress:** v1.4 Leader Key — Phase 17 complete (prefs + dialog foundation)
-**Codebase:** ~3,200 LOC Python source (node_layout.py, node_layout_state.py, util.py, node_layout_prefs.py, node_layout_prefs_dialog.py, menu.py); ~12,000+ LOC total incl. tests; 81 lines GitHub Actions YAML
+**In Progress:** v1.4 Leader Key — Phase 18 complete (overlay widget HUD)
+**Codebase:** ~3,200 LOC Python source (node_layout.py, node_layout_state.py, util.py, node_layout_prefs.py, node_layout_prefs_dialog.py, node_layout_overlay.py, menu.py); ~12,000+ LOC total incl. tests; 81 lines GitHub Actions YAML
 **Tech stack:** Python, PySide6; JSON prefs at `~/.nuke/`; AST-based structural tests + Nuke-stub unit tests; GitHub Actions CI (Ruff + pytest) and release workflow (softprops/action-gh-release@v2)
-**Test suite:** 347 tests spanning prefs, state, layout core, fan alignment, horizontal spine, scale commands, freeze commands, freeze layout integration, and leader key prefs/dialog
+**Test suite:** 366 tests spanning prefs, state, layout core, fan alignment, horizontal spine, scale commands, freeze commands, freeze layout integration, leader key prefs/dialog, and overlay widget
 
 Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py` (JSON-backed singleton at `~/.nuke/labelmaker_prefs.json`) + `labelmaker_prefs_dialog.py`. node_layout follows the same structure.
 
@@ -162,4 +162,4 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 - Rigid push-away: expand treats block bounding box as single obstacle
 
 ---
-*Last updated: 2026-03-29 after starting milestone v1.4 Leader Key*
+*Last updated: 2026-03-30 after Phase 18 overlay-widget completion*
