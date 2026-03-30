@@ -1,30 +1,37 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Freeze Layout
-status: unknown
-stopped_at: Completed 16-04-PLAN.md
-last_updated: "2026-03-20T04:36:05.482Z"
+milestone: v1.4
+milestone_name: Leader Key
+status: verifying
+stopped_at: Completed 17-01-PLAN.md
+last_updated: "2026-03-30T11:35:40.624Z"
+last_activity: 2026-03-30
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_phases: 7
+  completed_phases: 3
+  total_plans: 7
+  completed_plans: 7
 ---
 
 # Session State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-18)
+See: .planning/PROJECT.md (updated 2026-03-29)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave.
-**Current focus:** Phase 16 — layout-integration
+**Current focus:** Phase 17 — prefs-dialog-foundation
 
 ## Current Position
 
-Phase: 16 (layout-integration) — EXECUTING
-Plan: 1 of 4
+Phase: 17 (prefs-dialog-foundation) — EXECUTING
+Plan: 1 of 1
+Status: Phase complete — ready for verification
+Last activity: 2026-03-30
+
+```
+v1.4 Progress: [          ] 0/5 phases
+```
 
 ## Performance Metrics
 
@@ -44,6 +51,7 @@ Plan: 1 of 4
 *Updated after each plan completion*
 | Phase 16-layout-integration P03 | 1 | 1 tasks | 1 files |
 | Phase 16-layout-integration P04 | 3m22s | 2 tasks | 2 files |
+| Phase 17-prefs-dialog-foundation P01 | 130s | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -70,6 +78,11 @@ Recent decisions affecting current work:
 - [Phase 16-layout-integration]: layout_selected node_filter correction uses id()-based set comprehension matching layout_upstream pattern
 - [Phase 16-layout-integration]: upstream_non_frozen second pass BFS in both layout_upstream and layout_selected with scope restriction in layout_selected
 - [Phase 16-layout-integration]: BFS freeze guard skips frozen nodes as horizontal replay root candidates but continues traversal through their inputs
+- [v1.4 roadmap]: Phase build order driven by dependency: prefs must exist before overlay reads delay; overlay must exist before filter references it; menu wiring is the final one-way activation step
+- [v1.4 roadmap]: LEAD-01 (Shift+E binds) assigned to Phase 21 (menu wiring) — the user-facing entry point requires all prior phases to be validated before the shortcut is live
+- [v1.4 roadmap]: Q/E (shrink/expand) are sticky/chaining keys per PROJECT.md spec — stay in leader mode after dispatch; their undo grouped with WASD session in Phase 20
+- [v1.4 roadmap]: Two new files: node_layout_leader.py (event filter + dispatch) and node_layout_overlay.py (HUD widget); four existing files receive minor additions
+- [Phase 17-prefs-dialog-foundation]: hint_popup_delay_ms stored as 12th DEFAULTS key with value 0; Leader Key section placed between Scheme Multipliers and Advanced in prefs dialog
 
 ### Pending Todos
 
@@ -77,7 +90,7 @@ None.
 
 ### Blockers/Concerns
 
-None.
+Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — does the single leader session undo group encompass Q/E presses alongside WASD, or are Q/E separately undoable? PROJECT.md implies Q/E stay in leader mode, suggesting they belong in the same undo session.
 
 ### Quick Tasks Completed
 
@@ -90,6 +103,6 @@ None.
 
 ## Session Continuity
 
-Last activity: 2026-03-28 - Completed quick task 260328-5o4: add a select hidden outputs function
-Last session: 2026-03-28T00:00:00Z
-Stopped at: Completed quick task 260328-5o4
+Last activity: 2026-03-29 - Roadmap created for v1.4 Leader Key (Phases 17-21)
+Last session: 2026-03-30T11:35:40.620Z
+Stopped at: Completed 17-01-PLAN.md
