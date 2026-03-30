@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Leader Key
 status: verifying
-stopped_at: Completed 17-01-PLAN.md
-last_updated: "2026-03-30T11:38:31.070Z"
+stopped_at: Completed 18-01-PLAN.md
+last_updated: "2026-03-30T22:16:39.557Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 7
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  completed_phases: 4
+  total_plans: 8
+  completed_plans: 8
 ---
 
 # Session State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-29)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave.
-**Current focus:** Phase 17 — prefs-dialog-foundation
+**Current focus:** Phase 18 — overlay-widget
 
 ## Current Position
 
-Phase: 18
-Plan: Not started
+Phase: 18 (overlay-widget) — EXECUTING
+Plan: 1 of 1
 Status: Phase complete — ready for verification
 Last activity: 2026-03-30
 
@@ -52,6 +52,7 @@ v1.4 Progress: [          ] 0/5 phases
 | Phase 16-layout-integration P03 | 1 | 1 tasks | 1 files |
 | Phase 16-layout-integration P04 | 3m22s | 2 tasks | 2 files |
 | Phase 17-prefs-dialog-foundation P01 | 130s | 2 tasks | 4 files |
+| Phase 18-overlay-widget P01 | 2m9s | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [v1.4 roadmap]: Q/E (shrink/expand) are sticky/chaining keys per PROJECT.md spec — stay in leader mode after dispatch; their undo grouped with WASD session in Phase 20
 - [v1.4 roadmap]: Two new files: node_layout_leader.py (event filter + dispatch) and node_layout_overlay.py (HUD widget); four existing files receive minor additions
 - [Phase 17-prefs-dialog-foundation]: hint_popup_delay_ms stored as 12th DEFAULTS key with value 0; Leader Key section placed between Scheme Multipliers and Advanced in prefs dialog
+- [Phase 18-overlay-widget]: show() calls super().show() before move() — native window must exist before geometry can be set (Pitfall 4 guard)
+- [Phase 18-overlay-widget]: Module-level _CHAINING_KEY_COLOR and _SINGLE_SHOT_KEY_COLOR constants named so AST tests can verify two distinct badge colors without importing PySide6
+- [Phase 18-overlay-widget]: WA_TranslucentBackground + paintEvent with QPainter used instead of stylesheet background — stylesheet transparency unreliable in Nuke embedded hierarchy
 
 ### Pending Todos
 
@@ -104,5 +108,5 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 ## Session Continuity
 
 Last activity: 2026-03-29 - Roadmap created for v1.4 Leader Key (Phases 17-21)
-Last session: 2026-03-30T11:35:40.620Z
-Stopped at: Completed 17-01-PLAN.md
+Last session: 2026-03-30T22:16:39.553Z
+Stopped at: Completed 18-01-PLAN.md

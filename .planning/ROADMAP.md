@@ -65,7 +65,7 @@ Full archive: `.planning/milestones/v1.3-ROADMAP.md`
 **Milestone Goal:** Replace the Shift+E Layout Upstream shortcut with a modal leader key system that dispatches to existing commands via a mnemonic keymap and displays an icon-style keyboard overlay over the DAG during the modal window.
 
 - [x] **Phase 17: Prefs + Dialog Foundation** — Add hint popup delay preference and expose it in the dialog (completed 2026-03-30)
-- [ ] **Phase 18: Overlay Widget** — Build the floating keyboard HUD widget with focus-safe display
+- [x] **Phase 18: Overlay Widget** — Build the floating keyboard HUD widget with focus-safe display (completed 2026-03-30)
 - [ ] **Phase 19: Event Filter + Core Dispatch** — Leader mode state machine with single-shot command dispatch
 - [ ] **Phase 20: WASD Chaining + C Command** — Sticky movement dispatch with key-repeat guard and clear freeze command
 - [ ] **Phase 21: Menu Wiring** — Bind Shift+E to leader mode entry and activate the event filter at startup
@@ -124,9 +124,9 @@ Plans:
   2. Keypresses in the DAG remain functional immediately after the overlay becomes visible — the overlay does not capture keyboard input
   3. The overlay disappears when `hide()` is called, leaving no residual widget on screen
   4. `LeaderKeyOverlay` has `WA_ShowWithoutActivating` set and window type `Qt.WindowType.Tool` — verifiable via structural test without a running Nuke session
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 18-01-PLAN.md — LeaderKeyOverlay widget + AST structural tests
+- [x] 18-01-PLAN.md — LeaderKeyOverlay widget + AST structural tests
 
 ### Phase 19: Event Filter + Core Dispatch
 **Goal**: The leader mode state machine intercepts keypresses, routes single-shot commands, and cancels on unrecognized input — all without consuming events outside leader mode
@@ -187,7 +187,7 @@ Plans:
 | 15. Freeze State & Commands | v1.3 | 2/2 | Complete | 2026-03-19 |
 | 16. Layout Integration | v1.3 | 4/4 | Complete | 2026-03-20 |
 | 17. Prefs + Dialog Foundation | v1.4 | 1/1 | Complete    | 2026-03-30 |
-| 18. Overlay Widget | v1.4 | 0/1 | Planning | - |
+| 18. Overlay Widget | v1.4 | 1/1 | Complete   | 2026-03-30 |
 | 19. Event Filter + Core Dispatch | v1.4 | 0/? | Not started | - |
 | 20. WASD Chaining + C Command | v1.4 | 0/? | Not started | - |
 | 21. Menu Wiring | v1.4 | 0/? | Not started | - |

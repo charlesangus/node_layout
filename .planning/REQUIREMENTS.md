@@ -27,10 +27,10 @@ Requirements for the Leader Key milestone. Phases continue from v1.3 (starting a
 
 ### Overlay
 
-- [ ] **OVRL-01**: An icon-style keyboard overlay is displayed over the active DAG on leader arm, after the hint popup delay
-- [ ] **OVRL-02**: The overlay shows only the active command keys with their action labels
-- [ ] **OVRL-03**: The overlay does not steal keyboard focus from the DAG
-- [ ] **OVRL-04**: The overlay is dismissed when leader mode exits
+- [x] **OVRL-01**: An icon-style keyboard overlay is displayed over the active DAG on leader arm, after the hint popup delay
+- [x] **OVRL-02**: The overlay shows only the active command keys with their action labels
+- [x] **OVRL-03**: The overlay does not steal keyboard focus from the DAG
+- [x] **OVRL-04**: The overlay is dismissed when leader mode exits
 
 ### Preferences
 
@@ -88,10 +88,10 @@ Requirements for the Freeze Layout milestone.
 | FRZE-07 | Phase 16 | Complete |
 | PREF-01 | Phase 17 | Complete |
 | PREF-02 | Phase 17 | Complete |
-| OVRL-01 | Phase 18 | Pending |
-| OVRL-02 | Phase 18 | Pending |
-| OVRL-03 | Phase 18 | Pending |
-| OVRL-04 | Phase 18 | Pending |
+| OVRL-01 | Phase 18 | Complete |
+| OVRL-02 | Phase 18 | Complete |
+| OVRL-03 | Phase 18 | Complete |
+| OVRL-04 | Phase 18 | Complete |
 | LEAD-02 | Phase 19 | Pending |
 | LEAD-03 | Phase 19 | Pending |
 | LEAD-04 | Phase 19 | Pending |
