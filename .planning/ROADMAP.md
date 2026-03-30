@@ -124,8 +124,9 @@ Plans:
   2. Keypresses in the DAG remain functional immediately after the overlay becomes visible — the overlay does not capture keyboard input
   3. The overlay disappears when `hide()` is called, leaving no residual widget on screen
   4. `LeaderKeyOverlay` has `WA_ShowWithoutActivating` set and window type `Qt.WindowType.Tool` — verifiable via structural test without a running Nuke session
-**Plans**: TBD
-**UI hint**: yes
+**Plans:** 1 plan
+Plans:
+- [ ] 18-01-PLAN.md — LeaderKeyOverlay widget + AST structural tests
 
 ### Phase 19: Event Filter + Core Dispatch
 **Goal**: The leader mode state machine intercepts keypresses, routes single-shot commands, and cancels on unrecognized input — all without consuming events outside leader mode
@@ -186,7 +187,7 @@ Plans:
 | 15. Freeze State & Commands | v1.3 | 2/2 | Complete | 2026-03-19 |
 | 16. Layout Integration | v1.3 | 4/4 | Complete | 2026-03-20 |
 | 17. Prefs + Dialog Foundation | v1.4 | 1/1 | Complete    | 2026-03-30 |
-| 18. Overlay Widget | v1.4 | 0/? | Not started | - |
+| 18. Overlay Widget | v1.4 | 0/1 | Planning | - |
 | 19. Event Filter + Core Dispatch | v1.4 | 0/? | Not started | - |
 | 20. WASD Chaining + C Command | v1.4 | 0/? | Not started | - |
 | 21. Menu Wiring | v1.4 | 0/? | Not started | - |
