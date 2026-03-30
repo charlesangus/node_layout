@@ -22,9 +22,10 @@ def _make_section_header(text):
 class NodeLayoutPrefsDialog(QDialog):
     """PySide6 dialog for editing Node Layout spacing preferences.
 
-    The dialog is organized into three sections:
+    The dialog is organized into four sections:
       - Spacing: H-axis gaps and vertical margin values
       - Scheme Multipliers: compact / normal / loose multipliers
+      - Leader Key: hint popup delay
       - Advanced: font reference size and scaling reference count
 
     Section headers are bold QLabel rows (no QGroupBox borders).
@@ -79,6 +80,13 @@ class NodeLayoutPrefsDialog(QDialog):
         self.loose_gap_multiplier_edit = QLineEdit()
         form_layout.addRow("Loose Gap Multiplier:", self.loose_gap_multiplier_edit)
 
+        # --- Section: Leader Key ---
+        form_layout.addRow(QLabel(""))  # vertical breathing room
+        form_layout.addRow(_make_section_header("Leader Key"))
+
+        self.hint_popup_delay_ms_edit = QLineEdit()
+        form_layout.addRow("Hint popup delay (ms):", self.hint_popup_delay_ms_edit)
+
         # --- Section: Advanced ---
         form_layout.addRow(QLabel(""))  # vertical breathing room
         form_layout.addRow(_make_section_header("Advanced"))
@@ -116,6 +124,9 @@ class NodeLayoutPrefsDialog(QDialog):
         self.scaling_reference_count_edit.setText(
             str(prefs_instance.get("scaling_reference_count"))
         )
+        self.hint_popup_delay_ms_edit.setText(
+            str(prefs_instance.get("hint_popup_delay_ms"))
+        )
 
     def _on_accept(self):
         try:
@@ -130,6 +141,7 @@ class NodeLayoutPrefsDialog(QDialog):
             loose_gap_multiplier_value = float(self.loose_gap_multiplier_edit.text())
             dot_font_reference_size_value = int(self.dot_font_reference_size_edit.text())
             scaling_reference_count_value = int(self.scaling_reference_count_edit.text())
+            hint_popup_delay_ms_value = int(self.hint_popup_delay_ms_edit.text())
         except ValueError:
             return
 
@@ -145,6 +157,8 @@ class NodeLayoutPrefsDialog(QDialog):
             return
         if scaling_reference_count_value < 1:
             return
+        if hint_popup_delay_ms_value < 0:
+            return
 
         prefs_instance = node_layout_prefs.prefs_singleton
         prefs_instance.set("horizontal_subtree_gap", horizontal_subtree_gap_value)
@@ -158,6 +172,7 @@ class NodeLayoutPrefsDialog(QDialog):
         prefs_instance.set("loose_gap_multiplier", loose_gap_multiplier_value)
         prefs_instance.set("dot_font_reference_size", dot_font_reference_size_value)
         prefs_instance.set("scaling_reference_count", scaling_reference_count_value)
+        prefs_instance.set("hint_popup_delay_ms", hint_popup_delay_ms_value)
         prefs_instance.save()
         self.accept()
 

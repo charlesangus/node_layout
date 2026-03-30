@@ -188,5 +188,54 @@ class TestDialogOnAcceptNewFields(unittest.TestCase):
         )
 
 
+class TestDialogLeaderKeySection(unittest.TestCase):
+    """Leader Key section must exist in the dialog with hint_popup_delay_ms field."""
+
+    def setUp(self):
+        self.source = _load_dialog_source()
+
+    def test_build_ui_contains_leader_key_section_header(self):
+        """_build_ui must call _make_section_header('Leader Key')."""
+        self.assertIn(
+            '"Leader Key"',
+            self.source,
+            "_build_ui must create a 'Leader Key' section header",
+        )
+
+    def test_build_ui_contains_hint_popup_delay_edit(self):
+        """_build_ui must create self.hint_popup_delay_ms_edit QLineEdit."""
+        self.assertIn(
+            "hint_popup_delay_ms_edit",
+            self.source,
+            "_build_ui must create self.hint_popup_delay_ms_edit",
+        )
+
+    def test_populate_sets_hint_popup_delay_ms(self):
+        """_populate_from_prefs must reference hint_popup_delay_ms pref key."""
+        self.assertIn(
+            "hint_popup_delay_ms",
+            self.source,
+            "_populate_from_prefs must call setText for 'hint_popup_delay_ms'",
+        )
+
+    def test_on_accept_parses_hint_popup_delay_ms(self):
+        """_on_accept must parse hint_popup_delay_ms_edit as int."""
+        self.assertIn(
+            "hint_popup_delay_ms_value",
+            self.source,
+            "_on_accept must parse hint_popup_delay_ms_edit.text() as int",
+        )
+
+    def test_leader_key_section_before_advanced(self):
+        """Leader Key section must appear before Advanced section in source."""
+        leader_key_position = self.source.index('"Leader Key"')
+        advanced_position = self.source.index('"Advanced"')
+        self.assertLess(
+            leader_key_position,
+            advanced_position,
+            "Leader Key section must come before Advanced section",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
