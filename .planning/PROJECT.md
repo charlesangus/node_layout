@@ -65,7 +65,14 @@ Layout operations must be reliable, undoable, and configurable — users need to
 
 ### Active
 
-<!-- No active requirements — v1.3 milestone complete -->
+<!-- v1.4 Leader Key -->
+
+- [ ] Shift+E enters leader mode (replaces Layout Upstream shortcut)
+- [ ] Leader mode dispatches V/Z/F/C/W/A/S/D/Q/E to existing commands
+- [ ] WASD movement chains — leader mode persists between move steps
+- [ ] Any unrecognized key or mouse click cancels leader mode
+- [ ] Icon-style keyboard overlay displayed over active DAG while in leader mode
+- ✓ New pref: "hint popup delay (ms)" with default 0 — v1.4 (Phase 17)
 
 ### Out of Scope
 
@@ -83,9 +90,10 @@ Layout operations must be reliable, undoable, and configurable — users need to
 
 **Shipped:** v1.2 CI/CD (2026-03-18)
 **Shipped:** v1.3 Freeze Layout (2026-03-19) — Phase 16 complete
+**In Progress:** v1.4 Leader Key — Phase 17 complete (prefs + dialog foundation)
 **Codebase:** ~3,200 LOC Python source (node_layout.py, node_layout_state.py, util.py, node_layout_prefs.py, node_layout_prefs_dialog.py, menu.py); ~12,000+ LOC total incl. tests; 81 lines GitHub Actions YAML
 **Tech stack:** Python, PySide6; JSON prefs at `~/.nuke/`; AST-based structural tests + Nuke-stub unit tests; GitHub Actions CI (Ruff + pytest) and release workflow (softprops/action-gh-release@v2)
-**Test suite:** 331 tests spanning prefs, state, layout core, fan alignment, horizontal spine, scale commands, freeze commands, and freeze layout integration
+**Test suite:** 347 tests spanning prefs, state, layout core, fan alignment, horizontal spine, scale commands, freeze commands, freeze layout integration, and leader key prefs/dialog
 
 Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py` (JSON-backed singleton at `~/.nuke/labelmaker_prefs.json`) + `labelmaker_prefs_dialog.py`. node_layout follows the same structure.
 
@@ -126,6 +134,21 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 | ZIP named with github.ref_name preserving v prefix | Produces e.g. node_layout-v1.2.zip — clear version signal without extra config | ✓ Good |
 | softprops/action-gh-release@v2 with generate_release_notes: true | No manual release notes authoring; auto-notes from PR/commit history | ✓ Good |
 
+## Current Milestone: v1.4 Leader Key
+
+**Goal:** Replace the Shift+E Layout Upstream shortcut with a modal leader key system that dispatches to existing commands via a mnemonic keymap and displays an icon-style keyboard overlay over the DAG during the modal window.
+
+**Target features:**
+- Shift+E enters leader mode; any unrecognized key or mouse click cancels it (no timeout)
+- V — vertical layout (1-node selected → layout upstream, 2+ nodes → layout selection)
+- Z — horizontal layout
+- F — freeze/unfreeze toggle (context-aware)
+- C — clear freeze group
+- W/A/S/D — move selected nodes; stays in leader mode for chained movement
+- Q — scale down (shrink); E — scale up (expand)
+- Icon-style keyboard overlay over active DAG on leader press, showing active keys and labels
+- New pref: "hint popup delay (ms)", default 0
+
 ## Completed Milestone: v1.3 Freeze Layout ✓
 
 **Goal:** Add a freeze command that locks the relative positions of a group of nodes into a rigid block that the layout engine treats as a single unit.
@@ -139,4 +162,4 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 - Rigid push-away: expand treats block bounding box as single obstacle
 
 ---
-*Last updated: 2026-03-19 after Phase 16 (Layout Integration) complete — v1.3 milestone complete*
+*Last updated: 2026-03-29 after starting milestone v1.4 Leader Key*
