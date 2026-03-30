@@ -89,6 +89,10 @@ class TestNodeLayoutPrefsDefaults(unittest.TestCase):
         # setUp already created it; if we get here, no exception was raised
         self.assertIsNotNone(self.instance)
 
+    def test_default_hint_popup_delay_ms(self):
+        """get('hint_popup_delay_ms') returns 0 when no prefs file exists."""
+        self.assertEqual(self.instance.get("hint_popup_delay_ms"), 0)
+
 
 class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
     """DEFAULTS dict must contain all 10 expected keys."""
@@ -96,8 +100,8 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
     def setUp(self):
         self.prefs_module = _import_prefs_module()
 
-    def test_defaults_contains_all_eleven_keys(self):
-        """DEFAULTS must contain exactly the 11 required preference keys."""
+    def test_defaults_contains_all_twelve_keys(self):
+        """DEFAULTS must contain exactly the 12 required preference keys."""
         required_keys = {
             "base_subtree_margin",
             "horizontal_subtree_gap",
@@ -110,6 +114,7 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
             "loose_gap_multiplier",
             "mask_input_ratio",
             "scaling_reference_count",
+            "hint_popup_delay_ms",
         }
         actual_keys = set(self.prefs_module.DEFAULTS.keys())
         missing_keys = required_keys - actual_keys
@@ -120,8 +125,8 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
         )
         self.assertEqual(
             len(actual_keys),
-            11,
-            f"DEFAULTS should have exactly 11 keys, got {len(actual_keys)}: {actual_keys}",
+            12,
+            f"DEFAULTS should have exactly 12 keys, got {len(actual_keys)}: {actual_keys}",
         )
 
 
@@ -220,6 +225,14 @@ class TestNewPrefsRoundTrip(unittest.TestCase):
         second_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
         self.assertEqual(second_instance.get("dot_font_reference_size"), 24)
 
+    def test_round_trip_hint_popup_delay_ms(self):
+        """set('hint_popup_delay_ms', 500) -> save() -> new instance -> get() returns 500."""
+        first_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        first_instance.set("hint_popup_delay_ms", 500)
+        first_instance.save()
+        second_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        self.assertEqual(second_instance.get("hint_popup_delay_ms"), 500)
+
 
 class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
     """Missing keys in a saved file fall back to DEFAULTS values, not KeyError."""
@@ -260,6 +273,7 @@ class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
         self.assertEqual(instance.get("horizontal_side_vertical_gap"), 150)
         self.assertEqual(instance.get("horizontal_mask_gap"), 50)
         self.assertEqual(instance.get("dot_font_reference_size"), 20)
+        self.assertEqual(instance.get("hint_popup_delay_ms"), 0)
 
 
 class TestNodeLayoutPrefsExports(unittest.TestCase):
