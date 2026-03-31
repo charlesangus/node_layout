@@ -225,5 +225,86 @@ class TestFilterLifecycle(unittest.TestCase):
         )
 
 
+class TestChainingDispatchTableKeys(unittest.TestCase):
+    """Chaining dispatch table must cover W/A/S/D/Q/E keys -- DISP-05/DISP-06/DISP-07."""
+
+    def setUp(self):
+        self.source = _load_leader_source()
+
+    def test_dispatch_key_w_present(self):
+        """Key_W must be referenced in source for move up command."""
+        self.assertIn("Key_W", self.source,
+            "Chaining dispatch table must reference Qt.Key.Key_W for move up (DISP-05)")
+
+    def test_dispatch_key_a_present(self):
+        """Key_A must be referenced in source for move left command."""
+        self.assertIn("Key_A", self.source,
+            "Chaining dispatch table must reference Qt.Key.Key_A for move left (DISP-05)")
+
+    def test_dispatch_key_s_present(self):
+        """Key_S must be referenced in source for move down command."""
+        self.assertIn("Key_S", self.source,
+            "Chaining dispatch table must reference Qt.Key.Key_S for move down (DISP-05)")
+
+    def test_dispatch_key_d_present(self):
+        """Key_D must be referenced in source for move right command."""
+        self.assertIn("Key_D", self.source,
+            "Chaining dispatch table must reference Qt.Key.Key_D for move right (DISP-05)")
+
+    def test_dispatch_key_q_present(self):
+        """Key_Q must be referenced in source for shrink command."""
+        self.assertIn("Key_Q", self.source,
+            "Chaining dispatch table must reference Qt.Key.Key_Q for shrink (DISP-06)")
+
+    def test_dispatch_key_e_present(self):
+        """Key_E must be referenced in source for expand command."""
+        self.assertIn("Key_E", self.source,
+            "Chaining dispatch table must reference Qt.Key.Key_E for expand (DISP-07)")
+
+
+class TestChainingDispatchHelpers(unittest.TestCase):
+    """All six chaining dispatch helper functions must be top-level in the module."""
+
+    def setUp(self):
+        tree = _parse_leader_ast()
+        self.top_level_function_names = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+
+    def test_dispatch_move_up_exists(self):
+        """_dispatch_move_up must be a top-level function."""
+        self.assertIn("_dispatch_move_up", self.top_level_function_names)
+
+    def test_dispatch_move_down_exists(self):
+        """_dispatch_move_down must be a top-level function."""
+        self.assertIn("_dispatch_move_down", self.top_level_function_names)
+
+    def test_dispatch_move_left_exists(self):
+        """_dispatch_move_left must be a top-level function."""
+        self.assertIn("_dispatch_move_left", self.top_level_function_names)
+
+    def test_dispatch_move_right_exists(self):
+        """_dispatch_move_right must be a top-level function."""
+        self.assertIn("_dispatch_move_right", self.top_level_function_names)
+
+    def test_dispatch_shrink_exists(self):
+        """_dispatch_shrink must be a top-level function."""
+        self.assertIn("_dispatch_shrink", self.top_level_function_names)
+
+    def test_dispatch_expand_exists(self):
+        """_dispatch_expand must be a top-level function."""
+        self.assertIn("_dispatch_expand", self.top_level_function_names)
+
+
+class TestChainingDispatchTable(unittest.TestCase):
+    """_CHAINING_DISPATCH_TABLE must be a module-level dict assignment."""
+
+    def test_chaining_dispatch_table_exists(self):
+        """_CHAINING_DISPATCH_TABLE must be assigned at module level."""
+        source = _load_leader_source()
+        self.assertIn("_CHAINING_DISPATCH_TABLE", source,
+            "_CHAINING_DISPATCH_TABLE must be defined in node_layout_leader.py (D-07)")
+
+
 if __name__ == "__main__":
     unittest.main()
