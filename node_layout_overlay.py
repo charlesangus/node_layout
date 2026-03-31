@@ -115,7 +115,13 @@ class LeaderKeyOverlay(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         # D-12, D-13: focus-safe floating tool window — must be set before first show()
-        self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
+        # WindowDoesNotAcceptFocus sets WS_EX_NOACTIVATE on Windows, which prevents
+        # taskbar icon flash and autohide-taskbar reveal on show().
+        self.setWindowFlags(
+            Qt.WindowType.Tool
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowDoesNotAcceptFocus
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         # D-01: required for semi-transparent paintEvent background
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -133,7 +139,11 @@ class LeaderKeyOverlay(QWidget):
         triggers taskbar icon flash and autohide taskbar reveal).
         """
         self.setParent(new_parent)
-        self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
+        self.setWindowFlags(
+            Qt.WindowType.Tool
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowDoesNotAcceptFocus
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 

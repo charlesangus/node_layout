@@ -109,6 +109,18 @@ class TestOverlayQtProperties(unittest.TestCase):
             "LeaderKeyOverlay must set Qt.WindowType.FramelessWindowHint in setWindowFlags",
         )
 
+    def test_window_does_not_accept_focus_is_set(self):
+        """WindowDoesNotAcceptFocus must be set to prevent Windows taskbar flash and autohide reveal.
+
+        Maps to WS_EX_NOACTIVATE on Windows — prevents the OS from treating the
+        overlay show() as a foreground window activation request.
+        """
+        self.assertIn(
+            "WindowDoesNotAcceptFocus",
+            self.source,
+            "LeaderKeyOverlay must set Qt.WindowType.WindowDoesNotAcceptFocus to suppress taskbar flash",
+        )
+
 
 class TestOverlayKeyLayout(unittest.TestCase):
     """All 10 command key labels must be present in QWERTY grid positions — OVRL-02."""
