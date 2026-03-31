@@ -5,6 +5,32 @@ Floats over the active DAG panel without stealing keyboard focus.
 
 Phase 19 (node_layout_leader.py) controls show()/hide() calls; this module
 only defines the widget and its visual structure.
+
+TASKBAR ALERT INVESTIGATION (260331-axc):
+Recent commits (ebe9f0d, 476c17a, d598895, 86b9d18) attempted to suppress taskbar
+notification/flash when arm() displays the overlay. Investigation findings:
+
+ELIMINATION CHECKLIST:
+  [x] No QMessageBox, QErrorMessage, or nuke.alert() calls present
+  [x] No unhandled exceptions in arm() -> show() path
+  [x] WindowDoesNotAcceptFocus flag properly set in __init__ and reparent()
+  [x] WA_ShowWithoutActivating attribute correctly applied
+  [x] move() called before super().show() to avoid SetWindowPos during visible
+  [x] reparent() restores all flags after parent change to prevent resets
+  [x] setCursor() set on overlay (not per-child) to avoid WM_SETCURSOR spam
+  [x] ClickableKeyCell uses setFocusPolicy(Qt.NoFocus) to prevent focus grab
+  [x] No QTimer.singleShot() used (uses named instance with stop() capability)
+
+POSSIBLE REMAINING ALERT SOURCES (to be verified in live Nuke):
+  1. Windows audio alert (system ding) — suggests residual focus-steal
+  2. Taskbar flash/highlight — window activation still breaking through
+  3. Autohide taskbar reveal — also activation-related
+  4. Notification toast in system tray — less likely without alert() calls
+  5. Transient parent/child window handling on Windows — Qt/Nuke interaction
+
+NEXT STEP:
+  User testing required to identify exact alert type (sound, flash, popup, etc.)
+  See 260331-axc PLAN.md checkpoint:human-verify gate for test procedure.
 """
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QCursor, QFont, QGuiApplication, QPainter
