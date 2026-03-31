@@ -37,7 +37,7 @@ _KEY_LAYOUT = [
     ("F", "Freeze",       1, 3),
     ("Z", "Horiz Layout", 2, 0),
     # row 2 col 1 intentionally empty — X is not in the command set
-    ("C", "Clear Freeze", 2, 2),
+    ("C", "Clear State", 2, 2),
     ("V", "Layout",       2, 3),
 ]
 

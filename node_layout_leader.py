@@ -174,11 +174,11 @@ def _dispatch_freeze_toggle():
         node_layout.freeze_selected()
 
 
-def _dispatch_clear_freeze():
-    """Unconditionally remove freeze group membership for the C key (D-12, DISP-04)."""
+def _dispatch_clear_state():
+    """Clear layout state on selected nodes for the C key."""
     import node_layout   # noqa: PLC0415
 
-    node_layout.unfreeze_selected()
+    node_layout.clear_layout_state_selected()
 
 
 def _dispatch_move_up():
@@ -225,7 +225,7 @@ _DISPATCH_TABLE = {
     Qt.Key.Key_V: _dispatch_layout,
     Qt.Key.Key_Z: _dispatch_horizontal_layout,
     Qt.Key.Key_F: _dispatch_freeze_toggle,
-    Qt.Key.Key_C: _dispatch_clear_freeze,
+    Qt.Key.Key_C: _dispatch_clear_state,
 }
 
 # ---------------------------------------------------------------------------

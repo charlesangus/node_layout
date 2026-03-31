@@ -159,11 +159,11 @@ class TestDispatchTableKeys(unittest.TestCase):
         )
 
     def test_dispatch_key_c_present(self):
-        """Key_C must be referenced in source for clear freeze."""
+        """Key_C must be referenced in source for clear layout state."""
         self.assertIn(
             "Key_C",
             self.source,
-            "Dispatch table must reference Qt.Key.Key_C for clear freeze (DISP-04)",
+            "Dispatch table must reference Qt.Key.Key_C for clear layout state",
         )
 
 
