@@ -210,8 +210,18 @@ class LeaderKeyOverlay(QWidget):
     def show(self):
         """Show the overlay at the current mouse cursor position, clamped to screen bounds.
 
-        Calls super().show() first so the native window exists before move()
-        is called (avoids Pitfall 4: move before native window exists).
+        Position is computed and applied BEFORE super().show() so the window
+        appears at the correct location on the first ShowWindow() call.  Calling
+        move() on an already-visible window goes through SetWindowPos() on
+        Windows, which Qt does not call with SWP_NOACTIVATE — that can trigger
+        taskbar icon flash and autohide-taskbar reveal.  Moving the hidden window
+        first means Qt folds the position into the ShowWindow() call, which does
+        respect WA_ShowWithoutActivating.
+
+        The old "show first so native window exists" comment applied to the
+        mapToGlobal(parent.rect().center()) approach.  QCursor.pos() and
+        self.width()/height() (set by adjustSize() in __init__) do not require
+        a native window.
 
         Positioning:
           - Reads the global cursor position at the moment show() is called.
@@ -219,7 +229,6 @@ class LeaderKeyOverlay(QWidget):
           - Clamps to screen.availableGeometry() so no part of the overlay
             extends beyond the usable screen area (excludes taskbar/dock).
         """
-        super().show()
         cursor_pos = QCursor.pos()
         screen = QGuiApplication.screenAt(cursor_pos)
         if screen is None:
@@ -234,3 +243,4 @@ class LeaderKeyOverlay(QWidget):
         y = max(screen_geometry.top(), min(y, screen_geometry.bottom() - self.height()))
 
         self.move(x, y)
+        super().show()
