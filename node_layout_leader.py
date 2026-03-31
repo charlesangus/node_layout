@@ -183,26 +183,50 @@ def _dispatch_clear_state():
 
 def _dispatch_move_up():
     """Move selected nodes up for the W key (D-01, DISP-05)."""
-    import make_room  # noqa: PLC0415
-    make_room.make_room()
+    import nuke          # noqa: PLC0415
+    import make_room     # noqa: PLC0415
+    nuke.Undo.name("Move Up")
+    nuke.Undo.begin()
+    try:
+        make_room.make_room()
+    finally:
+        nuke.Undo.end()
 
 
 def _dispatch_move_down():
     """Move selected nodes down for the S key (D-01, DISP-05)."""
-    import make_room  # noqa: PLC0415
-    make_room.make_room(direction='down')
+    import nuke          # noqa: PLC0415
+    import make_room     # noqa: PLC0415
+    nuke.Undo.name("Move Down")
+    nuke.Undo.begin()
+    try:
+        make_room.make_room(direction='down')
+    finally:
+        nuke.Undo.end()
 
 
 def _dispatch_move_left():
     """Move selected nodes left for the A key (D-01, DISP-05)."""
-    import make_room  # noqa: PLC0415
-    make_room.make_room(amount=800, direction='left')
+    import nuke          # noqa: PLC0415
+    import make_room     # noqa: PLC0415
+    nuke.Undo.name("Move Left")
+    nuke.Undo.begin()
+    try:
+        make_room.make_room(amount=800, direction='left')
+    finally:
+        nuke.Undo.end()
 
 
 def _dispatch_move_right():
     """Move selected nodes right for the D key (D-01, DISP-05)."""
-    import make_room  # noqa: PLC0415
-    make_room.make_room(amount=800, direction='right')
+    import nuke          # noqa: PLC0415
+    import make_room     # noqa: PLC0415
+    nuke.Undo.name("Move Right")
+    nuke.Undo.begin()
+    try:
+        make_room.make_room(amount=800, direction='right')
+    finally:
+        nuke.Undo.end()
 
 
 def _dispatch_shrink():
