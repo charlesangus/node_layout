@@ -7,7 +7,7 @@ Phase 19 (node_layout_leader.py) controls show()/hide() calls; this module
 only defines the widget and its visual structure.
 """
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont, QPainter
+from PySide6.QtGui import QColor, QCursor, QFont, QGuiApplication, QPainter
 from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
 # ---------------------------------------------------------------------------
@@ -151,13 +151,29 @@ class LeaderKeyOverlay(QWidget):
         painter.drawRoundedRect(self.rect(), 8, 8)
 
     def show(self):
-        """Show the overlay centered over the parent widget (D-08).
+        """Show the overlay at the current mouse cursor position, clamped to screen bounds.
 
-        Calls super().show() first so the native window exists before
-        move() is called (avoids Pitfall 4: move before native window exists).
+        Calls super().show() first so the native window exists before move()
+        is called (avoids Pitfall 4: move before native window exists).
+
+        Positioning:
+          - Reads the global cursor position at the moment show() is called.
+          - Centers the overlay on the cursor.
+          - Clamps to screen.availableGeometry() so no part of the overlay
+            extends beyond the usable screen area (excludes taskbar/dock).
         """
         super().show()
-        parent_widget = self.parentWidget()
-        if parent_widget is not None:
-            global_center = parent_widget.mapToGlobal(parent_widget.rect().center())
-            self.move(global_center - self.rect().center())
+        cursor_pos = QCursor.pos()
+        screen = QGuiApplication.screenAt(cursor_pos)
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+
+        x = cursor_pos.x() - self.width() // 2
+        y = cursor_pos.y() - self.height() // 2
+
+        # Clamp so the overlay stays fully within the available screen area.
+        x = max(screen_geometry.left(), min(x, screen_geometry.right() - self.width()))
+        y = max(screen_geometry.top(), min(y, screen_geometry.bottom() - self.height()))
+
+        self.move(x, y)
