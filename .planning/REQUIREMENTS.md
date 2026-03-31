@@ -12,7 +12,7 @@ Requirements for the Leader Key milestone. Phases continue from v1.3 (starting a
 - [ ] **LEAD-01**: Shift+E arms leader mode (replaces the existing Layout Upstream shortcut)
 - [x] **LEAD-02**: Pressing an unrecognized key cancels leader mode; the key event is consumed, not forwarded to Nuke
 - [x] **LEAD-03**: Any mouse click cancels leader mode
-- [ ] **LEAD-04**: Leader mode is not armed if a dialog, text field, or non-DAG widget has keyboard focus at the time of Shift+E
+- [x] **LEAD-04**: Leader mode is not armed if a dialog, text field, or non-DAG widget has keyboard focus at the time of Shift+E
 
 ### Command Dispatch
 
@@ -94,7 +94,7 @@ Requirements for the Freeze Layout milestone.
 | OVRL-04 | Phase 18 | Complete |
 | LEAD-02 | Phase 19 | Complete |
 | LEAD-03 | Phase 19 | Complete |
-| LEAD-04 | Phase 19 | Pending |
+| LEAD-04 | Phase 19 | Complete |
 | DISP-01 | Phase 19 | Complete |
 | DISP-02 | Phase 19 | Complete |
 | DISP-03 | Phase 19 | Complete |

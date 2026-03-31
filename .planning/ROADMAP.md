@@ -66,7 +66,7 @@ Full archive: `.planning/milestones/v1.3-ROADMAP.md`
 
 - [x] **Phase 17: Prefs + Dialog Foundation** — Add hint popup delay preference and expose it in the dialog (completed 2026-03-30)
 - [x] **Phase 18: Overlay Widget** — Build the floating keyboard HUD widget with focus-safe display (completed 2026-03-30)
-- [ ] **Phase 19: Event Filter + Core Dispatch** — Leader mode state machine with single-shot command dispatch
+- [x] **Phase 19: Event Filter + Core Dispatch** — Leader mode state machine with single-shot command dispatch (completed 2026-03-31)
 - [ ] **Phase 20: WASD Chaining + C Command** — Sticky movement dispatch with key-repeat guard and clear freeze command
 - [ ] **Phase 21: Menu Wiring** — Bind Shift+E to leader mode entry and activate the event filter at startup
 
@@ -140,9 +140,9 @@ Plans:
   5. A mouse click while in leader mode cancels leader mode and the click event propagates normally
   6. The event filter returns `False` unconditionally for all events when leader mode is not active — no Nuke built-in shortcuts are affected
   7. Leader mode does not arm when a dialog, text field, or non-DAG widget has keyboard focus at the time of the arm attempt
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 19-01-PLAN.md — Implement LeaderKeyFilter and arm() entry point
+- [x] 19-01-PLAN.md — Implement LeaderKeyFilter and arm() entry point
 - [x] 19-02-PLAN.md — Structural AST tests for LeaderKeyFilter
 
 ### Phase 20: WASD Chaining + C Command
@@ -191,6 +191,6 @@ Plans:
 | 16. Layout Integration | v1.3 | 4/4 | Complete | 2026-03-20 |
 | 17. Prefs + Dialog Foundation | v1.4 | 1/1 | Complete    | 2026-03-30 |
 | 18. Overlay Widget | v1.4 | 1/1 | Complete    | 2026-03-30 |
-| 19. Event Filter + Core Dispatch | v1.4 | 1/2 | In Progress|  |
+| 19. Event Filter + Core Dispatch | v1.4 | 2/2 | Complete   | 2026-03-31 |
 | 20. WASD Chaining + C Command | v1.4 | 0/? | Not started | - |
 | 21. Menu Wiring | v1.4 | 0/? | Not started | - |
