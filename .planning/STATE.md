@@ -114,9 +114,10 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 | 260325-k1f | Fix menu.py command strings to use inline import form | 2026-03-25 | 51150be | [260325-k1f-fix-menu-py-command-strings-to-use-inlin](./quick/260325-k1f-fix-menu-py-command-strings-to-use-inlin/) |
 | 260328-5o4 | Add select_hidden_outputs function and menu entry | 2026-03-28 | abc0b27 | [260328-5o4-add-a-select-hidden-outputs-function-tha](./quick/260328-5o4-add-a-select-hidden-outputs-function-tha/) |
 | 260331-3nb | Fix leader key filter to consume ShortcutOverride events | 2026-03-31 | 80b1b8b | [260331-3nb-the-filter-is-not-consuming-keystrokes-s](./quick/260331-3nb-the-filter-is-not-consuming-keystrokes-s/) |
+| 260331-4m0 | Rewire C key dispatch from clear-freeze to clear-layout-state | 2026-03-31 | 46b6b4b | [260331-4m0-leader-c-should-run-clear-layout-state-o](./quick/260331-4m0-leader-c-should-run-clear-layout-state-o/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-31 - Completed quick task 260331-3nb: fix leader key filter ShortcutOverride consumption
-Last session: 2026-03-31T00:00:00Z
-Stopped at: Completed quick task 260331-3nb
+Last activity: 2026-03-31 - Completed quick task 260331-4m0: rewire C key dispatch to clear_layout_state_selected
+Last session: 2026-03-31T10:21:56Z
+Stopped at: Completed quick task 260331-4m0
