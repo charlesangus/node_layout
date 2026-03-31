@@ -194,5 +194,5 @@ Plans:
 | 17. Prefs + Dialog Foundation | v1.4 | 1/1 | Complete    | 2026-03-30 |
 | 18. Overlay Widget | v1.4 | 1/1 | Complete    | 2026-03-30 |
 | 19. Event Filter + Core Dispatch | v1.4 | 2/2 | Complete   | 2026-03-31 |
-| 20. WASD Chaining + C Command | v1.4 | 1/1 | Complete   | 2026-03-31 |
+| 20. WASD Chaining + C Command | v1.4 | 1/1 | Complete    | 2026-03-31 |
 | 21. Menu Wiring | v1.4 | 0/? | Not started | - |
