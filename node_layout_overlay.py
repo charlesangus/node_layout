@@ -57,8 +57,10 @@ class ClickableKeyCell(QWidget):
         super().__init__(parent)
         self._key_letter = key_letter
 
-        # Show a pointing hand cursor on hover to indicate clickability.
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        # NoFocus prevents any implicit focus grab when the cell is shown or clicked.
+        # Cursor is inherited from LeaderKeyOverlay (set there to avoid WM_SETCURSOR
+        # messages being sent per child widget, which can trigger activation on Windows).
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         cell_layout = QVBoxLayout(self)
         cell_layout.setContentsMargins(2, 2, 2, 2)
@@ -125,6 +127,9 @@ class LeaderKeyOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         # D-01: required for semi-transparent paintEvent background
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        # Pointing hand on the overlay so children inherit it — avoids per-child
+        # WM_SETCURSOR messages that can trigger Windows activation machinery.
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._build_ui()
         # Ensure rect() has real dimensions before show() runs centering math (Pitfall 4)
         self.adjustSize()
