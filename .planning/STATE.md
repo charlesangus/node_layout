@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Leader Key
-status: verifying
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-03-30T22:20:43.122Z"
-last_activity: 2026-03-30
+status: executing
+stopped_at: Completed 19-02-PLAN.md
+last_updated: "2026-03-31T00:45:32.826Z"
+last_activity: 2026-03-31
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
 ---
 
 # Session State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-29)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave.
-**Current focus:** Phase 18 — overlay-widget
+**Current focus:** Phase 19 — event-filter-core-dispatch
 
 ## Current Position
 
-Phase: 19
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-03-30
+Phase: 19 (event-filter-core-dispatch) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-03-31
 
 ```
 v1.4 Progress: [          ] 0/5 phases
@@ -53,6 +53,7 @@ v1.4 Progress: [          ] 0/5 phases
 | Phase 16-layout-integration P04 | 3m22s | 2 tasks | 2 files |
 | Phase 17-prefs-dialog-foundation P01 | 130s | 2 tasks | 4 files |
 | Phase 18-overlay-widget P01 | 2m9s | 2 tasks | 2 files |
+| Phase 19 P02 | 1min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,7 @@ Recent decisions affecting current work:
 - [Phase 18-overlay-widget]: show() calls super().show() before move() — native window must exist before geometry can be set (Pitfall 4 guard)
 - [Phase 18-overlay-widget]: Module-level _CHAINING_KEY_COLOR and _SINGLE_SHOT_KEY_COLOR constants named so AST tests can verify two distinct badge colors without importing PySide6
 - [Phase 18-overlay-widget]: WA_TranslucentBackground + paintEvent with QPainter used instead of stylesheet background — stylesheet transparency unreliable in Nuke embedded hierarchy
+- [Phase 19]: Top-level function detection in AST tests uses tree.body iteration (not ast.walk) to exclude nested functions from match set
 
 ### Pending Todos
 
@@ -108,5 +110,5 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 ## Session Continuity
 
 Last activity: 2026-03-29 - Roadmap created for v1.4 Leader Key (Phases 17-21)
-Last session: 2026-03-30T22:16:39.553Z
-Stopped at: Completed 18-01-PLAN.md
+Last session: 2026-03-31T00:45:32.823Z
+Stopped at: Completed 19-02-PLAN.md

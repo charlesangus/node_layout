@@ -140,10 +140,10 @@ Plans:
   5. A mouse click while in leader mode cancels leader mode and the click event propagates normally
   6. The event filter returns `False` unconditionally for all events when leader mode is not active — no Nuke built-in shortcuts are affected
   7. Leader mode does not arm when a dialog, text field, or non-DAG widget has keyboard focus at the time of the arm attempt
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 19-01-PLAN.md — Implement LeaderKeyFilter and arm() entry point
-- [ ] 19-02-PLAN.md — Structural AST tests for LeaderKeyFilter
+- [x] 19-02-PLAN.md — Structural AST tests for LeaderKeyFilter
 
 ### Phase 20: WASD Chaining + C Command
 **Goal**: Movement keys keep leader mode alive for chained input; a complete WASD session is undoable in a single Ctrl+Z; the C key clears freeze group membership
@@ -191,6 +191,6 @@ Plans:
 | 16. Layout Integration | v1.3 | 4/4 | Complete | 2026-03-20 |
 | 17. Prefs + Dialog Foundation | v1.4 | 1/1 | Complete    | 2026-03-30 |
 | 18. Overlay Widget | v1.4 | 1/1 | Complete    | 2026-03-30 |
-| 19. Event Filter + Core Dispatch | v1.4 | 0/2 | Not started | - |
+| 19. Event Filter + Core Dispatch | v1.4 | 1/2 | In Progress|  |
 | 20. WASD Chaining + C Command | v1.4 | 0/? | Not started | - |
 | 21. Menu Wiring | v1.4 | 0/? | Not started | - |

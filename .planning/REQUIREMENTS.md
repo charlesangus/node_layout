@@ -10,16 +10,16 @@ Requirements for the Leader Key milestone. Phases continue from v1.3 (starting a
 ### Leader Mode
 
 - [ ] **LEAD-01**: Shift+E arms leader mode (replaces the existing Layout Upstream shortcut)
-- [ ] **LEAD-02**: Pressing an unrecognized key cancels leader mode; the key event is consumed, not forwarded to Nuke
-- [ ] **LEAD-03**: Any mouse click cancels leader mode
+- [x] **LEAD-02**: Pressing an unrecognized key cancels leader mode; the key event is consumed, not forwarded to Nuke
+- [x] **LEAD-03**: Any mouse click cancels leader mode
 - [ ] **LEAD-04**: Leader mode is not armed if a dialog, text field, or non-DAG widget has keyboard focus at the time of Shift+E
 
 ### Command Dispatch
 
-- [ ] **DISP-01**: V dispatches vertical layout — context-aware: 1 node selected → layout upstream; 2+ nodes → layout selection — then exits leader mode
-- [ ] **DISP-02**: Z dispatches horizontal layout then exits leader mode
-- [ ] **DISP-03**: F toggles freeze/unfreeze for selected nodes based on their current freeze state, then exits leader mode
-- [ ] **DISP-04**: C removes selected nodes from their freeze group then exits leader mode
+- [x] **DISP-01**: V dispatches vertical layout — context-aware: 1 node selected → layout upstream; 2+ nodes → layout selection — then exits leader mode
+- [x] **DISP-02**: Z dispatches horizontal layout then exits leader mode
+- [x] **DISP-03**: F toggles freeze/unfreeze for selected nodes based on their current freeze state, then exits leader mode
+- [x] **DISP-04**: C removes selected nodes from their freeze group then exits leader mode
 - [ ] **DISP-05**: W/A/S/D dispatch node movement in the corresponding direction and keep leader mode active for chained input
 - [ ] **DISP-06**: Q dispatches scale down (shrink) and keeps leader mode active
 - [ ] **DISP-07**: E dispatches scale up (expand) and keeps leader mode active
@@ -92,13 +92,13 @@ Requirements for the Freeze Layout milestone.
 | OVRL-02 | Phase 18 | Complete |
 | OVRL-03 | Phase 18 | Complete |
 | OVRL-04 | Phase 18 | Complete |
-| LEAD-02 | Phase 19 | Pending |
-| LEAD-03 | Phase 19 | Pending |
+| LEAD-02 | Phase 19 | Complete |
+| LEAD-03 | Phase 19 | Complete |
 | LEAD-04 | Phase 19 | Pending |
-| DISP-01 | Phase 19 | Pending |
-| DISP-02 | Phase 19 | Pending |
-| DISP-03 | Phase 19 | Pending |
-| DISP-04 | Phase 19 | Pending |
+| DISP-01 | Phase 19 | Complete |
+| DISP-02 | Phase 19 | Complete |
+| DISP-03 | Phase 19 | Complete |
+| DISP-04 | Phase 19 | Complete |
 | DISP-05 | Phase 20 | Pending |
 | DISP-06 | Phase 20 | Pending |
 | DISP-07 | Phase 20 | Pending |
