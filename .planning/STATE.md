@@ -118,9 +118,10 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 | 260331-4y3 | Position leader overlay at mouse cursor with screen clamping | 2026-03-31 | bcf531a | [260331-4y3-the-leader-popup-should-appear-at-the-mo](./quick/260331-4y3-the-leader-popup-should-appear-at-the-mo/) |
 | 260331-537 | Make leader popup buttons clickable (dispatch_key + ClickableKeyCell) | 2026-03-30 | 6e3aa58 | [260331-537-make-the-buttons-on-the-leader-popup-cli](./quick/260331-537-make-the-buttons-on-the-leader-popup-cli/) |
 | 260331-594 | Stop taskbar flash and autohide reveal — add reparent() to LeaderKeyOverlay | 2026-03-31 | de98b41 | [260331-594-stop-taskbar-flash-and-autohide-reveal-w](./quick/260331-594-stop-taskbar-flash-and-autohide-reveal-w/) |
+| 260331-axc | Debug taskbar alert — suppress overlay window activation via Win32 API | 2026-03-31 | 408e62a | [260331-axc-debug-the-annoying-alert-in-the-taskbar-](./quick/260331-axc-debug-the-annoying-alert-in-the-taskbar-/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-31 - Completed quick task 260331-594: stop taskbar flash and autohide reveal
+Last activity: 2026-03-31 - Completed quick task 260331-axc: debug the annoying alert in the taskbar when hitting the leader command
 Last session: 2026-03-31T10:51:27Z
-Stopped at: Completed quick task 260331-594
+Stopped at: Completed quick task 260331-axc
