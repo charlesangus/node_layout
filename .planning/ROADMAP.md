@@ -67,7 +67,7 @@ Full archive: `.planning/milestones/v1.3-ROADMAP.md`
 - [x] **Phase 17: Prefs + Dialog Foundation** — Add hint popup delay preference and expose it in the dialog (completed 2026-03-30)
 - [x] **Phase 18: Overlay Widget** — Build the floating keyboard HUD widget with focus-safe display (completed 2026-03-30)
 - [x] **Phase 19: Event Filter + Core Dispatch** — Leader mode state machine with single-shot command dispatch (completed 2026-03-31)
-- [ ] **Phase 20: WASD Chaining + C Command** — Sticky movement dispatch with key-repeat guard and clear freeze command
+- [x] **Phase 20: WASD Chaining + C Command** — Sticky movement dispatch with key-repeat guard and clear freeze command (completed 2026-03-31)
 - [ ] **Phase 21: Menu Wiring** — Bind Shift+E to leader mode entry and activate the event filter at startup
 
 ## Phase Details
@@ -155,9 +155,9 @@ Plans:
   3. Holding a WASD key down moves nodes exactly once — the OS key-repeat events are discarded; additional steps require deliberate individual keypresses
   4. All node movements made during a single leader session (from arm to exit) are undone by a single Ctrl+Z
   5. Pressing C while in leader mode removes the selected nodes from their freeze group then exits leader mode
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
-- [ ] 20-01-PLAN.md — Add WASD/Q/E chaining dispatch helpers, _CHAINING_DISPATCH_TABLE, eventFilter chaining branch, and AST structural tests
+- [x] 20-01-PLAN.md — Add WASD/Q/E chaining dispatch helpers, _CHAINING_DISPATCH_TABLE, eventFilter chaining branch, and AST structural tests
 
 ### Phase 21: Menu Wiring
 **Goal**: Shift+E arms leader mode in a live Nuke session and the old Layout Upstream shortcut no longer fires on Shift+E
@@ -194,5 +194,5 @@ Plans:
 | 17. Prefs + Dialog Foundation | v1.4 | 1/1 | Complete    | 2026-03-30 |
 | 18. Overlay Widget | v1.4 | 1/1 | Complete    | 2026-03-30 |
 | 19. Event Filter + Core Dispatch | v1.4 | 2/2 | Complete   | 2026-03-31 |
-| 20. WASD Chaining + C Command | v1.4 | 0/1 | Not started | - |
+| 20. WASD Chaining + C Command | v1.4 | 1/1 | Complete   | 2026-03-31 |
 | 21. Menu Wiring | v1.4 | 0/? | Not started | - |

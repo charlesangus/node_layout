@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Leader Key
 status: verifying
-stopped_at: Completed 19-01-PLAN.md
-last_updated: "2026-03-31T00:46:09.741Z"
+stopped_at: Completed 20-01-PLAN.md
+last_updated: "2026-03-31T04:00:09.696Z"
 last_activity: 2026-03-31
 progress:
   total_phases: 7
-  completed_phases: 5
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 6
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # Session State
@@ -20,12 +20,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-29)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave.
-**Current focus:** Phase 19 — event-filter-core-dispatch
+**Current focus:** Phase 20 — wasd-chaining-c-command
 
 ## Current Position
 
-Phase: 19 (event-filter-core-dispatch) — EXECUTING
-Plan: 2 of 2
+Phase: 20 (wasd-chaining-c-command) — EXECUTING
+Plan: 1 of 1
 Status: Phase complete — ready for verification
 Last activity: 2026-03-31
 
@@ -55,6 +55,7 @@ v1.4 Progress: [          ] 0/5 phases
 | Phase 18-overlay-widget P01 | 2m9s | 2 tasks | 2 files |
 | Phase 19 P02 | 1min | 2 tasks | 1 files |
 | Phase 19 P01 | 5min | 5 tasks | 1 files |
+| Phase 20-wasd-chaining-c-command P01 | 3m | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,9 @@ Recent decisions affecting current work:
 - [Phase 19]: Top-level function detection in AST tests uses tree.body iteration (not ast.walk) to exclude nested functions from match set
 - [Phase 19]: Named QTimer instance (not QTimer.singleShot) for cancellable overlay delay in leader key mode
 - [Phase 19]: Inline imports inside dispatch helpers avoid circular imports at Nuke startup; all dispatch functions defer node_layout import
+- [Phase 20-wasd-chaining-c-command]: Two separate dispatch tables (_DISPATCH_TABLE single-shot + _CHAINING_DISPATCH_TABLE chaining) — disarm/no-disarm semantic split is clearer as two named dicts
+- [Phase 20-wasd-chaining-c-command]: Chaining branch calls _overlay.hide() directly (not via _disarm()) — preserves _leader_active=True while cleaning up UI
+- [Phase 20-wasd-chaining-c-command]: Per-step undo for WASD/Q/E (no session-level undo group) — each press independently undoable (D-12/D-13)
 
 ### Pending Todos
 
@@ -113,5 +117,5 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 ## Session Continuity
 
 Last activity: 2026-03-29 - Roadmap created for v1.4 Leader Key (Phases 17-21)
-Last session: 2026-03-31T00:46:09.737Z
-Stopped at: Completed 19-01-PLAN.md
+Last session: 2026-03-31T04:00:09.691Z
+Stopped at: Completed 20-01-PLAN.md

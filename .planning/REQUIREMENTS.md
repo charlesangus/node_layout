@@ -20,10 +20,10 @@ Requirements for the Leader Key milestone. Phases continue from v1.3 (starting a
 - [x] **DISP-02**: Z dispatches horizontal layout then exits leader mode
 - [x] **DISP-03**: F toggles freeze/unfreeze for selected nodes based on their current freeze state, then exits leader mode
 - [x] **DISP-04**: C removes selected nodes from their freeze group then exits leader mode
-- [ ] **DISP-05**: W/A/S/D dispatch node movement in the corresponding direction and keep leader mode active for chained input
-- [ ] **DISP-06**: Q dispatches scale down (shrink) and keeps leader mode active
-- [ ] **DISP-07**: E dispatches scale up (expand) and keeps leader mode active
-- [ ] **DISP-08**: Auto-repeat key events (OS key-hold) are discarded — each step requires a deliberate keypress
+- [x] **DISP-05**: W/A/S/D dispatch node movement in the corresponding direction and keep leader mode active for chained input
+- [x] **DISP-06**: Q dispatches scale down (shrink) and keeps leader mode active
+- [x] **DISP-07**: E dispatches scale up (expand) and keeps leader mode active
+- [x] **DISP-08**: Auto-repeat key events (OS key-hold) are discarded — each step requires a deliberate keypress
 
 ### Overlay
 
@@ -99,10 +99,10 @@ Requirements for the Freeze Layout milestone.
 | DISP-02 | Phase 19 | Complete |
 | DISP-03 | Phase 19 | Complete |
 | DISP-04 | Phase 19 | Complete |
-| DISP-05 | Phase 20 | Pending |
-| DISP-06 | Phase 20 | Pending |
-| DISP-07 | Phase 20 | Pending |
-| DISP-08 | Phase 20 | Pending |
+| DISP-05 | Phase 20 | Complete |
+| DISP-06 | Phase 20 | Complete |
+| DISP-07 | Phase 20 | Complete |
+| DISP-08 | Phase 20 | Complete |
 | LEAD-01 | Phase 21 | Pending |
 
 **Coverage:**
