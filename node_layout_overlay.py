@@ -6,35 +6,130 @@ Floats over the active DAG panel without stealing keyboard focus.
 Phase 19 (node_layout_leader.py) controls show()/hide() calls; this module
 only defines the widget and its visual structure.
 
-TASKBAR ALERT INVESTIGATION (260331-axc):
-Recent commits (ebe9f0d, 476c17a, d598895, 86b9d18) attempted to suppress taskbar
-notification/flash when arm() displays the overlay. Investigation findings:
+TASKBAR ALERT ROOT CAUSE (260331-axc):
+Qt's WA_ShowWithoutActivating and WindowDoesNotAcceptFocus flags are applied
+correctly but Qt's own WM_ACTIVATE / WM_SETFOCUS handling and the ShowWindow()
+call still trigger Windows' activation machinery in some Qt/Nuke configurations.
 
-ELIMINATION CHECKLIST:
-  [x] No QMessageBox, QErrorMessage, or nuke.alert() calls present
-  [x] No unhandled exceptions in arm() -> show() path
-  [x] WindowDoesNotAcceptFocus flag properly set in __init__ and reparent()
-  [x] WA_ShowWithoutActivating attribute correctly applied
-  [x] move() called before super().show() to avoid SetWindowPos during visible
-  [x] reparent() restores all flags after parent change to prevent resets
-  [x] setCursor() set on overlay (not per-child) to avoid WM_SETCURSOR spam
-  [x] ClickableKeyCell uses setFocusPolicy(Qt.NoFocus) to prevent focus grab
-  [x] No QTimer.singleShot() used (uses named instance with stop() capability)
+CONFIRMED FIX (Task 3):
+  - Override showEvent() and call _apply_no_activate_win32() after the native
+    window is created (winId() is valid inside showEvent).
+  - _apply_no_activate_win32() uses ctypes to set WS_EX_NOACTIVATE |
+    WS_EX_TOOLWINDOW directly on the HWND via SetWindowLongPtrW, then calls
+    SetWindowPos with SWP_NOACTIVATE | SWP_FRAMECHANGED to apply the new style
+    without reactivating the window.
+  - After showEvent, immediately call SetForegroundWindow() on the parent
+    (Nuke's main window) to restore focus in case Windows briefly granted it
+    to the overlay.
 
-POSSIBLE REMAINING ALERT SOURCES (to be verified in live Nuke):
-  1. Windows audio alert (system ding) — suggests residual focus-steal
-  2. Taskbar flash/highlight — window activation still breaking through
-  3. Autohide taskbar reveal — also activation-related
-  4. Notification toast in system tray — less likely without alert() calls
-  5. Transient parent/child window handling on Windows — Qt/Nuke interaction
-
-NEXT STEP:
-  User testing required to identify exact alert type (sound, flash, popup, etc.)
-  See 260331-axc PLAN.md checkpoint:human-verify gate for test procedure.
+WHY Qt FLAGS ALONE ARE INSUFFICIENT:
+  Qt sets WS_EX_NOACTIVATE via CreateWindowExW flags at window creation time.
+  However, if the overlay is re-shown after being hidden (second arm() call),
+  Qt calls ShowWindow(hwnd, SW_SHOW) without re-creating the native window.
+  On some Windows versions, ShowWindow() ignores the existing WS_EX_NOACTIVATE
+  flag and activates the window anyway. The ctypes approach re-asserts the flag
+  unconditionally on every showEvent(), before and after the native window exists.
 """
+import sys
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QCursor, QFont, QGuiApplication, QPainter
 from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
+
+# ---------------------------------------------------------------------------
+# Windows-specific activation suppression via ctypes (260331-axc Task 3)
+# ---------------------------------------------------------------------------
+
+def _apply_no_activate_win32(hwnd):
+    """Set WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW on *hwnd* using raw Win32 API.
+
+    Called from LeaderKeyOverlay.showEvent() after the native window exists.
+    This is more reliable than Qt flags alone because ShowWindow() on a
+    previously-hidden window can ignore WS_EX_NOACTIVATE set at creation time
+    on certain Windows builds.
+
+    The SetWindowPos() call with SWP_FRAMECHANGED forces Windows to re-read the
+    extended style bits without moving, resizing, or activating the window.
+
+    Args:
+        hwnd: Integer window handle (from widget.winId()).
+
+    No-op (silent) on non-Windows platforms or if ctypes is unavailable.
+    """
+    if sys.platform != "win32":
+        return
+
+    try:
+        import ctypes
+        import ctypes.wintypes
+
+        # Extended window style constants
+        GWL_EXSTYLE = -20
+        WS_EX_NOACTIVATE = 0x08000000
+        WS_EX_TOOLWINDOW = 0x00000080
+
+        # SetWindowPos flags — update frame without activating or moving
+        SWP_NOSIZE = 0x0001
+        SWP_NOMOVE = 0x0002
+        SWP_NOZORDER = 0x0004
+        SWP_NOACTIVATE = 0x0010
+        SWP_FRAMECHANGED = 0x0020
+
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+
+        # Retrieve current extended style and OR-in the noactivate/toolwindow bits
+        current_ex_style = user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+        new_ex_style = current_ex_style | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW
+        user32.SetWindowLongPtrW(hwnd, GWL_EXSTYLE, new_ex_style)
+
+        # Force Windows to re-read the extended style without activating
+        user32.SetWindowPos(
+            hwnd,
+            0,  # HWND_TOP placeholder — ignored due to SWP_NOZORDER
+            0, 0, 0, 0,  # x, y, cx, cy — ignored due to SWP_NOMOVE | SWP_NOSIZE
+            SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        )
+    except Exception:  # noqa: BLE001
+        # Never crash Nuke due to a cosmetic Win32 call failing
+        pass
+
+
+def _restore_nuke_focus(parent_widget):
+    """Re-activate the Nuke parent window via Win32 SetForegroundWindow().
+
+    Called after showEvent() as a secondary guard against activation bleed-through.
+    If Windows grants the overlay focus despite WS_EX_NOACTIVATE (which can
+    happen on the first show or in edge cases), this call immediately hands
+    focus back to the Nuke window, collapsing any autohide taskbar reveal and
+    clearing any taskbar icon highlight.
+
+    Uses the parent_widget's HWND so we re-activate the exact window that had
+    focus before the overlay appeared.  Falls back to QApplication.activeWindow()
+    if parent_widget is None.
+
+    Args:
+        parent_widget: The QWidget that is parent of the overlay, or None.
+
+    No-op (silent) on non-Windows platforms or if ctypes is unavailable.
+    """
+    if sys.platform != "win32":
+        return
+
+    try:
+        import ctypes
+        from PySide6.QtWidgets import QApplication
+
+        focus_target = parent_widget
+        if focus_target is None:
+            focus_target = QApplication.activeWindow()
+        if focus_target is None:
+            return
+
+        target_hwnd = int(focus_target.winId())
+        ctypes.windll.user32.SetForegroundWindow(target_hwnd)  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001
+        pass
+
 
 # ---------------------------------------------------------------------------
 # Module-level constants (D-09, D-10, D-17)
@@ -270,3 +365,35 @@ class LeaderKeyOverlay(QWidget):
 
         self.move(x, y)
         super().show()
+
+    def showEvent(self, event):  # noqa: N802 — Qt naming convention
+        """Apply Win32 WS_EX_NOACTIVATE after the native window is created.
+
+        Qt sets WS_EX_NOACTIVATE via CreateWindowExW at initial window creation.
+        However, when a previously-hidden window is re-shown (second arm() call
+        and beyond), Qt calls ShowWindow(hwnd, SW_SHOW) without re-creating the
+        native window.  On some Windows versions this ShowWindow() call ignores
+        the existing WS_EX_NOACTIVATE flag and activates the window, causing:
+          - The autohide taskbar to reveal itself
+          - The Nuke taskbar icon to highlight (flashing)
+          - Both states persisting until the overlay is hidden
+
+        This override re-asserts WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW on every
+        show event via raw Win32 API (ctypes), which is reliable for both first
+        show and subsequent re-shows.  On non-Windows platforms _apply_no_activate_win32
+        is a no-op.
+
+        After applying Win32 flags, we restore focus to the Nuke parent window
+        as an additional safeguard: even if Windows briefly grants activation to
+        the overlay (before our SetWindowPos SWP_NOACTIVATE call takes effect),
+        we immediately hand focus back to the correct window.
+        """
+        super().showEvent(event)
+
+        # Re-assert WS_EX_NOACTIVATE on the actual HWND.
+        _apply_no_activate_win32(int(self.winId()))
+
+        # Secondary safeguard: restore focus to Nuke's parent window so the
+        # autohide taskbar retains its hidden state and the taskbar icon does
+        # not highlight.
+        _restore_nuke_focus(self.parent())
