@@ -409,5 +409,58 @@ class TestShortcutOverrideConsumption(unittest.TestCase):
         )
 
 
+class TestDispatchKeyFunction(unittest.TestCase):
+    """dispatch_key() public function must exist and implement correct dispatch logic."""
+
+    def test_dispatch_key_function_exists(self):
+        """dispatch_key must be defined as a top-level function in node_layout_leader.py."""
+        tree = _parse_leader_ast()
+        top_level_function_names = {
+            node.name
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+        }
+        self.assertIn(
+            "dispatch_key",
+            top_level_function_names,
+            "dispatch_key() must be defined as a top-level function in node_layout_leader.py",
+        )
+
+    def test_letter_to_qt_key_mapping_exists(self):
+        """_LETTER_TO_QT_KEY mapping must be defined in node_layout_leader.py."""
+        source = _load_leader_source()
+        self.assertIn(
+            "_LETTER_TO_QT_KEY",
+            source,
+            "_LETTER_TO_QT_KEY must be defined in node_layout_leader.py for dispatch_key() lookup",
+        )
+
+    def test_dispatch_key_references_disarm(self):
+        """dispatch_key() must call _disarm() for single-shot key handling."""
+        source = _load_leader_source()
+        tree = _parse_leader_ast()
+
+        # Find the dispatch_key function node.
+        dispatch_key_node = None
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name == "dispatch_key":
+                dispatch_key_node = node
+                break
+
+        self.assertIsNotNone(
+            dispatch_key_node,
+            "dispatch_key() function must exist in node_layout_leader.py",
+        )
+
+        # Extract the source segment of the dispatch_key function and confirm _disarm appears.
+        function_source = ast.get_source_segment(source, dispatch_key_node)
+        self.assertIsNotNone(function_source, "Should be able to extract dispatch_key source")
+        self.assertIn(
+            "_disarm",
+            function_source,
+            "dispatch_key() must call _disarm() to exit leader mode for single-shot keys",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

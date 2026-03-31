@@ -303,5 +303,83 @@ class TestOverlayPaintEvent(unittest.TestCase):
         )
 
 
+class TestClickableKeyCells(unittest.TestCase):
+    """ClickableKeyCell must exist, inherit QWidget, and wire mouse clicks to dispatch_key."""
+
+    def _get_clickable_key_cell_class(self, tree):
+        """Return the ClickableKeyCell ClassDef node from the parsed AST."""
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == "ClickableKeyCell":
+                return node
+        return None
+
+    def test_clickable_key_cell_class_exists(self):
+        """ClickableKeyCell class must be defined in node_layout_overlay.py."""
+        tree = _parse_overlay_ast()
+        class_names = {node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)}
+        self.assertIn(
+            "ClickableKeyCell",
+            class_names,
+            "ClickableKeyCell class must be defined in node_layout_overlay.py",
+        )
+
+    def test_clickable_key_cell_inherits_qwidget(self):
+        """ClickableKeyCell must inherit from QWidget."""
+        tree = _parse_overlay_ast()
+        clickable_cell_class = self._get_clickable_key_cell_class(tree)
+        self.assertIsNotNone(
+            clickable_cell_class,
+            "ClickableKeyCell class must be defined in node_layout_overlay.py",
+        )
+        base_names = set()
+        for base in clickable_cell_class.bases:
+            if isinstance(base, ast.Attribute):
+                base_names.add(base.attr)
+            elif isinstance(base, ast.Name):
+                base_names.add(base.id)
+        self.assertIn(
+            "QWidget",
+            base_names,
+            "ClickableKeyCell must inherit from QWidget",
+        )
+
+    def test_clickable_key_cell_has_mouse_press_event(self):
+        """ClickableKeyCell must define a mousePressEvent method."""
+        tree = _parse_overlay_ast()
+        clickable_cell_class = self._get_clickable_key_cell_class(tree)
+        self.assertIsNotNone(
+            clickable_cell_class,
+            "ClickableKeyCell class must be defined in node_layout_overlay.py",
+        )
+        method_names = {
+            node.name
+            for node in ast.walk(clickable_cell_class)
+            if isinstance(node, ast.FunctionDef)
+        }
+        self.assertIn(
+            "mousePressEvent",
+            method_names,
+            "ClickableKeyCell must define a mousePressEvent() method for click handling",
+        )
+
+    def test_mouse_press_event_calls_dispatch_key(self):
+        """dispatch_key must be referenced in node_layout_overlay.py for click wiring."""
+        source = _load_overlay_source()
+        self.assertIn(
+            "dispatch_key",
+            source,
+            "node_layout_overlay.py must reference dispatch_key to wire cell clicks to leader dispatch",
+        )
+
+    def test_pointing_hand_cursor_set(self):
+        """PointingHandCursor must be set on ClickableKeyCell for hover affordance."""
+        source = _load_overlay_source()
+        self.assertIn(
+            "PointingHandCursor",
+            source,
+            "node_layout_overlay.py must set PointingHandCursor on ClickableKeyCell",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
