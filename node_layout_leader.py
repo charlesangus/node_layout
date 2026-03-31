@@ -4,8 +4,14 @@ This module implements the leader key mode for the node_layout Nuke plugin.
 ``arm()`` is the sole public entry point: it installs a ``LeaderKeyFilter``
 onto ``QApplication`` ephemerally, activates leader mode, and schedules the
 overlay hint display.  The filter intercepts keypresses for single-shot
-command dispatch (V, Z, F, C), cancels on unrecognised input or a mouse
-click, then removes itself via ``_disarm()``.
+command dispatch (V, Z, F, C) and chaining commands (W/A/S/D/Q/E), cancels
+on unrecognised input or a mouse click, then removes itself via ``_disarm()``.
+
+Single-shot keys (V, Z, F, C) disarm leader mode after dispatch.  Chaining
+keys (W, A, S, D, Q, E) keep leader mode active so the user can chain
+movement and scale operations without re-pressing Shift+E each time.  The
+overlay is hidden on the first chaining keypress and does not re-appear
+until a new ``arm()`` call.
 
 Phase 21 (menu.py) activates leader mode by adding::
 
@@ -83,14 +89,22 @@ class LeaderKeyFilter(QObject):
             dispatch_function = _DISPATCH_TABLE.get(key)
 
             if dispatch_function is not None:
-                # Recognised key: disarm first, then dispatch (D-10).
+                # Single-shot key: disarm first, then dispatch.
                 _disarm()
                 dispatch_function()
                 return True
-            else:
-                # Unrecognised key: disarm and consume (D-13).
-                _disarm()
+
+            chaining_function = _CHAINING_DISPATCH_TABLE.get(key)
+            if chaining_function is not None:
+                # Chaining key: dispatch and hide overlay, but stay in leader mode (D-08).
+                if _overlay is not None:
+                    _overlay.hide()
+                chaining_function()
                 return True
+
+            # Unrecognised key: disarm and consume.
+            _disarm()
+            return True
 
         if event_type == QEvent.Type.MouseButtonPress:
             # Mouse click during leader mode: cancel cleanly but let the click
@@ -159,6 +173,42 @@ def _dispatch_clear_freeze():
     node_layout.unfreeze_selected()
 
 
+def _dispatch_move_up():
+    """Move selected nodes up for the W key (D-01, DISP-05)."""
+    import make_room  # noqa: PLC0415
+    make_room.make_room()
+
+
+def _dispatch_move_down():
+    """Move selected nodes down for the S key (D-01, DISP-05)."""
+    import make_room  # noqa: PLC0415
+    make_room.make_room(direction='down')
+
+
+def _dispatch_move_left():
+    """Move selected nodes left for the A key (D-01, DISP-05)."""
+    import make_room  # noqa: PLC0415
+    make_room.make_room(amount=800, direction='left')
+
+
+def _dispatch_move_right():
+    """Move selected nodes right for the D key (D-01, DISP-05)."""
+    import make_room  # noqa: PLC0415
+    make_room.make_room(amount=800, direction='right')
+
+
+def _dispatch_shrink():
+    """Scale down selection for the Q key (D-03, DISP-06)."""
+    import node_layout  # noqa: PLC0415
+    node_layout.shrink_selected()
+
+
+def _dispatch_expand():
+    """Scale up selection for the E key (D-04, DISP-07)."""
+    import node_layout  # noqa: PLC0415
+    node_layout.expand_selected()
+
+
 # ---------------------------------------------------------------------------
 # Dispatch table — maps Qt key codes to handler callables (D-10)
 # ---------------------------------------------------------------------------
@@ -168,6 +218,20 @@ _DISPATCH_TABLE = {
     Qt.Key.Key_Z: _dispatch_horizontal_layout,
     Qt.Key.Key_F: _dispatch_freeze_toggle,
     Qt.Key.Key_C: _dispatch_clear_freeze,
+}
+
+# ---------------------------------------------------------------------------
+# Chaining dispatch table — maps chaining key codes to handler callables (D-07)
+# Chaining keys keep leader mode active after dispatch (D-08).
+# ---------------------------------------------------------------------------
+
+_CHAINING_DISPATCH_TABLE = {
+    Qt.Key.Key_W: _dispatch_move_up,
+    Qt.Key.Key_S: _dispatch_move_down,
+    Qt.Key.Key_A: _dispatch_move_left,
+    Qt.Key.Key_D: _dispatch_move_right,
+    Qt.Key.Key_Q: _dispatch_shrink,
+    Qt.Key.Key_E: _dispatch_expand,
 }
 
 
