@@ -328,7 +328,7 @@ def arm():
         from node_layout_overlay import LeaderKeyOverlay  # noqa: PLC0415
         _overlay = LeaderKeyOverlay(parent=dag_widget)
     elif dag_widget is not None:
-        _overlay.setParent(dag_widget)
+        _overlay.reparent(dag_widget)
 
     # D-05: set active flag and install filter BEFORE scheduling overlay.
     _leader_active = True

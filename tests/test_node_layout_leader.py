@@ -462,5 +462,25 @@ class TestDispatchKeyFunction(unittest.TestCase):
         )
 
 
+class TestArmUsesReparent(unittest.TestCase):
+    """arm() must call _overlay.reparent() instead of bare _overlay.setParent() on re-invocation."""
+
+    def setUp(self):
+        self.source = _load_leader_source()
+
+    def test_arm_calls_reparent_not_set_parent(self):
+        """arm() must contain .reparent( call and must NOT contain _overlay.setParent( call."""
+        self.assertIn(
+            ".reparent(",
+            self.source,
+            "arm() must call _overlay.reparent(dag_widget) instead of bare setParent()",
+        )
+        self.assertNotIn(
+            "_overlay.setParent(",
+            self.source,
+            "arm() must not call _overlay.setParent() directly — use _overlay.reparent() instead",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
