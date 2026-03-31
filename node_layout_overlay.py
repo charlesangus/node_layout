@@ -123,6 +123,20 @@ class LeaderKeyOverlay(QWidget):
         # Ensure rect() has real dimensions before show() runs centering math (Pitfall 4)
         self.adjustSize()
 
+    def reparent(self, new_parent):
+        """Re-parent the overlay, restoring all window flags and attributes.
+
+        Qt's setParent() resets ALL window flags and widget attributes on the
+        widget.  This method wraps setParent() and immediately re-applies the
+        flags that __init__ originally set, preventing Windows from treating a
+        subsequent show() as a foreground window activation request (which
+        triggers taskbar icon flash and autohide taskbar reveal).
+        """
+        self.setParent(new_parent)
+        self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
     def _build_ui(self):
         """Construct the LEADER KEY title and QWERTY key grid."""
         main_layout = QVBoxLayout()
