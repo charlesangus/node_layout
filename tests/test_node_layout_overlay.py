@@ -127,7 +127,7 @@ class TestOverlayKeyLayout(unittest.TestCase):
             ("D", "Move Right"),
             ("F", "Freeze"),
             ("Z", "Horiz Layout"),
-            ("C", "Clear Freeze"),
+            ("C", "Clear State"),
             ("V", "Layout"),
         ]
         for key_letter, action_label in expected_labels:
