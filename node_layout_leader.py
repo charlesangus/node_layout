@@ -230,15 +230,35 @@ def _dispatch_move_right():
 
 
 def _dispatch_shrink():
-    """Scale down selection for the Q key (D-03, DISP-06)."""
+    """Scale down selection for the Q key (D-03, DISP-06).
+
+    Context-aware: If 1 node selected, shrink upstream tree.
+    If >1 nodes selected, shrink selection. If 0 nodes, no-op.
+    """
+    import nuke          # noqa: PLC0415
     import node_layout  # noqa: PLC0415
-    node_layout.shrink_selected()
+
+    selected_count = len(nuke.selectedNodes())
+    if selected_count == 1:
+        node_layout.shrink_upstream()
+    elif selected_count > 1:
+        node_layout.shrink_selected()
 
 
 def _dispatch_expand():
-    """Scale up selection for the E key (D-04, DISP-07)."""
+    """Scale up selection for the E key (D-04, DISP-07).
+
+    Context-aware: If 1 node selected, expand upstream tree.
+    If >1 nodes selected, expand selection. If 0 nodes, no-op.
+    """
+    import nuke          # noqa: PLC0415
     import node_layout  # noqa: PLC0415
-    node_layout.expand_selected()
+
+    selected_count = len(nuke.selectedNodes())
+    if selected_count == 1:
+        node_layout.expand_upstream()
+    elif selected_count > 1:
+        node_layout.expand_selected()
 
 
 # ---------------------------------------------------------------------------
