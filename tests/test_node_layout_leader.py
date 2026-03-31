@@ -8,7 +8,10 @@ Verifies:
 - eventFilter method is defined on LeaderKeyFilter
 - arm module-level function exists
 - _disarm module-level function exists
-- Dispatch table covers V, Z, F, C keys
+- Dispatch table covers V, Z, F, C keys (single-shot commands)
+- Chaining dispatch table covers W, A, S, D, Q, E keys (chaining commands)
+- Six chaining dispatch helper functions exist as top-level functions
+- _CHAINING_DISPATCH_TABLE is defined at module level
 - Auto-repeat guard present (isAutoRepeat)
 - Mouse event cancellation present (MouseButtonPress)
 - Timer cancellation present (stop)
