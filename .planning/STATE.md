@@ -115,9 +115,10 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 | 260328-5o4 | Add select_hidden_outputs function and menu entry | 2026-03-28 | abc0b27 | [260328-5o4-add-a-select-hidden-outputs-function-tha](./quick/260328-5o4-add-a-select-hidden-outputs-function-tha/) |
 | 260331-3nb | Fix leader key filter to consume ShortcutOverride events | 2026-03-31 | 80b1b8b | [260331-3nb-the-filter-is-not-consuming-keystrokes-s](./quick/260331-3nb-the-filter-is-not-consuming-keystrokes-s/) |
 | 260331-4m0 | Rewire C key dispatch from clear-freeze to clear-layout-state | 2026-03-31 | 46b6b4b | [260331-4m0-leader-c-should-run-clear-layout-state-o](./quick/260331-4m0-leader-c-should-run-clear-layout-state-o/) |
+| 260331-4y3 | Position leader overlay at mouse cursor with screen clamping | 2026-03-31 | bcf531a | [260331-4y3-the-leader-popup-should-appear-at-the-mo](./quick/260331-4y3-the-leader-popup-should-appear-at-the-mo/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-31 - Completed quick task 260331-4m0: rewire C key dispatch to clear_layout_state_selected
-Last session: 2026-03-31T10:21:56Z
-Stopped at: Completed quick task 260331-4m0
+Last activity: 2026-03-31 - Completed quick task 260331-4y3: position leader overlay at mouse cursor with screen clamping
+Last session: 2026-03-31T10:36:06Z
+Stopped at: Completed quick task 260331-4y3
