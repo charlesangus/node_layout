@@ -34,7 +34,7 @@ import sys
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QCursor, QFont, QGuiApplication, QPainter
-from PySide6.QtWidgets import QDialog, QGridLayout, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QDialog, QGridLayout, QLabel, QVBoxLayout, QWidget
 
 # ---------------------------------------------------------------------------
 # Windows-specific activation suppression via ctypes (260331-axc Task 3)
