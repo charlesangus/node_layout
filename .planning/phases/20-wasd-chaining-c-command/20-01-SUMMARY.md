@@ -106,6 +106,15 @@ None — all dispatch helpers wire directly to existing `make_room.make_room()`,
 - All 27 structural AST tests pass; CI will validate on push
 - C command (DISP-04) remains implemented from Phase 19 as planned — no changes needed
 
+## Self-Check: PASSED
+
+- node_layout_leader.py: FOUND
+- tests/test_node_layout_leader.py: FOUND
+- .planning/phases/20-wasd-chaining-c-command/20-01-SUMMARY.md: FOUND
+- Commit 9ff741b (TDD RED tests): FOUND
+- Commit 669d5d3 (feat GREEN implementation): FOUND
+- Commit 289fc88 (Task 2 docstring): FOUND
+
 ---
 *Phase: 20-wasd-chaining-c-command*
 *Completed: 2026-03-31*
