@@ -34,7 +34,7 @@ import sys
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QCursor, QFont, QGuiApplication, QPainter
-from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QDialog, QGridLayout, QLabel, QVBoxLayout
 
 # ---------------------------------------------------------------------------
 # Windows-specific activation suppression via ctypes (260331-axc Task 3)
@@ -250,12 +250,13 @@ class ClickableKeyCell(QWidget):
         node_layout_leader.dispatch_key(self._key_letter)
 
 
-class LeaderKeyOverlay(QWidget):
+class LeaderKeyOverlay(QDialog):
     """Floating HUD overlay displaying active leader-mode command keys.
 
-    Inherits from QWidget and uses Qt.WindowType.Tool +
-    WA_ShowWithoutActivating so the overlay never steals keyboard focus
-    from the DAG panel.
+    Inherits from QDialog (modal dialog) which has better window management
+    on Linux — does not trigger taskbar activation or autohide reveal.
+    On Windows, dialog mode still respects WA_ShowWithoutActivating and
+    WS_EX_NOACTIVATE flags for compatibility.
 
     Usage (by Phase 19 event filter):
         overlay = LeaderKeyOverlay(parent=dag_widget)
@@ -265,14 +266,14 @@ class LeaderKeyOverlay(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # D-12, D-13: focus-safe floating tool window — must be set before first show()
-        # WindowDoesNotAcceptFocus sets WS_EX_NOACTIVATE on Windows, which prevents
-        # taskbar icon flash and autohide-taskbar reveal on show().
+        # Use Popup window type for floating overlay; modeless (not modal) dialog.
+        # QDialog as base class avoids taskbar integration on Linux.
         self.setWindowFlags(
-            Qt.WindowType.Tool
+            Qt.WindowType.Popup
             | Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowDoesNotAcceptFocus
         )
+        self.setModal(False)  # Modeless — doesn't block interaction with parent
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         # D-01: required for semi-transparent paintEvent background
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -296,10 +297,11 @@ class LeaderKeyOverlay(QWidget):
         """
         self.setParent(new_parent)
         self.setWindowFlags(
-            Qt.WindowType.Tool
+            Qt.WindowType.Popup
             | Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowDoesNotAcceptFocus
         )
+        self.setModal(False)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
