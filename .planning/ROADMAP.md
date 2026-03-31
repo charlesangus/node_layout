@@ -167,7 +167,9 @@ Plans:
   1. Pressing Shift+E in the Nuke DAG enters leader mode — the overlay appears and the next keypress dispatches a command
   2. The Layout Upstream command is still accessible from the Node Layout menu but no longer has a keyboard shortcut assigned to it
   3. The `LeaderKeyFilter` event filter is active from Nuke startup — no manual initialization step is required after plugin load
-**Plans**: TBD
+**Plans:** 1/1 plans
+Plans:
+- [ ] 21-01-PLAN.md 2014 Wire Shift+E to leader mode entry, remove old Layout Upstream shortcut, AST structural tests
 
 ## Progress
 
