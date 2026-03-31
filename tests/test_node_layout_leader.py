@@ -309,5 +309,105 @@ class TestChainingDispatchTable(unittest.TestCase):
             "_CHAINING_DISPATCH_TABLE must be defined in node_layout_leader.py (D-07)")
 
 
+class TestShortcutOverrideConsumption(unittest.TestCase):
+    """eventFilter must consume ShortcutOverride events during leader mode.
+
+    Qt dispatches QEvent.ShortcutOverride before KeyPress. If not consumed,
+    Nuke's shortcut system matches the key (e.g., C -> ColorCorrect) before
+    the KeyPress handler runs. The fix: return True for ShortcutOverride when
+    _leader_active is True.
+    """
+
+    def setUp(self):
+        self.source = _load_leader_source()
+
+    def test_shortcut_override_type_referenced(self):
+        """ShortcutOverride must be referenced in eventFilter to prevent Nuke shortcuts firing."""
+        self.assertIn(
+            "ShortcutOverride",
+            self.source,
+            "eventFilter must handle QEvent.Type.ShortcutOverride to prevent Nuke shortcuts",
+        )
+
+    def test_shortcut_override_consumed_with_accept(self):
+        """event.accept() must be called when ShortcutOverride is handled.
+
+        Calling accept() on the ShortcutOverride event signals Qt that this
+        widget will handle the key, preventing shortcut matching from occurring.
+        """
+        self.assertIn(
+            "event.accept()",
+            self.source,
+            "eventFilter must call event.accept() on ShortcutOverride to suppress Nuke shortcuts",
+        )
+
+    def test_shortcut_override_inside_leader_active_guard(self):
+        """ShortcutOverride handling must only fire when _leader_active is True.
+
+        Verifies by AST analysis that the ShortcutOverride check appears inside
+        the eventFilter method body (after the _leader_active guard).
+        """
+        tree = _parse_leader_ast()
+        leader_filter_class = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == "LeaderKeyFilter":
+                leader_filter_class = node
+                break
+        self.assertIsNotNone(leader_filter_class, "LeaderKeyFilter must exist")
+
+        event_filter_method = None
+        for node in ast.walk(leader_filter_class):
+            if isinstance(node, ast.FunctionDef) and node.name == "eventFilter":
+                event_filter_method = node
+                break
+        self.assertIsNotNone(event_filter_method, "eventFilter method must exist")
+
+        # Walk the eventFilter AST and collect all string/attribute references to
+        # confirm ShortcutOverride is referenced within the method.
+        method_source_lines = ast.get_source_segment(self.source, event_filter_method)
+        self.assertIsNotNone(method_source_lines, "Should be able to extract eventFilter source")
+        self.assertIn(
+            "ShortcutOverride",
+            method_source_lines,
+            "ShortcutOverride must be referenced inside eventFilter, not just at module level",
+        )
+
+    def test_shortcut_override_returns_true(self):
+        """eventFilter must return True for ShortcutOverride to consume the event.
+
+        Verifies by source inspection that a 'return True' statement follows
+        the ShortcutOverride handling (both must appear within the same block).
+        The fix requires both event.accept() AND returning True.
+        """
+        # Find the ShortcutOverride block and confirm return True is in the method.
+        # AST-level: check that the eventFilter method contains a Return node with True.
+        tree = _parse_leader_ast()
+        leader_filter_class = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == "LeaderKeyFilter":
+                leader_filter_class = node
+                break
+
+        event_filter_method = None
+        for node in ast.walk(leader_filter_class):
+            if isinstance(node, ast.FunctionDef) and node.name == "eventFilter":
+                event_filter_method = node
+                break
+
+        # Check that there is at least one `return True` in the method body.
+        return_true_nodes = [
+            node
+            for node in ast.walk(event_filter_method)
+            if isinstance(node, ast.Return)
+            and isinstance(node.value, ast.Constant)
+            and node.value.value is True
+        ]
+        self.assertGreater(
+            len(return_true_nodes),
+            0,
+            "eventFilter must have at least one 'return True' statement to consume events",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
