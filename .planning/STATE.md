@@ -120,9 +120,10 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 | 260331-594 | Stop taskbar flash and autohide reveal — add reparent() to LeaderKeyOverlay | 2026-03-31 | de98b41 | [260331-594-stop-taskbar-flash-and-autohide-reveal-w](./quick/260331-594-stop-taskbar-flash-and-autohide-reveal-w/) |
 | 260331-axc | Debug taskbar alert — suppress overlay window activation via Win32 API | 2026-03-31 | 408e62a | [260331-axc-debug-the-annoying-alert-in-the-taskbar-](./quick/260331-axc-debug-the-annoying-alert-in-the-taskbar-/) |
 | 260331-linux | Fix Linux taskbar alert — add X11 hints and focus restoration | 2026-03-31 | bac41c6 | [260331-linux-taskbar-alert](./quick/260331-linux-taskbar-alert/) |
+| 260331-qdlg | Fix Linux taskbar alert — switch to QDialog/Popup (post-research) | 2026-03-31 | 3e82bb0 | [260331-qdlg-linux-qdialog-popup](./quick/260331-qdlg-linux-qdialog-popup/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-31 - Completed quick task 260331-linux: Fix Linux taskbar alert via X11 window property hints
+Last activity: 2026-03-31 - Switched LeaderKeyOverlay to QDialog/Popup for Linux taskbar fix
 Last session: 2026-03-31T10:51:27Z
 Stopped at: Completed quick task 260331-axc
