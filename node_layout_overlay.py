@@ -374,6 +374,9 @@ class LeaderKeyOverlay(QWidget):
         self.width()/height() (set by adjustSize() in __init__) do not require
         a native window.
 
+        On Linux, uses setGeometry() instead of move() to avoid triggering
+        X11 ConfigureNotify events that can activate the window.
+
         Positioning:
           - Reads the global cursor position at the moment show() is called.
           - Centers the overlay on the cursor.
@@ -393,37 +396,62 @@ class LeaderKeyOverlay(QWidget):
         x = max(screen_geometry.left(), min(x, screen_geometry.right() - self.width()))
         y = max(screen_geometry.top(), min(y, screen_geometry.bottom() - self.height()))
 
-        self.move(x, y)
+        # On Linux, use setGeometry() instead of move() to avoid X11 ConfigureNotify
+        # events that can trigger window activation. On other platforms, use move()
+        # to maintain compatibility with existing behavior.
+        if sys.platform.startswith("linux"):
+            self.setGeometry(x, y, self.width(), self.height())
+        else:
+            self.move(x, y)
         super().show()
 
     def showEvent(self, event):  # noqa: N802 — Qt naming convention
-        """Apply Win32 WS_EX_NOACTIVATE after the native window is created.
+        """Apply platform-specific activation suppression after the native window is created.
 
-        Qt sets WS_EX_NOACTIVATE via CreateWindowExW at initial window creation.
-        However, when a previously-hidden window is re-shown (second arm() call
-        and beyond), Qt calls ShowWindow(hwnd, SW_SHOW) without re-creating the
-        native window.  On some Windows versions this ShowWindow() call ignores
-        the existing WS_EX_NOACTIVATE flag and activates the window, causing:
-          - The autohide taskbar to reveal itself
-          - The Nuke taskbar icon to highlight (flashing)
-          - Both states persisting until the overlay is hidden
+        Windows:
+          Qt sets WS_EX_NOACTIVATE via CreateWindowExW at initial window creation.
+          However, when a previously-hidden window is re-shown (second arm() call
+          and beyond), Qt calls ShowWindow(hwnd, SW_SHOW) without re-creating the
+          native window.  On some Windows versions this ShowWindow() call ignores
+          the existing WS_EX_NOACTIVATE flag and activates the window, causing:
+            - The autohide taskbar to reveal itself
+            - The Nuke taskbar icon to highlight (flashing)
+            - Both states persisting until the overlay is hidden
 
-        This override re-asserts WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW on every
-        show event via raw Win32 API (ctypes), which is reliable for both first
-        show and subsequent re-shows.  On non-Windows platforms _apply_no_activate_win32
-        is a no-op.
+          This override re-asserts WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW on every
+          show event via raw Win32 API (ctypes), which is reliable for both first
+          show and subsequent re-shows.
 
-        After applying Win32 flags, we restore focus to the Nuke parent window
-        as an additional safeguard: even if Windows briefly grants activation to
-        the overlay (before our SetWindowPos SWP_NOACTIVATE call takes effect),
-        we immediately hand focus back to the correct window.
+        Linux:
+          On Linux, restores focus to the Nuke parent window as a safeguard: even
+          if X11/Wayland briefly grants activation to the overlay despite our hints,
+          we immediately hand focus back to the correct window.
+
+        All platforms get focus restoration as a secondary safeguard to collapse
+        any autohide taskbar reveal and clear any taskbar icon highlight.
         """
         super().showEvent(event)
 
-        # Re-assert WS_EX_NOACTIVATE on the actual HWND.
-        _apply_no_activate_win32(int(self.winId()))
+        # Apply platform-specific activation suppression
+        if sys.platform == "win32":
+            # Re-assert WS_EX_NOACTIVATE on the actual HWND via Win32 API
+            _apply_no_activate_win32(int(self.winId()))
 
-        # Secondary safeguard: restore focus to Nuke's parent window so the
-        # autohide taskbar retains its hidden state and the taskbar icon does
-        # not highlight.
+        # Linux-specific safeguard: restore focus explicitly to Nuke window
+        # (Windows version of _restore_nuke_focus is a no-op on Linux, so
+        # we call it unconditionally — it handles its own platform check)
+        if sys.platform.startswith("linux"):
+            # Try to restore focus using Nuke's native window if possible
+            try:
+                from PySide6.QtWidgets import QApplication
+                focus_target = self.parent()
+                if focus_target is None:
+                    focus_target = QApplication.activeWindow()
+                if focus_target is not None:
+                    focus_target.raise_()
+                    focus_target.activateWindow()
+            except Exception:  # noqa: BLE001
+                pass
+
+        # Secondary safeguard (Windows): restore focus via Win32 API
         _restore_nuke_focus(self.parent())
