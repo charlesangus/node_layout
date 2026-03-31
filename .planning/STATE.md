@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Leader Key
-status: verifying
+status: executing
 stopped_at: Completed 20-01-PLAN.md
-last_updated: "2026-03-31T04:04:08.323Z"
-last_activity: 2026-03-31
+last_updated: "2026-03-31T04:17:35.839Z"
+last_activity: 2026-03-31 -- Phase 21 execution started
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 11
+  total_plans: 12
   completed_plans: 11
 ---
 
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-29)
 
 **Core value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave.
-**Current focus:** Phase 20 — wasd-chaining-c-command
+**Current focus:** Phase 21 — menu-wiring
 
 ## Current Position
 
-Phase: 21
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-03-31
+Phase: 21 (menu-wiring) — EXECUTING
+Plan: 1 of 1
+Status: Executing Phase 21
+Last activity: 2026-03-31 -- Phase 21 execution started
 
 ```
 v1.4 Progress: [          ] 0/5 phases
@@ -117,5 +117,5 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 ## Session Continuity
 
 Last activity: 2026-03-29 - Roadmap created for v1.4 Leader Key (Phases 17-21)
-Last session: 2026-03-31T04:00:09.691Z
+Last session: 2026-03-31T04:11:17.981Z
 Stopped at: Completed 20-01-PLAN.md
