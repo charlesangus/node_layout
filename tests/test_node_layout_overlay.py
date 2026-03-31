@@ -381,5 +381,87 @@ class TestClickableKeyCells(unittest.TestCase):
         )
 
 
+class TestOverlayReparentMethod(unittest.TestCase):
+    """reparent() method must exist on LeaderKeyOverlay and restore all Qt window flags/attributes."""
+
+    def _get_leader_key_overlay_class(self, tree):
+        """Return the LeaderKeyOverlay ClassDef node from the parsed AST."""
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == "LeaderKeyOverlay":
+                return node
+        return None
+
+    def _get_reparent_method_source(self):
+        """Extract the source text of the reparent() method using AST."""
+        source = _load_overlay_source()
+        tree = ast.parse(source)
+        overlay_class = self._get_leader_key_overlay_class(tree)
+        if overlay_class is None:
+            return None
+        for node in ast.walk(overlay_class):
+            if isinstance(node, ast.FunctionDef) and node.name == "reparent":
+                return ast.get_source_segment(source, node)
+        return None
+
+    def test_reparent_method_exists(self):
+        """LeaderKeyOverlay must define a reparent() method in its class body."""
+        tree = _parse_overlay_ast()
+        overlay_class = self._get_leader_key_overlay_class(tree)
+        self.assertIsNotNone(
+            overlay_class,
+            "LeaderKeyOverlay class must be defined in node_layout_overlay.py",
+        )
+        method_names = {
+            node.name
+            for node in ast.walk(overlay_class)
+            if isinstance(node, ast.FunctionDef)
+        }
+        self.assertIn(
+            "reparent",
+            method_names,
+            "LeaderKeyOverlay must define a reparent() method",
+        )
+
+    def test_reparent_calls_set_parent(self):
+        """reparent() must call setParent() to actually change the widget parent."""
+        reparent_source = self._get_reparent_method_source()
+        self.assertIsNotNone(reparent_source, "reparent() method must exist on LeaderKeyOverlay")
+        self.assertIn(
+            "setParent",
+            reparent_source,
+            "reparent() must call setParent() to change the overlay parent",
+        )
+
+    def test_reparent_restores_window_flags(self):
+        """reparent() must call setWindowFlags() to restore Tool|FramelessWindowHint after setParent."""
+        reparent_source = self._get_reparent_method_source()
+        self.assertIsNotNone(reparent_source, "reparent() method must exist on LeaderKeyOverlay")
+        self.assertIn(
+            "setWindowFlags",
+            reparent_source,
+            "reparent() must call setWindowFlags() to restore window flags after setParent()",
+        )
+
+    def test_reparent_restores_show_without_activating(self):
+        """reparent() must re-apply WA_ShowWithoutActivating after setParent() clears it."""
+        reparent_source = self._get_reparent_method_source()
+        self.assertIsNotNone(reparent_source, "reparent() method must exist on LeaderKeyOverlay")
+        self.assertIn(
+            "WA_ShowWithoutActivating",
+            reparent_source,
+            "reparent() must re-apply WA_ShowWithoutActivating after setParent()",
+        )
+
+    def test_reparent_restores_translucent_background(self):
+        """reparent() must re-apply WA_TranslucentBackground after setParent() clears it."""
+        reparent_source = self._get_reparent_method_source()
+        self.assertIsNotNone(reparent_source, "reparent() method must exist on LeaderKeyOverlay")
+        self.assertIn(
+            "WA_TranslucentBackground",
+            reparent_source,
+            "reparent() must re-apply WA_TranslucentBackground after setParent()",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
