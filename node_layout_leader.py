@@ -80,6 +80,14 @@ class LeaderKeyFilter(QObject):
 
         event_type = event.type()
 
+        # Qt sends ShortcutOverride before KeyPress; if not consumed, Nuke's shortcut
+        # system matches the key (e.g., C -> ColorCorrect) before our KeyPress handler runs.
+        if event_type == QEvent.Type.ShortcutOverride:
+            # Accept the shortcut override to prevent Nuke's shortcut system
+            # from matching this key while leader mode is active.
+            event.accept()
+            return True
+
         if event_type == QEvent.Type.KeyPress:
             # Auto-repeat guard (D-16): consume held-key repeats silently.
             if event.isAutoRepeat():
