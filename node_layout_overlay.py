@@ -42,6 +42,63 @@ _KEY_LAYOUT = [
 ]
 
 
+class ClickableKeyCell(QWidget):
+    """A key cell widget that dispatches its leader key action on mouse click.
+
+    Wraps the key badge and action label into a clickable container.
+    Overrides mousePressEvent to call node_layout_leader.dispatch_key() with
+    the cell's key letter, triggering the same action as pressing that key.
+
+    The hand cursor is set in __init__ so users see a pointer on hover,
+    indicating the cell is clickable.
+    """
+
+    def __init__(self, key_letter, action_label, parent=None):
+        super().__init__(parent)
+        self._key_letter = key_letter
+
+        # Show a pointing hand cursor on hover to indicate clickability.
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        cell_layout = QVBoxLayout(self)
+        cell_layout.setContentsMargins(2, 2, 2, 2)
+        cell_layout.setSpacing(3)
+
+        # Chaining keys get teal/blue badge; single-shot keys get neutral badge.
+        badge_color = _CHAINING_KEY_COLOR if key_letter in CHAINING_KEYS else _SINGLE_SHOT_KEY_COLOR
+        badge_rgb = f"rgb({badge_color.red()}, {badge_color.green()}, {badge_color.blue()})"
+
+        # Key badge — bold monospace letter
+        key_badge_label = QLabel(key_letter)
+        badge_font = QFont("monospace", 14, QFont.Weight.Bold)
+        key_badge_label.setFont(badge_font)
+        key_badge_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        key_badge_label.setStyleSheet(
+            f"background-color: {badge_rgb}; color: #111111;"
+            " border-radius: 4px; padding: 4px 12px; min-width: 28px;"
+        )
+
+        # Action label — small gray text below badge
+        action_label_widget = QLabel(action_label)
+        action_font = QFont()
+        action_font.setPointSize(8)
+        action_label_widget.setFont(action_font)
+        action_label_widget.setStyleSheet("color: #999999;")
+        action_label_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        cell_layout.addWidget(key_badge_label)
+        cell_layout.addWidget(action_label_widget)
+
+    def mousePressEvent(self, event):  # noqa: N802 — Qt naming convention
+        """Dispatch the key action when this cell is clicked.
+
+        Uses an inline import to avoid circular imports at module load time —
+        the same pattern as the dispatch helpers in node_layout_leader.py.
+        """
+        import node_layout_leader  # noqa: PLC0415
+        node_layout_leader.dispatch_key(self._key_letter)
+
+
 class LeaderKeyOverlay(QWidget):
     """Floating HUD overlay displaying active leader-mode command keys.
 
@@ -103,39 +160,10 @@ class LeaderKeyOverlay(QWidget):
             action_label: Short action name displayed below the badge (e.g. "Move Up").
 
         Returns:
-            A QWidget containing the key badge and action label stacked vertically.
+            A ClickableKeyCell containing the key badge and action label stacked
+            vertically.  Mouse clicks on the returned widget dispatch the key action.
         """
-        cell_container = QWidget()
-        cell_layout = QVBoxLayout(cell_container)
-        cell_layout.setContentsMargins(2, 2, 2, 2)
-        cell_layout.setSpacing(3)
-
-        # D-09/D-10: chaining keys get teal/blue badge; single-shot keys get neutral badge
-        badge_color = _CHAINING_KEY_COLOR if key_letter in CHAINING_KEYS else _SINGLE_SHOT_KEY_COLOR
-        badge_rgb = f"rgb({badge_color.red()}, {badge_color.green()}, {badge_color.blue()})"
-
-        # Key badge — bold monospace letter
-        key_badge_label = QLabel(key_letter)
-        badge_font = QFont("monospace", 14, QFont.Weight.Bold)
-        key_badge_label.setFont(badge_font)
-        key_badge_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        key_badge_label.setStyleSheet(
-            f"background-color: {badge_rgb}; color: #111111;"
-            " border-radius: 4px; padding: 4px 12px; min-width: 28px;"
-        )
-
-        # Action label — small gray text below badge
-        action_label_widget = QLabel(action_label)
-        action_font = QFont()
-        action_font.setPointSize(8)
-        action_label_widget.setFont(action_font)
-        action_label_widget.setStyleSheet("color: #999999;")
-        action_label_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        cell_layout.addWidget(key_badge_label)
-        cell_layout.addWidget(action_label_widget)
-
-        return cell_container
+        return ClickableKeyCell(key_letter, action_label)
 
     def paintEvent(self, event):
         """Draw a semi-transparent rounded-rect background (D-01).

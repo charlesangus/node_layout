@@ -242,6 +242,23 @@ _CHAINING_DISPATCH_TABLE = {
     Qt.Key.Key_E: _dispatch_expand,
 }
 
+# ---------------------------------------------------------------------------
+# Letter-to-Qt-key mapping — used by dispatch_key() for click-based dispatch
+# ---------------------------------------------------------------------------
+
+_LETTER_TO_QT_KEY = {
+    "V": Qt.Key.Key_V,
+    "Z": Qt.Key.Key_Z,
+    "F": Qt.Key.Key_F,
+    "C": Qt.Key.Key_C,
+    "W": Qt.Key.Key_W,
+    "A": Qt.Key.Key_A,
+    "S": Qt.Key.Key_S,
+    "D": Qt.Key.Key_D,
+    "Q": Qt.Key.Key_Q,
+    "E": Qt.Key.Key_E,
+}
+
 
 # ---------------------------------------------------------------------------
 # DAG widget discovery helper (D-08)
@@ -355,3 +372,36 @@ def _disarm():
 
     if _overlay is not None:
         _overlay.hide()
+
+
+def dispatch_key(key_letter):
+    """Dispatch a leader key action by letter string, as if the user pressed that key.
+
+    Used by ClickableKeyCell in node_layout_overlay.py to wire mouse clicks to
+    the same dispatch logic as keyboard input.
+
+    Single-shot keys (V, Z, F, C): disarm leader mode, then dispatch.
+    Chaining keys (W, A, S, D, Q, E): hide overlay but keep leader mode active,
+    then dispatch.
+
+    Args:
+        key_letter: Single uppercase letter string (e.g. "W", "V"). Unrecognised
+                    letters are silently ignored — the overlay only has valid keys.
+    """
+    qt_key = _LETTER_TO_QT_KEY.get(key_letter)
+    if qt_key is None:
+        return
+
+    dispatch_function = _DISPATCH_TABLE.get(qt_key)
+    if dispatch_function is not None:
+        # Single-shot key: disarm first, then dispatch (mirrors eventFilter order).
+        _disarm()
+        dispatch_function()
+        return
+
+    chaining_function = _CHAINING_DISPATCH_TABLE.get(qt_key)
+    if chaining_function is not None:
+        # Chaining key: hide overlay but stay in leader mode, then dispatch.
+        if _overlay is not None:
+            _overlay.hide()
+        chaining_function()
