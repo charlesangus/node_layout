@@ -113,9 +113,10 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 | 260324-an9 | build 5 freeze test scenarios in live Nuke | 2026-03-24 | d481d96 | [260324-an9-use-the-nuke-mcp-to-generate-some-live-n](./quick/260324-an9-use-the-nuke-mcp-to-generate-some-live-n/) |
 | 260325-k1f | Fix menu.py command strings to use inline import form | 2026-03-25 | 51150be | [260325-k1f-fix-menu-py-command-strings-to-use-inlin](./quick/260325-k1f-fix-menu-py-command-strings-to-use-inlin/) |
 | 260328-5o4 | Add select_hidden_outputs function and menu entry | 2026-03-28 | abc0b27 | [260328-5o4-add-a-select-hidden-outputs-function-tha](./quick/260328-5o4-add-a-select-hidden-outputs-function-tha/) |
+| 260331-3nb | Fix leader key filter to consume ShortcutOverride events | 2026-03-31 | 80b1b8b | [260331-3nb-the-filter-is-not-consuming-keystrokes-s](./quick/260331-3nb-the-filter-is-not-consuming-keystrokes-s/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-29 - Roadmap created for v1.4 Leader Key (Phases 17-21)
-Last session: 2026-03-31T04:11:17.981Z
-Stopped at: Completed 20-01-PLAN.md
+Last activity: 2026-03-31 - Completed quick task 260331-3nb: fix leader key filter ShortcutOverride consumption
+Last session: 2026-03-31T00:00:00Z
+Stopped at: Completed quick task 260331-3nb
