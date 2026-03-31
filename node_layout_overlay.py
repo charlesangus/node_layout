@@ -94,6 +94,34 @@ def _apply_no_activate_win32(hwnd):
         pass
 
 
+def _apply_linux_hints(widget):
+    """Apply X11/Wayland window property hints on Linux to prevent taskbar activation.
+
+    Called from LeaderKeyOverlay.__init__() after adjustSize() to set properties
+    that tell the X11/Wayland window manager this is a temporary overlay, not a
+    top-level application window.
+
+    Uses setProperty() to set _NET_WM_STATE_SKIP_TASKBAR and _NET_WM_STATE_SKIP_PAGER
+    hints, which instruct X11 to exclude this window from the taskbar and pager,
+    preventing autohide taskbar reveal and icon highlighting on Linux.
+
+    Args:
+        widget: The QWidget (LeaderKeyOverlay) to apply hints to.
+
+    No-op (silent) on non-Linux platforms or if property system unavailable.
+    """
+    if not sys.platform.startswith("linux"):
+        return
+
+    try:
+        # Set X11/Wayland window properties to prevent taskbar integration
+        widget.setProperty("_NET_WM_STATE_SKIP_TASKBAR", True)
+        widget.setProperty("_NET_WM_STATE_SKIP_PAGER", True)
+    except Exception:  # noqa: BLE001
+        # Never crash Nuke due to a cosmetic property hint failing
+        pass
+
+
 def _restore_nuke_focus(parent_widget):
     """Re-activate the Nuke parent window via Win32 SetForegroundWindow().
 
@@ -254,6 +282,8 @@ class LeaderKeyOverlay(QWidget):
         self._build_ui()
         # Ensure rect() has real dimensions before show() runs centering math (Pitfall 4)
         self.adjustSize()
+        # Apply Linux-specific X11/Wayland hints to prevent taskbar activation (260331-linux)
+        _apply_linux_hints(self)
 
     def reparent(self, new_parent):
         """Re-parent the overlay, restoring all window flags and attributes.
