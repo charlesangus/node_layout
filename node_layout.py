@@ -3459,8 +3459,8 @@ def arrange_selected_horizontal():
     """Align selected nodes horizontally by their top edges and distribute them evenly.
 
     All selected nodes are aligned to the topmost Y position.  Their X positions
-    are then distributed evenly across the range from the leftmost to rightmost
-    node's right edge.  Wrapped in an undo group.
+    are then distributed evenly across the range from the leftmost to rightmost node.
+    Wrapped in an undo group.
 
     If 0 or 1 nodes selected: no-op.
     """
@@ -3471,15 +3471,15 @@ def arrange_selected_horizontal():
     nuke.Undo.name("Arrange Horizontal")
     nuke.Undo.begin()
     try:
-        # Compute bounds
-        min_y = min(node.ypos() for node in selected_nodes)
-        min_x = min(node.xpos() for node in selected_nodes)
-        max_x = max(node.xpos() + node.screenWidth() for node in selected_nodes)
-        range_x = max_x - min_x
-
         # Sort nodes by current X position for distribution
         sorted_nodes = sorted(selected_nodes, key=lambda n: n.xpos())
         node_count = len(sorted_nodes)
+
+        # Compute bounds
+        min_y = min(node.ypos() for node in selected_nodes)
+        min_x = min(node.xpos() for node in selected_nodes)
+        max_x = max(node.xpos() for node in selected_nodes)
+        range_x = max(max_x - min_x, node_count * 110)
 
         # Distribute nodes evenly across X range, aligned to min_y
         for index, node in enumerate(sorted_nodes):
@@ -3489,7 +3489,7 @@ def arrange_selected_horizontal():
             else:
                 new_x = min_x
             node.setXpos(int(new_x))
-            node.setYpos(min_y)
+            node.setYpos(sorted_nodes[0].ypos())
     except Exception:
         nuke.Undo.cancel()
         raise
@@ -3500,8 +3500,8 @@ def arrange_selected_horizontal():
 def arrange_selected_vertical():
     """Align selected nodes vertically by their centre Y and distribute them evenly.
 
-    All selected nodes are aligned to the same centre X position (the average
-    of their current X positions).  Their Y positions are then distributed evenly
+    All selected nodes are aligned to the same centre X position (the x of the first
+    node).  Their Y positions are then distributed evenly
     across the range from the topmost to bottommost node's centre Y.  Wrapped
     in an undo group.
 
@@ -3514,29 +3514,31 @@ def arrange_selected_vertical():
     nuke.Undo.name("Arrange Vertical")
     nuke.Undo.begin()
     try:
-        # Compute bounds and center X
-        min_y = min(node.ypos() for node in selected_nodes)
-        max_y = max(node.ypos() + node.screenHeight() for node in selected_nodes)
-        range_y = max_y - min_y
-
-        # Calculate average center X (horizontal alignment point)
-        center_x = sum(node.xpos() + node.screenWidth() / 2 for node in selected_nodes) / len(selected_nodes)
-
         # Sort nodes by current Y position (centre Y) for distribution
         sorted_nodes = sorted(
             selected_nodes,
             key=lambda n: n.ypos() + n.screenHeight() / 2
         )
         node_count = len(sorted_nodes)
+        first_node = sorted_nodes[0]
+
+        # Compute bounds
+        min_y = min(node.ypos() for node in selected_nodes)
+        max_y = max(node.ypos() for node in selected_nodes)
+        range_y = max(max_y - min_y, sum([node.screenHeight() for node in sorted_nodes[:-1]]) + 7 * len(selected_nodes))
+
+        # Calculate horizontal alignment point
+        center_x = first_node.xpos() + first_node.screenWidth() / 2
+        previous_bottom = first_node.ypos() + first_node.screenHeight()
 
         # Distribute node centres evenly across Y range, aligned to center_x
         for index, node in enumerate(sorted_nodes):
-            if node_count > 1:
-                # Linear interpolation: first node's centre at min_y, last at max_y
-                centre_y = min_y + (index / (node_count - 1)) * range_y
-            else:
-                centre_y = min_y
-            new_y = int(centre_y - node.screenHeight() / 2)
+            if index == 0:
+                continue
+            
+            # Linear interpolation: first node's centre at min_y, last at max_y
+            centre_y = min_y + (index / (node_count - 1)) * range_y
+            new_y = int(centre_y)
             new_x = int(center_x - node.screenWidth() / 2)
             node.setXpos(new_x)
             node.setYpos(new_y)
