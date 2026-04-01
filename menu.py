@@ -120,14 +120,13 @@ layout_menu.addCommand(
     'Arrange Vertical',
     "import node_layout; node_layout.arrange_selected_vertical()",
 )
-
-layout_menu.addSeparator()
-
 layout_menu.addCommand(
-    "Sort By Filename",
+    "Arrange by Filename",
     "import node_layout_util; node_layout_util.sort_by_filename()",
     shortcutContext=2,
 )
+
+layout_menu.addSeparator()
 layout_menu.addCommand(
     "Select Upstream Ignoring Hidden",
     "import node_layout_util; node_layout_util.select_upstream_ignoring_hidden()",
