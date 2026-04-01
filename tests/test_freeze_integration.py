@@ -40,11 +40,16 @@ _TESTS_DIR = os.path.dirname(__file__)
 if _TESTS_DIR not in sys.path:
     sys.path.insert(0, _TESTS_DIR)
 
+# Check if nuke_parser is available (required for DAG visualization in integration tests)
 try:
-    from dag_viz import render_dag  # noqa: E402
+    import nuke_parser  # noqa: F401, PLC0415
     _NUKE_PARSER_AVAILABLE = True
 except ImportError:
     _NUKE_PARSER_AVAILABLE = False
+
+try:
+    from dag_viz import render_dag  # noqa: E402
+except ImportError:
     render_dag = None
 
 _FIXTURES = os.path.join(os.path.dirname(__file__), "..", "nuke_tests", "fixtures")
