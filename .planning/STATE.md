@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Leader Key
 status: executing
-stopped_at: Completed quick task 260401-y8p
-last_updated: "2026-04-01T11:39:04.088Z"
+stopped_at: Completed quick task 260401-6pq
+last_updated: "2026-04-01T12:00:00.000Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 7
@@ -127,6 +127,7 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 | 260331-ozs | Add X key to leader mode for select hidden downstream | 2026-03-31 | f66b787 | | [260331-ozs-add-the-following-command-to-the-leader-](./quick/260331-ozs-add-the-following-command-to-the-leader-/) |
 | 260401-63h | Add "Arrange Horizontal" and "Arrange Vertical" commands to menu and leader | 2026-04-01 | 25a8e82 | Verified | [260401-63h-add-arrange-horizontal-and-arrange-verti](./quick/260401-63h-add-arrange-horizontal-and-arrange-verti/) |
 | 260401-y8p | Rename "Sort by Filename" to "Arrange by Filename" and place in arrange section | 2026-04-01 | 5818369 | Verified | [260401-y8p-rename-sort-by-filename-to-arrange-by-filena](./quick/260401-y8p-rename-sort-by-filename-to-arrange-by-filena/) |
+| 260401-6pq | Ensure all leader key commands appear in overlay popup grid | 2026-04-01 | d13514d | Verified | [260401-6pq-ensure-that-all-commands-the-leader-reco](./quick/260401-6pq-ensure-that-all-commands-the-leader-reco/) |
 
 ## Session Continuity
 
