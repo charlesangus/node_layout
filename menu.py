@@ -7,12 +7,14 @@ layout_menu = edit.addMenu("Node Layout")
 layout_menu.addCommand(
     'Layout (Leader Mode)',
     "import node_layout_leader; node_layout_leader.arm()",
-    'shift+e',
+    'shift+d',
     shortcutContext=2,
 )
 layout_menu.addCommand(
     'Layout Upstream',
     "import node_layout; node_layout.layout_upstream()",
+    'shift+e',
+    shortcutContext=2,
 )
 layout_menu.addCommand(
     'Layout Selected',
