@@ -16,7 +16,7 @@ DEFAULTS = {
     "loose_gap_multiplier": 8.0,          # rebalanced: was 12.0, now 8.0 (less tall)
     "mask_input_ratio": 0.333,
     "scaling_reference_count": 150,
-    "hint_popup_delay_ms": 0,              # Leader key hint popup delay in milliseconds (0 = immediate)
+    "hint_popup_delay_ms": 0,              # Hint popup delay (ms); 0=immediate
 }
 
 

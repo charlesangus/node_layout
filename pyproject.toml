@@ -1,5 +1,9 @@
 [tool.ruff]
 line-length = 100
+exclude = [".claude/", ".bg-shell/", "nuke_tests/output/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "I", "SIM"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/*.py" = ["E501"]  # Test docstrings with spec requirements often exceed line limit

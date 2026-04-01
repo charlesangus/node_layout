@@ -26,6 +26,8 @@ The ``shortcutContext=2`` on the Shift+E binding ensures arm() is only called
 when the Nuke DAG panel has keyboard focus (LEAD-04), so arm() itself needs
 no additional focus guard.
 """
+import contextlib
+
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtWidgets import QApplication
 
@@ -34,9 +36,12 @@ from PySide6.QtWidgets import QApplication
 # ---------------------------------------------------------------------------
 
 _leader_active = False       # True while leader mode is armed and waiting for a key
-_filter = None               # LeaderKeyFilter singleton — created lazily on first arm()
-_overlay = None              # LeaderKeyOverlay singleton — created lazily in arm()
-_overlay_timer = None        # QTimer instance used to delay overlay display; cancelled on early disarm
+# LeaderKeyFilter singleton — created lazily on first arm()
+_filter = None
+# LeaderKeyOverlay singleton — created lazily in arm()
+_overlay = None
+# QTimer to delay overlay display; cancelled on early disarm
+_overlay_timer = None
 
 
 # ---------------------------------------------------------------------------
@@ -134,8 +139,9 @@ def _dispatch_layout():
     2+ nodes selected → layout_selected() (multi-node selection layout)
     0 nodes selected  → no-op (nothing to lay out)
     """
-    import nuke          # noqa: PLC0415
-    import node_layout   # noqa: PLC0415
+    import nuke  # noqa: PLC0415
+
+    import node_layout  # noqa: PLC0415
 
     selected_nodes = nuke.selectedNodes()
     if len(selected_nodes) == 1:
@@ -146,7 +152,7 @@ def _dispatch_layout():
 
 def _dispatch_horizontal_layout():
     """Horizontal spine layout dispatch for the Z key (D-10, DISP-02)."""
-    import node_layout   # noqa: PLC0415
+    import node_layout  # noqa: PLC0415
 
     node_layout.layout_selected_horizontal()
 
@@ -159,9 +165,10 @@ def _dispatch_freeze_toggle():
     - If ANY selected node is unfrozen          → freeze_selected()
     - Empty selection                           → no-op
     """
-    import nuke                                          # noqa: PLC0415
-    import node_layout                                   # noqa: PLC0415
-    from node_layout_state import read_freeze_group      # noqa: PLC0415
+    import nuke  # noqa: PLC0415
+
+    import node_layout  # noqa: PLC0415
+    from node_layout_state import read_freeze_group  # noqa: PLC0415
 
     selected_nodes = nuke.selectedNodes()
     if not selected_nodes:
@@ -176,8 +183,9 @@ def _dispatch_freeze_toggle():
 
 def _dispatch_clear_state():
     """Clear layout state for C key — context-aware (upstream vs selected)."""
-    import nuke           # noqa: PLC0415
-    import node_layout    # noqa: PLC0415
+    import nuke  # noqa: PLC0415
+
+    import node_layout  # noqa: PLC0415
 
     selected_count = len(nuke.selectedNodes())
     if selected_count == 1:
@@ -195,8 +203,9 @@ def _dispatch_select_hidden_downstream():
 
 def _dispatch_move_up():
     """Move selected nodes up for the W key (D-01, DISP-05)."""
-    import nuke          # noqa: PLC0415
-    import make_room     # noqa: PLC0415
+    import nuke  # noqa: PLC0415
+
+    import make_room  # noqa: PLC0415
     nuke.Undo.name("Move Up")
     nuke.Undo.begin()
     try:
@@ -207,8 +216,9 @@ def _dispatch_move_up():
 
 def _dispatch_move_down():
     """Move selected nodes down for the S key (D-01, DISP-05)."""
-    import nuke          # noqa: PLC0415
-    import make_room     # noqa: PLC0415
+    import nuke  # noqa: PLC0415
+
+    import make_room  # noqa: PLC0415
     nuke.Undo.name("Move Down")
     nuke.Undo.begin()
     try:
@@ -219,8 +229,9 @@ def _dispatch_move_down():
 
 def _dispatch_move_left():
     """Move selected nodes left for the A key (D-01, DISP-05)."""
-    import nuke          # noqa: PLC0415
-    import make_room     # noqa: PLC0415
+    import nuke  # noqa: PLC0415
+
+    import make_room  # noqa: PLC0415
     nuke.Undo.name("Move Left")
     nuke.Undo.begin()
     try:
@@ -231,8 +242,9 @@ def _dispatch_move_left():
 
 def _dispatch_move_right():
     """Move selected nodes right for the D key (D-01, DISP-05)."""
-    import nuke          # noqa: PLC0415
-    import make_room     # noqa: PLC0415
+    import nuke  # noqa: PLC0415
+
+    import make_room  # noqa: PLC0415
     nuke.Undo.name("Move Right")
     nuke.Undo.begin()
     try:
@@ -247,7 +259,8 @@ def _dispatch_shrink():
     Context-aware: If 1 node selected, shrink upstream tree.
     If >1 nodes selected, shrink selection. If 0 nodes, no-op.
     """
-    import nuke          # noqa: PLC0415
+    import nuke  # noqa: PLC0415
+
     import node_layout  # noqa: PLC0415
 
     selected_count = len(nuke.selectedNodes())
@@ -263,7 +276,8 @@ def _dispatch_expand():
     Context-aware: If 1 node selected, expand upstream tree.
     If >1 nodes selected, expand selection. If 0 nodes, no-op.
     """
-    import nuke          # noqa: PLC0415
+    import nuke  # noqa: PLC0415
+
     import node_layout  # noqa: PLC0415
 
     selected_count = len(nuke.selectedNodes())
@@ -398,10 +412,8 @@ def arm():
     import node_layout_prefs  # noqa: PLC0415
     delay_ms = node_layout_prefs.prefs_singleton.get("hint_popup_delay_ms")
 
-    try:
+    with contextlib.suppress(RuntimeError):
         _overlay_timer.timeout.disconnect()
-    except RuntimeError:
-        pass  # No connections present — safe to ignore.
     _overlay_timer.timeout.connect(_overlay.show)
     _overlay_timer.start(delay_ms)
 
