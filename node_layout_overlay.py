@@ -34,7 +34,7 @@ import sys
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QCursor, QFont, QGuiApplication, QPainter
-from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QDialog, QGridLayout, QLabel, QVBoxLayout, QWidget
 
 # ---------------------------------------------------------------------------
 # Windows-specific activation suppression via ctypes (260331-axc Task 3)
@@ -253,12 +253,12 @@ class ClickableKeyCell(QWidget):
         node_layout_leader.dispatch_key(self._key_letter)
 
 
-class LeaderKeyOverlay(QWidget):
+class LeaderKeyOverlay(QDialog):
     """Floating HUD overlay displaying active leader-mode command keys.
 
-    Inherits from QWidget as a floating tool window overlay that does not
-    trigger taskbar activation or autohide reveal on Linux and Windows.
-    Uses Qt.WindowType.Tool with WA_ShowWithoutActivating for focus-safe display.
+    Inherits from QDialog (modeless popup) which has better window management
+    on Linux and Windows — does not trigger taskbar activation or autohide reveal.
+    Uses Qt.WindowType.Popup with setModal(False) for a non-modal floating overlay.
 
     Usage (by Phase 19 event filter):
         overlay = LeaderKeyOverlay(parent=dag_widget)
@@ -268,13 +268,14 @@ class LeaderKeyOverlay(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # Use Tool window type for floating overlay that doesn't activate or grab focus.
-        # QWidget base class with Tool window type avoids taskbar integration on Linux.
+        # Use Popup window type for floating overlay; modeless (not modal) dialog.
+        # QDialog as base class avoids taskbar integration on Linux and Windows.
         self.setWindowFlags(
-            Qt.WindowType.Tool
+            Qt.WindowType.Popup
             | Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowDoesNotAcceptFocus
         )
+        self.setModal(False)  # Modeless — doesn't block interaction with parent
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         # D-01: required for semi-transparent paintEvent background
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -298,10 +299,11 @@ class LeaderKeyOverlay(QWidget):
         """
         self.setParent(new_parent)
         self.setWindowFlags(
-            Qt.WindowType.Tool
+            Qt.WindowType.Popup
             | Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowDoesNotAcceptFocus
         )
+        self.setModal(False)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
@@ -423,12 +425,12 @@ class LeaderKeyOverlay(QWidget):
           show and subsequent re-shows.
 
         Linux:
-          On Linux, restores focus to the Nuke parent window as a safeguard: even
-          if X11/Wayland briefly grants activation to the overlay despite our hints,
-          we immediately hand focus back to the correct window.
+          X11/Wayland window property hints (_NET_WM_STATE_SKIP_TASKBAR and
+          _NET_WM_STATE_SKIP_PAGER) are applied in __init__(). Calling
+          activateWindow() or raise_() would negate these hints by explicitly
+          requesting focus, so we avoid focus manipulation on Linux entirely.
 
-        All platforms get focus restoration as a secondary safeguard to collapse
-        any autohide taskbar reveal and clear any taskbar icon highlight.
+        Windows only gets focus restoration via Win32 API as a secondary safeguard.
         """
         super().showEvent(event)
 
@@ -436,22 +438,5 @@ class LeaderKeyOverlay(QWidget):
         if sys.platform == "win32":
             # Re-assert WS_EX_NOACTIVATE on the actual HWND via Win32 API
             _apply_no_activate_win32(int(self.winId()))
-
-        # Linux-specific safeguard: restore focus explicitly to Nuke window
-        # (Windows version of _restore_nuke_focus is a no-op on Linux, so
-        # we call it unconditionally — it handles its own platform check)
-        if sys.platform.startswith("linux"):
-            # Try to restore focus using Nuke's native window if possible
-            try:
-                from PySide6.QtWidgets import QApplication
-                focus_target = self.parent()
-                if focus_target is None:
-                    focus_target = QApplication.activeWindow()
-                if focus_target is not None:
-                    focus_target.raise_()
-                    focus_target.activateWindow()
-            except Exception:  # noqa: BLE001
-                pass
-
-        # Secondary safeguard (Windows): restore focus via Win32 API
-        _restore_nuke_focus(self.parent())
+            # Secondary safeguard (Windows): restore focus via Win32 API
+            _restore_nuke_focus(self.parent())
