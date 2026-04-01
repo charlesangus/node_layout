@@ -189,8 +189,10 @@ _KEY_LAYOUT = [
     ("F", "Freeze",       1, 3),
     ("Z", "Horiz Layout", 2, 0),
     ("X", "Sel Hidden",   2, 1),
-    ("C", "Clear State", 2, 2),
+    ("C", "Clear State",  2, 2),
     ("V", "Layout",       2, 3),
+    ("H", "Arrange Horiz", 3, 2),
+    ("Y", "Arrange Vert",  3, 3),
 ]
 
 
