@@ -566,6 +566,27 @@ def _find_or_create_leftmost_dot(leftmost_spine_node, current_group):
     return dot
 
 
+def _find_freeze_block_through_dots(node, dimension_overrides):
+    """Traverse through Dot nodes to find a freeze block root in *dimension_overrides*.
+
+    On replay, layout inserts Dot routing nodes between spine nodes and their
+    side-input subtrees.  The freeze block root is then one or more Dot hops
+    away from the spine, so ``id(side_node) in dimension_overrides`` fails.
+    This helper walks through consecutive Dot nodes until it finds a node that
+    IS a freeze block root, or runs out of Dots.
+
+    Returns the FreezeBlock if found, else None.
+    """
+    if not dimension_overrides:
+        return None
+    cursor = node
+    while cursor is not None and cursor.Class() == "Dot":
+        cursor = cursor.input(0)
+    if cursor is not None and id(cursor) in dimension_overrides:
+        return dimension_overrides[id(cursor)]
+    return None
+
+
 def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                              scheme_multiplier=None, per_node_h_scale=None,
                              per_node_v_scale=None, current_prefs=None,
@@ -679,17 +700,23 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                     per_node_v_scale=per_node_v_scale,
                     dimension_overrides=dimension_overrides,
                 )
-                # When the side input is a freeze block root, the block's restored
-                # bounding box is typically wider than what compute_dims returns
-                # (which treats frozen members as a normal vertical chain).  Override
-                # side_w and side_root_x_offset with the block's true dimensions so
-                # the advance formula reserves enough horizontal space.
-                if dimension_overrides and id(side_node) in dimension_overrides:
-                    block = dimension_overrides[id(side_node)]
-                    freeze_block_total_width = block.right_extent + block.left_overhang
+                # When the side input is (or routes through Dots to) a freeze
+                # block root, the block's restored bounding box is typically
+                # wider than what compute_dims returns (which treats frozen
+                # members as a normal vertical chain).  Override side_w and
+                # side_root_x_offset with the block's true dimensions so the
+                # advance formula reserves enough horizontal space.
+                side_freeze_block = _find_freeze_block_through_dots(
+                    side_node, dimension_overrides
+                )
+                if side_freeze_block is not None:
+                    freeze_block_total_width = (
+                        side_freeze_block.right_extent
+                        + side_freeze_block.left_overhang
+                    )
                     if freeze_block_total_width > side_w:
                         side_w = freeze_block_total_width
-                        side_root_x_offset = block.left_overhang
+                        side_root_x_offset = side_freeze_block.left_overhang
                 # centering_offset: displacement from spine node's left edge to side
                 # node's left edge.  Negative when side node is wider than spine node
                 # (side subtree extends leftward past the spine node's left edge).
@@ -818,13 +845,17 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                     per_node_h_scale=per_node_h_scale,
                     per_node_v_scale=per_node_v_scale,
                 )
-                # When the side input is a freeze block root, place_subtree laid
-                # out all nodes (including frozen members) in a normal vertical
-                # chain.  Now restore the frozen members to their root-relative
-                # offsets and translate any external inputs (non-frozen nodes that
-                # feed into the block) to follow their connecting member's move.
-                if dimension_overrides and id(side_node) in dimension_overrides:
-                    block = dimension_overrides[id(side_node)]
+                # When the side input is (or routes through Dots to) a freeze
+                # block root, place_subtree laid out all nodes (including
+                # frozen members) in a normal vertical chain.  Now restore
+                # the frozen members to their root-relative offsets and
+                # translate any external inputs (non-frozen nodes that feed
+                # into the block) to follow their connecting member's move.
+                side_freeze_block_post = _find_freeze_block_through_dots(
+                    side_node, dimension_overrides
+                )
+                if side_freeze_block_post is not None:
+                    block = side_freeze_block_post
                     # Snapshot non-root member positions before restore
                     positions_before_restore = {}
                     for member in block.members:
@@ -1050,13 +1081,26 @@ def compute_dims(
                     + sum(side_margins_h[mask_count + 1:])
                     + sum(w for w, h, _ in non_mask_dims[1:]),
                 )
-            else:
-                # n >= 3 fan without mask (or non-fan fallback): same B-overhang correction.
+            elif fan_active:
+                # Fan without mask: B-overhang correction needed because all
+                # non-mask inputs share the same Y level and must clear B's
+                # rightward extent.
                 b_w = child_dims[0][0]
                 b_right_overhang = max(0, (b_w - node.screenWidth()) // 2)
                 W = max(
                     b_w,
                     node.screenWidth() + b_right_overhang
+                    + sum(side_margins_h[1:])
+                    + sum(w for w, h, _ in child_dims[1:]),
+                )
+            else:
+                # n >= 3 non-fan staircase: input[0] is centered above the
+                # consumer in a higher Y band.  Side inputs (1..n-1) step
+                # rightward from the consumer's right edge and occupy lower Y
+                # bands, so they do NOT need to clear input[0]'s overhang.
+                W = max(
+                    child_dims[0][0],
+                    node.screenWidth()
                     + sum(side_margins_h[1:])
                     + sum(w for w, h, _ in child_dims[1:]),
                 )
@@ -1278,10 +1322,11 @@ def place_subtree(
         root_x_0 = _center_x(inputs[0].screenWidth(), x, node.screenWidth())
         x_positions = [root_x_0]
     elif n == 2:
-        # input[0]: centered above consumer; input[1]: allocated band starts after input[0]'s.
+        # input[0]: centered above consumer; input[1]: one step right of consumer's
+        # right edge.  input[0] occupies a higher Y band in the staircase, so its
+        # full subtree width does NOT push input[1] rightward — they cannot overlap.
         root_x_0 = _center_x(inputs[0].screenWidth(), x, node.screenWidth())
-        alloc0 = root_x_0 - child_dims[0][2]
-        alloc1 = max(x + node.screenWidth(), alloc0 + child_dims[0][0]) + side_margins_h[1]
+        alloc1 = x + node.screenWidth() + side_margins_h[1]
         x_positions = [root_x_0, alloc1 + child_dims[1][2]]
     elif fan_active and n >= 3:
         # Fan mode n >= 3: mask(s) placed LEFT; non-mask B centered above; A1/A2/... rightward.
@@ -1304,11 +1349,12 @@ def place_subtree(
             alloc_mask_left = x - mask_gap_h - child_dims[i][0]
             x_positions[i] = alloc_mask_left + child_dims[i][2]
     else:
-        # n >= 3 non-fan: input[0] centered; inputs[1..n-1] step right.
+        # n >= 3 non-fan: input[0] centered; inputs[1..n-1] step right from
+        # consumer's right edge.  input[0] is in a higher Y band, so its full
+        # subtree width does NOT push side inputs rightward.
         root_x_0 = _center_x(inputs[0].screenWidth(), x, node.screenWidth())
-        alloc0 = root_x_0 - child_dims[0][2]
         x_positions = [root_x_0]
-        current_alloc = max(x + node.screenWidth(), alloc0 + child_dims[0][0]) + side_margins_h[1]
+        current_alloc = x + node.screenWidth() + side_margins_h[1]
         for i in range(1, n):
             x_positions.append(current_alloc + child_dims[i][2])
             if i + 1 < n:
@@ -3402,6 +3448,98 @@ def unfreeze_selected():
     try:
         for node in selected_nodes:
             node_layout_state.clear_freeze_group(node)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def arrange_selected_horizontal():
+    """Align selected nodes horizontally by their top edges and distribute them evenly.
+
+    All selected nodes are aligned to the topmost Y position.  Their X positions
+    are then distributed evenly across the range from the leftmost to rightmost
+    node's right edge.  Wrapped in an undo group.
+
+    If 0 or 1 nodes selected: no-op.
+    """
+    selected_nodes = nuke.selectedNodes()
+    if len(selected_nodes) <= 1:
+        return
+
+    nuke.Undo.name("Arrange Horizontal")
+    nuke.Undo.begin()
+    try:
+        # Compute bounds
+        min_y = min(node.ypos() for node in selected_nodes)
+        min_x = min(node.xpos() for node in selected_nodes)
+        max_x = max(node.xpos() + node.screenWidth() for node in selected_nodes)
+        range_x = max_x - min_x
+
+        # Sort nodes by current X position for distribution
+        sorted_nodes = sorted(selected_nodes, key=lambda n: n.xpos())
+        node_count = len(sorted_nodes)
+
+        # Distribute nodes evenly across X range, aligned to min_y
+        for index, node in enumerate(sorted_nodes):
+            if node_count > 1:
+                # Linear interpolation: first node at min_x, last node at max_x
+                new_x = min_x + (index / (node_count - 1)) * range_x
+            else:
+                new_x = min_x
+            node.setXpos(int(new_x))
+            node.setYpos(min_y)
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
+
+
+def arrange_selected_vertical():
+    """Align selected nodes vertically by their centre Y and distribute them evenly.
+
+    All selected nodes are aligned to the same centre X position (the average
+    of their current X positions).  Their Y positions are then distributed evenly
+    across the range from the topmost to bottommost node's centre Y.  Wrapped
+    in an undo group.
+
+    If 0 or 1 nodes selected: no-op.
+    """
+    selected_nodes = nuke.selectedNodes()
+    if len(selected_nodes) <= 1:
+        return
+
+    nuke.Undo.name("Arrange Vertical")
+    nuke.Undo.begin()
+    try:
+        # Compute bounds and center X
+        min_y = min(node.ypos() for node in selected_nodes)
+        max_y = max(node.ypos() + node.screenHeight() for node in selected_nodes)
+        range_y = max_y - min_y
+
+        # Calculate average center X (horizontal alignment point)
+        center_x = sum(node.xpos() + node.screenWidth() / 2 for node in selected_nodes) / len(selected_nodes)
+
+        # Sort nodes by current Y position (centre Y) for distribution
+        sorted_nodes = sorted(
+            selected_nodes,
+            key=lambda n: n.ypos() + n.screenHeight() / 2
+        )
+        node_count = len(sorted_nodes)
+
+        # Distribute node centres evenly across Y range, aligned to center_x
+        for index, node in enumerate(sorted_nodes):
+            if node_count > 1:
+                # Linear interpolation: first node's centre at min_y, last at max_y
+                centre_y = min_y + (index / (node_count - 1)) * range_y
+            else:
+                centre_y = min_y
+            new_y = int(centre_y - node.screenHeight() / 2)
+            new_x = int(center_x - node.screenWidth() / 2)
+            node.setXpos(new_x)
+            node.setYpos(new_y)
     except Exception:
         nuke.Undo.cancel()
         raise

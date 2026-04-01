@@ -107,27 +107,28 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 
 ### Quick Tasks Completed
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260317-n0k | fix the failing tests | 2026-03-17 | 29a0e26 | [260317-n0k-fix-the-failing-tests](./quick/260317-n0k-fix-the-failing-tests/) |
-| 260324-an9 | build 5 freeze test scenarios in live Nuke | 2026-03-24 | d481d96 | [260324-an9-use-the-nuke-mcp-to-generate-some-live-n](./quick/260324-an9-use-the-nuke-mcp-to-generate-some-live-n/) |
-| 260325-k1f | Fix menu.py command strings to use inline import form | 2026-03-25 | 51150be | [260325-k1f-fix-menu-py-command-strings-to-use-inlin](./quick/260325-k1f-fix-menu-py-command-strings-to-use-inlin/) |
-| 260328-5o4 | Add select_hidden_outputs function and menu entry | 2026-03-28 | abc0b27 | [260328-5o4-add-a-select-hidden-outputs-function-tha](./quick/260328-5o4-add-a-select-hidden-outputs-function-tha/) |
-| 260331-3nb | Fix leader key filter to consume ShortcutOverride events | 2026-03-31 | 80b1b8b | [260331-3nb-the-filter-is-not-consuming-keystrokes-s](./quick/260331-3nb-the-filter-is-not-consuming-keystrokes-s/) |
-| 260331-4m0 | Rewire C key dispatch from clear-freeze to clear-layout-state | 2026-03-31 | 46b6b4b | [260331-4m0-leader-c-should-run-clear-layout-state-o](./quick/260331-4m0-leader-c-should-run-clear-layout-state-o/) |
-| 260331-4y3 | Position leader overlay at mouse cursor with screen clamping | 2026-03-31 | bcf531a | [260331-4y3-the-leader-popup-should-appear-at-the-mo](./quick/260331-4y3-the-leader-popup-should-appear-at-the-mo/) |
-| 260331-537 | Make leader popup buttons clickable (dispatch_key + ClickableKeyCell) | 2026-03-30 | 6e3aa58 | [260331-537-make-the-buttons-on-the-leader-popup-cli](./quick/260331-537-make-the-buttons-on-the-leader-popup-cli/) |
-| 260331-594 | Stop taskbar flash and autohide reveal — add reparent() to LeaderKeyOverlay | 2026-03-31 | de98b41 | [260331-594-stop-taskbar-flash-and-autohide-reveal-w](./quick/260331-594-stop-taskbar-flash-and-autohide-reveal-w/) |
-| 260331-axc | Debug taskbar alert — suppress overlay window activation via Win32 API | 2026-03-31 | 408e62a | [260331-axc-debug-the-annoying-alert-in-the-taskbar-](./quick/260331-axc-debug-the-annoying-alert-in-the-taskbar-/) |
-| 260331-linux | Fix Linux taskbar alert — add X11 hints and focus restoration | 2026-03-31 | bac41c6 | [260331-linux-taskbar-alert](./quick/260331-linux-taskbar-alert/) |
-| 260331-nc2 | Make Q/E leader commands context-aware (upstream vs selected) | 2026-03-31 | 5b31f50 | [260331-nc2-make-expand-shrink-leader-commands-conte](./quick/260331-nc2-make-expand-shrink-leader-commands-conte/) |
-| 260331-qdlg | Fix Linux taskbar alert — switch to QDialog/Popup (post-research) | 2026-03-31 | 3e82bb0 | [260331-qdlg-linux-qdialog-popup](./quick/260331-qdlg-linux-qdialog-popup/) |
-| 260331-m9y | Movement commands aren't undoable — wrap in undo blocks | 2026-03-31 | 9e28652 | [260331-m9y-the-movement-commands-aren-t-undoable-fr](./quick/260331-m9y-the-movement-commands-aren-t-undoable-fr/) |
-| 260331-otl | Make clear-state leader command context-aware (upstream vs selected) | 2026-03-31 | 7d46984 | [260331-otl-make-clear-selected-context-aware-as-wel](./quick/260331-otl-make-clear-selected-context-aware-as-wel/) |
-| 260331-ozs | Add X key to leader mode for select hidden downstream | 2026-03-31 | f66b787 | [260331-ozs-add-the-following-command-to-the-leader-](./quick/260331-ozs-add-the-following-command-to-the-leader-/) |
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260317-n0k | fix the failing tests | 2026-03-17 | 29a0e26 | | [260317-n0k-fix-the-failing-tests](./quick/260317-n0k-fix-the-failing-tests/) |
+| 260324-an9 | build 5 freeze test scenarios in live Nuke | 2026-03-24 | d481d96 | | [260324-an9-use-the-nuke-mcp-to-generate-some-live-n](./quick/260324-an9-use-the-nuke-mcp-to-generate-some-live-n/) |
+| 260325-k1f | Fix menu.py command strings to use inline import form | 2026-03-25 | 51150be | | [260325-k1f-fix-menu-py-command-strings-to-use-inlin](./quick/260325-k1f-fix-menu-py-command-strings-to-use-inlin/) |
+| 260328-5o4 | Add select_hidden_outputs function and menu entry | 2026-03-28 | abc0b27 | | [260328-5o4-add-a-select-hidden-outputs-function-tha](./quick/260328-5o4-add-a-select-hidden-outputs-function-tha/) |
+| 260331-3nb | Fix leader key filter to consume ShortcutOverride events | 2026-03-31 | 80b1b8b | | [260331-3nb-the-filter-is-not-consuming-keystrokes-s](./quick/260331-3nb-the-filter-is-not-consuming-keystrokes-s/) |
+| 260331-4m0 | Rewire C key dispatch from clear-freeze to clear-layout-state | 2026-03-31 | 46b6b4b | | [260331-4m0-leader-c-should-run-clear-layout-state-o](./quick/260331-4m0-leader-c-should-run-clear-layout-state-o/) |
+| 260331-4y3 | Position leader overlay at mouse cursor with screen clamping | 2026-03-31 | bcf531a | | [260331-4y3-the-leader-popup-should-appear-at-the-mo](./quick/260331-4y3-the-leader-popup-should-appear-at-the-mo/) |
+| 260331-537 | Make leader popup buttons clickable (dispatch_key + ClickableKeyCell) | 2026-03-30 | 6e3aa58 | | [260331-537-make-the-buttons-on-the-leader-popup-cli](./quick/260331-537-make-the-buttons-on-the-leader-popup-cli/) |
+| 260331-594 | Stop taskbar flash and autohide reveal — add reparent() to LeaderKeyOverlay | 2026-03-31 | de98b41 | | [260331-594-stop-taskbar-flash-and-autohide-reveal-w](./quick/260331-594-stop-taskbar-flash-and-autohide-reveal-w/) |
+| 260331-axc | Debug taskbar alert — suppress overlay window activation via Win32 API | 2026-03-31 | 408e62a | | [260331-axc-debug-the-annoying-alert-in-the-taskbar-](./quick/260331-axc-debug-the-annoying-alert-in-the-taskbar-/) |
+| 260331-linux | Fix Linux taskbar alert — add X11 hints and focus restoration | 2026-03-31 | bac41c6 | | [260331-linux-taskbar-alert](./quick/260331-linux-taskbar-alert/) |
+| 260331-nc2 | Make Q/E leader commands context-aware (upstream vs selected) | 2026-03-31 | 5b31f50 | | [260331-nc2-make-expand-shrink-leader-commands-conte](./quick/260331-nc2-make-expand-shrink-leader-commands-conte/) |
+| 260331-qdlg | Fix Linux taskbar alert — switch to QDialog/Popup (post-research) | 2026-03-31 | 3e82bb0 | | [260331-qdlg-linux-qdialog-popup](./quick/260331-qdlg-linux-qdialog-popup/) |
+| 260331-m9y | Movement commands aren't undoable — wrap in undo blocks | 2026-03-31 | 9e28652 | | [260331-m9y-the-movement-commands-aren-t-undoable-fr](./quick/260331-m9y-the-movement-commands-aren-t-undoable-fr/) |
+| 260331-otl | Make clear-state leader command context-aware (upstream vs selected) | 2026-03-31 | 7d46984 | | [260331-otl-make-clear-selected-context-aware-as-wel](./quick/260331-otl-make-clear-selected-context-aware-as-wel/) |
+| 260331-ozs | Add X key to leader mode for select hidden downstream | 2026-03-31 | f66b787 | | [260331-ozs-add-the-following-command-to-the-leader-](./quick/260331-ozs-add-the-following-command-to-the-leader-/) |
+| 260401-63h | Add "Arrange Horizontal" and "Arrange Vertical" commands to menu and leader | 2026-04-01 | (pending) | Verified | [260401-63h-add-arrange-horizontal-and-arrange-verti](./quick/260401-63h-add-arrange-horizontal-and-arrange-verti/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-31 - Completed quick task 260331-ozs: add X key to leader mode for select hidden downstream
-Last session: 2026-03-31T00:00:00Z
-Stopped at: Completed quick task 260331-ozs
+Last activity: 2026-04-01 - Completed quick task 260401-63h: Add "Arrange Horizontal" and "Arrange Vertical" commands to menu and leader
+Last session: 2026-04-01T00:00:00Z
+Stopped at: Completed quick task 260401-63h

@@ -201,6 +201,20 @@ def _dispatch_select_hidden_downstream():
     node_layout_util.select_hidden_outputs()
 
 
+def _dispatch_arrange_horizontal():
+    """Arrange selected nodes horizontally for the H key (D-10, DISP-08)."""
+    import node_layout  # noqa: PLC0415
+
+    node_layout.arrange_selected_horizontal()
+
+
+def _dispatch_arrange_vertical():
+    """Arrange selected nodes vertically for the Y key (D-10, DISP-09)."""
+    import node_layout  # noqa: PLC0415
+
+    node_layout.arrange_selected_vertical()
+
+
 def _dispatch_move_up():
     """Move selected nodes up for the W key (D-01, DISP-05)."""
     import nuke  # noqa: PLC0415
@@ -297,6 +311,8 @@ _DISPATCH_TABLE = {
     Qt.Key.Key_F: _dispatch_freeze_toggle,
     Qt.Key.Key_C: _dispatch_clear_state,
     Qt.Key.Key_X: _dispatch_select_hidden_downstream,
+    Qt.Key.Key_H: _dispatch_arrange_horizontal,
+    Qt.Key.Key_Y: _dispatch_arrange_vertical,
 }
 
 # ---------------------------------------------------------------------------
@@ -323,6 +339,8 @@ _LETTER_TO_QT_KEY = {
     "F": Qt.Key.Key_F,
     "C": Qt.Key.Key_C,
     "X": Qt.Key.Key_X,
+    "H": Qt.Key.Key_H,
+    "Y": Qt.Key.Key_Y,
     "W": Qt.Key.Key_W,
     "A": Qt.Key.Key_A,
     "S": Qt.Key.Key_S,
