@@ -36,7 +36,7 @@ _WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _WORKSPACE not in sys.path:
     sys.path.insert(0, _WORKSPACE)
 
-import node_layout  # noqa: E402
+import node_layout  # noqa: E402, I001
 import node_layout_state  # noqa: E402
 import nuke  # noqa: E402 (must come after sys.path setup; provided by Nuke runtime)
 
