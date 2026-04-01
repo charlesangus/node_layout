@@ -125,7 +125,7 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 | 260331-m9y | Movement commands aren't undoable — wrap in undo blocks | 2026-03-31 | 9e28652 | | [260331-m9y-the-movement-commands-aren-t-undoable-fr](./quick/260331-m9y-the-movement-commands-aren-t-undoable-fr/) |
 | 260331-otl | Make clear-state leader command context-aware (upstream vs selected) | 2026-03-31 | 7d46984 | | [260331-otl-make-clear-selected-context-aware-as-wel](./quick/260331-otl-make-clear-selected-context-aware-as-wel/) |
 | 260331-ozs | Add X key to leader mode for select hidden downstream | 2026-03-31 | f66b787 | | [260331-ozs-add-the-following-command-to-the-leader-](./quick/260331-ozs-add-the-following-command-to-the-leader-/) |
-| 260401-63h | Add "Arrange Horizontal" and "Arrange Vertical" commands to menu and leader | 2026-04-01 | (pending) | Verified | [260401-63h-add-arrange-horizontal-and-arrange-verti](./quick/260401-63h-add-arrange-horizontal-and-arrange-verti/) |
+| 260401-63h | Add "Arrange Horizontal" and "Arrange Vertical" commands to menu and leader | 2026-04-01 | 25a8e82 | Verified | [260401-63h-add-arrange-horizontal-and-arrange-verti](./quick/260401-63h-add-arrange-horizontal-and-arrange-verti/) |
 
 ## Session Continuity
 
