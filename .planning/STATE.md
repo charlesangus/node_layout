@@ -123,9 +123,10 @@ Open question to resolve at Phase 20 planning: confirm Q/E undo group scope — 
 | 260331-nc2 | Make Q/E leader commands context-aware (upstream vs selected) | 2026-03-31 | 5b31f50 | [260331-nc2-make-expand-shrink-leader-commands-conte](./quick/260331-nc2-make-expand-shrink-leader-commands-conte/) |
 | 260331-qdlg | Fix Linux taskbar alert — switch to QDialog/Popup (post-research) | 2026-03-31 | 3e82bb0 | [260331-qdlg-linux-qdialog-popup](./quick/260331-qdlg-linux-qdialog-popup/) |
 | 260331-m9y | Movement commands aren't undoable — wrap in undo blocks | 2026-03-31 | 9e28652 | [260331-m9y-the-movement-commands-aren-t-undoable-fr](./quick/260331-m9y-the-movement-commands-aren-t-undoable-fr/) |
+| 260331-otl | Make clear-state leader command context-aware (upstream vs selected) | 2026-03-31 | 7d46984 | [260331-otl-make-clear-selected-context-aware-as-wel](./quick/260331-otl-make-clear-selected-context-aware-as-wel/) |
 
 ## Session Continuity
 
-Last activity: 2026-03-31 - Completed quick task 260331-m9y: wrapped W/A/S/D movement commands in undo blocks
-Last session: 2026-03-31T10:51:27Z
-Stopped at: Completed quick task 260331-axc
+Last activity: 2026-03-31 - Completed quick task 260331-otl: make clear-state leader command context-aware
+Last session: 2026-03-31T00:00:00Z
+Stopped at: Completed quick task 260331-otl
