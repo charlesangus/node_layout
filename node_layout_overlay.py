@@ -34,7 +34,7 @@ import sys
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QCursor, QFont, QGuiApplication, QPainter
-from PySide6.QtWidgets import QDialog, QGridLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
 # ---------------------------------------------------------------------------
 # Windows-specific activation suppression via ctypes (260331-axc Task 3)
@@ -145,6 +145,7 @@ def _restore_nuke_focus(parent_widget):
 
     try:
         import ctypes
+
         from PySide6.QtWidgets import QApplication
 
         focus_target = parent_widget
@@ -165,8 +166,10 @@ def _restore_nuke_focus(parent_widget):
 # importing PySide6 in the test environment.
 # ---------------------------------------------------------------------------
 
-_CHAINING_KEY_COLOR = QColor(40, 120, 160)      # teal/blue tint — sticky keys keep leader mode alive
-_SINGLE_SHOT_KEY_COLOR = QColor(220, 220, 220)  # neutral white/gray — one-shot keys exit leader mode
+# Teal/blue tint — sticky keys keep leader mode alive
+_CHAINING_KEY_COLOR = QColor(40, 120, 160)
+# Neutral white/gray — one-shot keys exit leader mode
+_SINGLE_SHOT_KEY_COLOR = QColor(220, 220, 220)
 
 # Keys that keep leader mode active after being pressed (WASD / QE) — D-09
 CHAINING_KEYS = {"W", "A", "S", "D", "Q", "E"}
@@ -250,13 +253,12 @@ class ClickableKeyCell(QWidget):
         node_layout_leader.dispatch_key(self._key_letter)
 
 
-class LeaderKeyOverlay(QDialog):
+class LeaderKeyOverlay(QWidget):
     """Floating HUD overlay displaying active leader-mode command keys.
 
-    Inherits from QDialog (modal dialog) which has better window management
-    on Linux — does not trigger taskbar activation or autohide reveal.
-    On Windows, dialog mode still respects WA_ShowWithoutActivating and
-    WS_EX_NOACTIVATE flags for compatibility.
+    Inherits from QWidget as a floating tool window overlay that does not
+    trigger taskbar activation or autohide reveal on Linux and Windows.
+    Uses Qt.WindowType.Tool with WA_ShowWithoutActivating for focus-safe display.
 
     Usage (by Phase 19 event filter):
         overlay = LeaderKeyOverlay(parent=dag_widget)
@@ -266,14 +268,13 @@ class LeaderKeyOverlay(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # Use Popup window type for floating overlay; modeless (not modal) dialog.
-        # QDialog as base class avoids taskbar integration on Linux.
+        # Use Tool window type for floating overlay that doesn't activate or grab focus.
+        # QWidget base class with Tool window type avoids taskbar integration on Linux.
         self.setWindowFlags(
-            Qt.WindowType.Popup
+            Qt.WindowType.Tool
             | Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowDoesNotAcceptFocus
         )
-        self.setModal(False)  # Modeless — doesn't block interaction with parent
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         # D-01: required for semi-transparent paintEvent background
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -297,11 +298,10 @@ class LeaderKeyOverlay(QDialog):
         """
         self.setParent(new_parent)
         self.setWindowFlags(
-            Qt.WindowType.Popup
+            Qt.WindowType.Tool
             | Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowDoesNotAcceptFocus
         )
-        self.setModal(False)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 

@@ -40,7 +40,12 @@ _TESTS_DIR = os.path.dirname(__file__)
 if _TESTS_DIR not in sys.path:
     sys.path.insert(0, _TESTS_DIR)
 
-from dag_viz import render_dag  # noqa: E402
+try:
+    from dag_viz import render_dag  # noqa: E402
+    _NUKE_PARSER_AVAILABLE = True
+except ImportError:
+    _NUKE_PARSER_AVAILABLE = False
+    render_dag = None
 
 _FIXTURES = os.path.join(os.path.dirname(__file__), "..", "nuke_tests", "fixtures")
 _RUNNER = os.path.join(os.path.dirname(__file__), "..", "nuke_tests", "run_layout.py")
@@ -108,6 +113,7 @@ def _generate_png(nk_path, png_name, title=None):
     return png_path
 
 
+@unittest.skipIf(not _NUKE_PARSER_AVAILABLE, "nuke_parser required for integration tests")
 class TestFreezeUpstreamBasic(unittest.TestCase):
     """Scenario A: non-frozen upstream node must be repositioned above the freeze block."""
 
@@ -170,6 +176,7 @@ class TestFreezeUpstreamBasic(unittest.TestCase):
         self.assertTrue(os.path.exists(self.after_png), f"Missing: {self.after_png}")
 
 
+@unittest.skipIf(not _NUKE_PARSER_AVAILABLE, "nuke_parser required for integration tests")
 class TestFreezeSelectedTypeMismatch(unittest.TestCase):
     """Scenario B: freeze block relative offsets must survive layout_selected."""
 
@@ -231,6 +238,7 @@ class TestFreezeSelectedTypeMismatch(unittest.TestCase):
         self.assertTrue(os.path.exists(self.after_png))
 
 
+@unittest.skipIf(not _NUKE_PARSER_AVAILABLE, "nuke_parser required for integration tests")
 class TestFreezeHorizontalOverride(unittest.TestCase):
     """Scenario C: frozen nodes with mode=horizontal must not become replay roots."""
 
@@ -275,6 +283,7 @@ class TestFreezeHorizontalOverride(unittest.TestCase):
         self.assertTrue(os.path.exists(self.after_png))
 
 
+@unittest.skipIf(not _NUKE_PARSER_AVAILABLE, "nuke_parser required for integration tests")
 class TestFreezeHorizontalBboxOverlap(unittest.TestCase):
     """Scenario D: frozen subtree bbox must not overlap adjacent subtree bboxes
     after layout_selected_horizontal on spine Merge nodes.

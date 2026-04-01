@@ -17,7 +17,10 @@ import os
 import subprocess
 import sys
 
-from nuke_parser.parser import parseNk
+try:
+    from nuke_parser.parser import parseNk
+except ImportError:
+    parseNk = None
 
 # ---------------------------------------------------------------------------
 # Node dimension constants (matches Nuke defaults)
@@ -135,6 +138,12 @@ def render_dag(nk_path, output_png=None, title=None):
 
     Returns the path to the written PNG.
     """
+    if parseNk is None:
+        raise ImportError(
+            "nuke_parser is required for DAG visualization. "
+            "Install it with: pip install nuke_parser"
+        )
+
     if output_png is None:
         stem = os.path.splitext(nk_path)[0]
         output_png = stem + ".png"
