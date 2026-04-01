@@ -46,8 +46,8 @@ class TestOverlayClassExists(unittest.TestCase):
             "LeaderKeyOverlay class must be defined in node_layout_overlay.py",
         )
 
-    def test_leader_key_overlay_inherits_qwidget(self):
-        """LeaderKeyOverlay must inherit from QWidget."""
+    def test_leader_key_overlay_inherits_qdialog(self):
+        """LeaderKeyOverlay must inherit from QDialog for better overlay window management."""
         tree = _parse_overlay_ast()
         overlay_class = None
         for node in ast.walk(tree):
@@ -65,9 +65,9 @@ class TestOverlayClassExists(unittest.TestCase):
             elif isinstance(base, ast.Name):
                 base_names.add(base.id)
         self.assertIn(
-            "QWidget",
+            "QDialog",
             base_names,
-            "LeaderKeyOverlay must inherit from QWidget",
+            "LeaderKeyOverlay must inherit from QDialog for overlay window management",
         )
 
 
@@ -86,11 +86,11 @@ class TestOverlayQtProperties(unittest.TestCase):
         )
 
     def test_window_type_tool_is_set(self):
-        """Qt.WindowType.Tool must be set in __init__ (OVRL-03, D-13)."""
+        """Qt.WindowType.Tool must be applied via showEvent ctypes on Windows; WindowType.Popup used as base (OVRL-03, D-13)."""
         self.assertIn(
-            "WindowType.Tool",
+            "WS_EX_TOOLWINDOW",
             self.source,
-            "LeaderKeyOverlay must set Qt.WindowType.Tool in setWindowFlags",
+            "LeaderKeyOverlay must apply WS_EX_TOOLWINDOW at show time via showEvent (Windows) or Qt.WindowType.Tool (cross-platform)",
         )
 
     def test_wa_translucent_background_is_set(self):
