@@ -175,10 +175,15 @@ def _dispatch_freeze_toggle():
 
 
 def _dispatch_clear_state():
-    """Clear layout state on selected nodes for the C key."""
-    import node_layout   # noqa: PLC0415
+    """Clear layout state for C key — context-aware (upstream vs selected)."""
+    import nuke           # noqa: PLC0415
+    import node_layout    # noqa: PLC0415
 
-    node_layout.clear_layout_state_selected()
+    selected_count = len(nuke.selectedNodes())
+    if selected_count == 1:
+        node_layout.clear_layout_state_upstream()
+    elif selected_count > 1:
+        node_layout.clear_layout_state_selected()
 
 
 def _dispatch_move_up():
