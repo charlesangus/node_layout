@@ -3476,18 +3476,14 @@ def arrange_selected_horizontal():
         node_count = len(sorted_nodes)
 
         # Compute bounds
-        min_y = min(node.ypos() for node in selected_nodes)
         min_x = min(node.xpos() for node in selected_nodes)
         max_x = max(node.xpos() for node in selected_nodes)
         range_x = max(max_x - min_x, node_count * 110)
 
         # Distribute nodes evenly across X range, aligned to min_y
         for index, node in enumerate(sorted_nodes):
-            if node_count > 1:
-                # Linear interpolation: first node at min_x, last node at max_x
-                new_x = min_x + (index / (node_count - 1)) * range_x
-            else:
-                new_x = min_x
+            # Linear interpolation: first node at min_x, last node at max_x
+            new_x = min_x + (index / (node_count - 1)) * range_x
             node.setXpos(int(new_x))
             node.setYpos(sorted_nodes[0].ypos())
     except Exception:
@@ -3525,17 +3521,20 @@ def arrange_selected_vertical():
         # Compute bounds
         min_y = min(node.ypos() for node in selected_nodes)
         max_y = max(node.ypos() for node in selected_nodes)
-        range_y = max(max_y - min_y, sum([node.screenHeight() for node in sorted_nodes[:-1]]) + 7 * len(selected_nodes))
+        range_y = max(
+                max_y - min_y,
+                sum([node.screenHeight() for node in sorted_nodes[:-1]])
+                + 7 * len(selected_nodes)
+                )
 
         # Calculate horizontal alignment point
         center_x = first_node.xpos() + first_node.screenWidth() / 2
-        previous_bottom = first_node.ypos() + first_node.screenHeight()
 
         # Distribute node centres evenly across Y range, aligned to center_x
         for index, node in enumerate(sorted_nodes):
             if index == 0:
                 continue
-            
+
             # Linear interpolation: first node's centre at min_y, last at max_y
             centre_y = min_y + (index / (node_count - 1)) * range_y
             new_y = int(centre_y)
