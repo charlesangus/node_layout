@@ -6,7 +6,7 @@
 - ✅ **v1.1 Layout Engine & State** — Phases 6-12 (shipped 2026-03-17)
 - ✅ **v1.2 CI/CD** — Phases 13-14 (shipped 2026-03-18)
 - ✅ **v1.3 Freeze Layout** — Phases 15-16 (shipped 2026-03-20)
-- 🚧 **v1.4 Leader Key** — Phases 17-21 (in progress)
+- ✅ **v1.4 Leader Key** — Phases 17-21 (shipped 2026-04-01)
 
 ## Phases
 
@@ -60,17 +60,22 @@ Full archive: `.planning/milestones/v1.3-ROADMAP.md`
 
 </details>
 
-### 🚧 v1.4 Leader Key (In Progress)
+<details>
+<summary>✅ v1.4 Leader Key (Phases 17-21) — SHIPPED 2026-04-01</summary>
 
-**Milestone Goal:** Replace the Shift+E Layout Upstream shortcut with a modal leader key system that dispatches to existing commands via a mnemonic keymap and displays an icon-style keyboard overlay over the DAG during the modal window.
+- [x] Phase 17: Prefs + Dialog Foundation (1/1 plan) — completed 2026-03-30
+- [x] Phase 18: Overlay Widget (1/1 plan) — completed 2026-03-30
+- [x] Phase 19: Event Filter + Core Dispatch (2/2 plans) — completed 2026-03-31
+- [x] Phase 20: WASD Chaining + C Command (1/1 plan) — completed 2026-03-31
+- [x] Phase 21: Menu Wiring (1/1 plan) — completed 2026-04-01
 
-- [x] **Phase 17: Prefs + Dialog Foundation** — Add hint popup delay preference and expose it in the dialog (completed 2026-03-30)
-- [x] **Phase 18: Overlay Widget** — Build the floating keyboard HUD widget with focus-safe display (completed 2026-03-30)
-- [x] **Phase 19: Event Filter + Core Dispatch** — Leader mode state machine with single-shot command dispatch (completed 2026-03-31)
-- [x] **Phase 20: WASD Chaining + C Command** — Sticky movement dispatch with key-repeat guard and clear freeze command (completed 2026-03-31)
-- [ ] **Phase 21: Menu Wiring** — Bind Shift+E to leader mode entry and activate the event filter at startup
+Full archive: `.planning/milestones/v1.4-ROADMAP.md`
+
+</details>
 
 ## Phase Details
+
+(v1.4 phase details archived to `.planning/milestones/v1.4-ROADMAP.md` — see archive for full phase breakdown)
 
 ### Phase 15: Freeze State & Commands
 **Goal**: Users can freeze and unfreeze node groups, with group membership persisted invisibly in node state
@@ -102,74 +107,7 @@ Plans:
 - [x] 16-03-PLAN.md — Gap closure: add missing make_room import to menu.py
 - [x] 16-04-PLAN.md — Gap closure: fix freeze block anchoring, upstream node positioning, dot filter, horizontal BFS guard
 
-### Phase 17: Prefs + Dialog Foundation
-**Goal**: The hint popup delay preference exists in the prefs system and is configurable via the preferences dialog
-**Depends on**: Phase 16
-**Requirements**: PREF-01, PREF-02
-**Success Criteria** (what must be TRUE):
-  1. `NodeLayoutPrefs` returns a default value of 0 for `hint_popup_delay_ms` on a clean install with no existing prefs file
-  2. The preferences dialog contains a "Leader Key" section with a "Hint popup delay (ms)" field
-  3. Entering a value in the dialog field and clicking OK persists the value to `~/.nuke/node_layout_prefs.json` and the next call to `NodeLayoutPrefs` returns the updated value
-  4. Entering a negative value in the dialog field is rejected with a validation error
-**Plans:** 1/1 plans complete
-Plans:
-- [x] 17-01-PLAN.md — Add hint_popup_delay_ms pref default + Leader Key dialog section
-
-### Phase 18: Overlay Widget
-**Goal**: A floating keyboard HUD is displayable over the DAG without stealing keyboard focus
-**Depends on**: Phase 17
-**Requirements**: OVRL-01, OVRL-02, OVRL-03, OVRL-04
-**Success Criteria** (what must be TRUE):
-  1. The overlay appears over the active DAG displaying all active command keys with their action labels
-  2. Keypresses in the DAG remain functional immediately after the overlay becomes visible — the overlay does not capture keyboard input
-  3. The overlay disappears when `hide()` is called, leaving no residual widget on screen
-  4. `LeaderKeyOverlay` has `WA_ShowWithoutActivating` set and window type `Qt.WindowType.Tool` — verifiable via structural test without a running Nuke session
-**Plans:** 1/1 plans complete
-Plans:
-- [x] 18-01-PLAN.md — LeaderKeyOverlay widget + AST structural tests
-
-### Phase 19: Event Filter + Core Dispatch
-**Goal**: The leader mode state machine intercepts keypresses, routes single-shot commands, and cancels on unrecognized input — all without consuming events outside leader mode
-**Depends on**: Phase 18
-**Requirements**: LEAD-02, LEAD-03, LEAD-04, DISP-01, DISP-02, DISP-03, DISP-04
-**Success Criteria** (what must be TRUE):
-  1. Pressing V while in leader mode calls `layout_upstream()` when exactly one node is selected, and `layout_selected()` when two or more nodes are selected, then exits leader mode
-  2. Pressing Z while in leader mode dispatches horizontal layout then exits leader mode
-  3. Pressing F while in leader mode freezes selected nodes if they are unfrozen, or unfreezes them if they are frozen, then exits leader mode
-  4. Pressing any key not in the dispatch table while in leader mode cancels leader mode and consumes the event (it does not propagate to Nuke)
-  5. A mouse click while in leader mode cancels leader mode and the click event propagates normally
-  6. The event filter returns `False` unconditionally for all events when leader mode is not active — no Nuke built-in shortcuts are affected
-  7. Leader mode does not arm when a dialog, text field, or non-DAG widget has keyboard focus at the time of the arm attempt
-**Plans:** 2/2 plans complete
-Plans:
-- [x] 19-01-PLAN.md — Implement LeaderKeyFilter and arm() entry point
-- [x] 19-02-PLAN.md — Structural AST tests for LeaderKeyFilter
-
-### Phase 20: WASD Chaining + C Command
-**Goal**: Movement keys keep leader mode alive for chained input; a complete WASD session is undoable in a single Ctrl+Z; the C key clears freeze group membership
-**Depends on**: Phase 19
-**Requirements**: DISP-05, DISP-06, DISP-07, DISP-08
-**Success Criteria** (what must be TRUE):
-  1. Pressing W, A, S, or D while in leader mode moves selected nodes one step in the corresponding direction and leader mode remains active for the next keypress
-  2. Pressing Q or E while in leader mode shrinks or expands selected nodes and leader mode remains active for the next keypress
-  3. Holding a WASD key down moves nodes exactly once — the OS key-repeat events are discarded; additional steps require deliberate individual keypresses
-  4. All node movements made during a single leader session (from arm to exit) are undone by a single Ctrl+Z
-  5. Pressing C while in leader mode removes the selected nodes from their freeze group then exits leader mode
-**Plans:** 1/1 plans complete
-Plans:
-- [x] 20-01-PLAN.md — Add WASD/Q/E chaining dispatch helpers, _CHAINING_DISPATCH_TABLE, eventFilter chaining branch, and AST structural tests
-
-### Phase 21: Menu Wiring
-**Goal**: Shift+E arms leader mode in a live Nuke session and the old Layout Upstream shortcut no longer fires on Shift+E
-**Depends on**: Phase 20
-**Requirements**: LEAD-01
-**Success Criteria** (what must be TRUE):
-  1. Pressing Shift+E in the Nuke DAG enters leader mode — the overlay appears and the next keypress dispatches a command
-  2. The Layout Upstream command is still accessible from the Node Layout menu but no longer has a keyboard shortcut assigned to it
-  3. The `LeaderKeyFilter` event filter is active from Nuke startup — no manual initialization step is required after plugin load
-**Plans:** 1/1 plans
-Plans:
-- [ ] 21-01-PLAN.md 2014 Wire Shift+E to leader mode entry, remove old Layout Upstream shortcut, AST structural tests
+(Phase details for v1.4 archived to `.planning/milestones/v1.4-ROADMAP.md`)
 
 ## Progress
 
@@ -193,8 +131,8 @@ Plans:
 | 14. Release Workflow | v1.2 | 1/1 | Complete | 2026-03-18 |
 | 15. Freeze State & Commands | v1.3 | 2/2 | Complete | 2026-03-19 |
 | 16. Layout Integration | v1.3 | 4/4 | Complete | 2026-03-20 |
-| 17. Prefs + Dialog Foundation | v1.4 | 1/1 | Complete    | 2026-03-30 |
-| 18. Overlay Widget | v1.4 | 1/1 | Complete    | 2026-03-30 |
-| 19. Event Filter + Core Dispatch | v1.4 | 2/2 | Complete   | 2026-03-31 |
-| 20. WASD Chaining + C Command | v1.4 | 1/1 | Complete    | 2026-03-31 |
-| 21. Menu Wiring | v1.4 | 0/? | Not started | - |
+| 17. Prefs + Dialog Foundation | v1.4 | 1/1 | Complete | 2026-03-30 |
+| 18. Overlay Widget | v1.4 | 1/1 | Complete | 2026-03-30 |
+| 19. Event Filter + Core Dispatch | v1.4 | 2/2 | Complete | 2026-03-31 |
+| 20. WASD Chaining + C Command | v1.4 | 1/1 | Complete | 2026-03-31 |
+| 21. Menu Wiring | v1.4 | 1/1 | Complete | 2026-04-01 |

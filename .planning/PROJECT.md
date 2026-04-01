@@ -63,17 +63,21 @@ Layout operations must be reliable, undoable, and configurable — users need to
 - ✓ Layout positions a frozen block via its root node (most downstream); other block nodes maintain relative offsets — v1.3 (Phase 16)
 - ✓ Push-away (expand) moves a frozen block rigidly as a unit using its bounding box as the obstacle — v1.3 (Phase 16)
 
+<!-- v1.4 Leader Key — validated in Phases 17–21 -->
+
+- ✓ Shift+E enters leader mode (replaces Layout Upstream shortcut) — v1.4 (Phase 21)
+- ✓ Leader mode dispatches V/Z/F/C/W/A/S/D/Q/E to existing commands — v1.4 (Phases 19–20)
+- ✓ WASD movement chains — leader mode persists between move steps — v1.4 (Phase 20)
+- ✓ Any unrecognized key or mouse click cancels leader mode — v1.4 (Phase 19)
+- ✓ Icon-style keyboard overlay (`LeaderKeyOverlay` HUD widget) displayed over DAG with no focus theft — v1.4 (Phase 18)
+- ✓ New pref: "hint popup delay (ms)" with default 0, configurable in prefs dialog — v1.4 (Phase 17)
+- ✓ Auto-repeat key events (OS key-hold) discarded — each movement step requires deliberate keypress — v1.4 (Phase 20)
+
 ### Active
 
-<!-- v1.4 Leader Key -->
+<!-- v1.5+ Future Requirements -->
 
-- [ ] Shift+E enters leader mode (replaces Layout Upstream shortcut)
-- [ ] Leader mode dispatches V/Z/F/C/W/A/S/D/Q/E to existing commands
-- [ ] WASD movement chains — leader mode persists between move steps
-- [ ] Any unrecognized key or mouse click cancels leader mode
-- ✓ Icon-style keyboard overlay (`LeaderKeyOverlay` HUD widget) implemented — v1.4 (Phase 18)
-- ✓ New pref: "hint popup delay (ms)" with default 0 — v1.4 (Phase 17)
-- ✓ WASD/Q/E chaining dispatch in leader mode — `_CHAINING_DISPATCH_TABLE` keeps mode active — v1.4 (Phase 20)
+(None defined yet — ready for requirements gathering in next milestone)
 
 ### Out of Scope
 
@@ -89,12 +93,14 @@ Layout operations must be reliable, undoable, and configurable — users need to
 
 ## Context
 
+**Shipped:** v1.0 Quality & Preferences (2026-03-05)
+**Shipped:** v1.1 Layout Engine & State (2026-03-17)
 **Shipped:** v1.2 CI/CD (2026-03-18)
-**Shipped:** v1.3 Freeze Layout (2026-03-19) — Phase 16 complete
-**In Progress:** v1.4 Leader Key — Phase 20 complete (WASD/Q/E chaining dispatch)
-**Codebase:** ~3,200 LOC Python source (node_layout.py, node_layout_state.py, util.py, node_layout_prefs.py, node_layout_prefs_dialog.py, node_layout_overlay.py, menu.py); ~12,000+ LOC total incl. tests; 81 lines GitHub Actions YAML
+**Shipped:** v1.3 Freeze Layout (2026-03-20)
+**Shipped:** v1.4 Leader Key (2026-04-01) — 5 phases, 6 plans, 13 tasks
+**Codebase:** ~3,600 LOC Python source (node_layout.py, node_layout_state.py, util.py, node_layout_prefs.py, node_layout_prefs_dialog.py, node_layout_leader.py, node_layout_overlay.py, menu.py); ~12,500+ LOC total incl. tests; 81 lines GitHub Actions YAML
 **Tech stack:** Python, PySide6; JSON prefs at `~/.nuke/`; AST-based structural tests + Nuke-stub unit tests; GitHub Actions CI (Ruff + pytest) and release workflow (softprops/action-gh-release@v2)
-**Test suite:** 366 tests spanning prefs, state, layout core, fan alignment, horizontal spine, scale commands, freeze commands, freeze layout integration, leader key prefs/dialog, and overlay widget
+**Test suite:** 380+ tests spanning prefs, state, layout core, fan alignment, horizontal spine, scale commands, freeze commands, freeze layout integration, leader key event filtering/dispatch, overlay widget, and menu wiring
 
 Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py` (JSON-backed singleton at `~/.nuke/labelmaker_prefs.json`) + `labelmaker_prefs_dialog.py`. node_layout follows the same structure.
 
@@ -135,11 +141,15 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 | ZIP named with github.ref_name preserving v prefix | Produces e.g. node_layout-v1.2.zip — clear version signal without extra config | ✓ Good |
 | softprops/action-gh-release@v2 with generate_release_notes: true | No manual release notes authoring; auto-notes from PR/commit history | ✓ Good |
 
-## Current Milestone: v1.4 Leader Key
+## Completed Milestones
+
+### v1.4 Leader Key ✓
+
+**Shipped:** 2026-04-01
 
 **Goal:** Replace the Shift+E Layout Upstream shortcut with a modal leader key system that dispatches to existing commands via a mnemonic keymap and displays an icon-style keyboard overlay over the DAG during the modal window.
 
-**Target features:**
+**Features delivered:**
 - Shift+E enters leader mode; any unrecognized key or mouse click cancels it (no timeout)
 - V — vertical layout (1-node selected → layout upstream, 2+ nodes → layout selection)
 - Z — horizontal layout
@@ -147,14 +157,19 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 - C — clear freeze group
 - W/A/S/D — move selected nodes; stays in leader mode for chained movement
 - Q — scale down (shrink); E — scale up (expand)
-- Icon-style keyboard overlay over active DAG on leader press, showing active keys and labels
-- New pref: "hint popup delay (ms)", default 0
+- Icon-style keyboard overlay over active DAG showing active keys and labels, with configurable delay
+- New pref: "hint popup delay (ms)", default 0, configurable in preferences dialog
+- Auto-repeat guard: OS key-hold events discarded, each step requires deliberate keypress
 
-## Completed Milestone: v1.3 Freeze Layout ✓
+**Phases:** 17–21 (5 phases, 6 plans, 13 tasks)
+
+### v1.3 Freeze Layout ✓
+
+**Shipped:** 2026-03-20
 
 **Goal:** Add a freeze command that locks the relative positions of a group of nodes into a rigid block that the layout engine treats as a single unit.
 
-**All features shipped:**
+**Features delivered:**
 - Freeze Selected: marks selected nodes with a shared UUID in hidden layout knob
 - Unfreeze Selected: removes freeze group membership
 - Layout crawl detects and resolves freeze groups (preprocessing step)
@@ -162,5 +177,7 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 - Rigid block positioning: block anchored at root node; relative offsets preserved
 - Rigid push-away: expand treats block bounding box as single obstacle
 
+**Phases:** 15–16 (2 phases, 6 plans)
+
 ---
-*Last updated: 2026-03-30 after Phase 20 WASD chaining dispatch completion*
+*Last updated: 2026-04-01 after v1.4 Leader Key completion*

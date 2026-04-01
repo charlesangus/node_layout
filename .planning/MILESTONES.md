@@ -1,5 +1,24 @@
 # Milestones
 
+## v1.4 Leader Key (Shipped: 2026-04-01)
+
+**Phases completed:** 7 phases, 12 plans, 13 tasks
+
+**Key accomplishments:**
+
+- freeze_group UUID state layer added to node_layout_state.py with backward-compatible _DEFAULT_STATE extension and three helper functions; Wave 0 test scaffold created with 5 test classes for future freeze command implementation
+- freeze_selected and unfreeze_selected commands wired into node_layout.py and Edit > Node Layout menu with ctrl+shift+f / ctrl+shift+u shortcuts, all 313 tests pass
+- 1. [Rule 1 - Bug] Merge condition used intersection instead of union for detecting cross-group bridges
+- Freeze blocks treated as rigid units during layout: non-root members maintain relative offsets via pre/post-placement offset restoration, and push_nodes_to_make_room translates entire blocks atomically using block bounding box for obstacle detection
+- Added `import make_room` to menu.py, unblocking all six Make Room / Push-Away commands that previously crashed with NameError on every invocation
+- One-liner:
+- One-liner:
+- 14 AST/source-text structural tests for node_layout_leader.py covering class inheritance, dispatch table keys V/Z/F/C, auto-repeat guard, mouse cancellation, timer stop, and filter lifecycle install/remove
+- WASD/Q/E chaining dispatch in LeaderKeyFilter — six helpers delegating to make_room() and shrink/expand_selected(), with two-table eventFilter keeping leader mode active for chained input
+- Shift+E wired to leader mode arm() via inline import callback in menu.py, Layout Upstream shortcut removed, 6 AST structural tests verify LEAD-01
+
+---
+
 ## v1.2 — CI/CD
 
 **Shipped:** 2026-03-18
