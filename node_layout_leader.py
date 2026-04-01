@@ -4,10 +4,10 @@ This module implements the leader key mode for the node_layout Nuke plugin.
 ``arm()`` is the sole public entry point: it installs a ``LeaderKeyFilter``
 onto ``QApplication`` ephemerally, activates leader mode, and schedules the
 overlay hint display.  The filter intercepts keypresses for single-shot
-command dispatch (V, Z, F, C) and chaining commands (W/A/S/D/Q/E), cancels
+command dispatch (V, Z, F, C, X) and chaining commands (W/A/S/D/Q/E), cancels
 on unrecognised input or a mouse click, then removes itself via ``_disarm()``.
 
-Single-shot keys (V, Z, F, C) disarm leader mode after dispatch.  Chaining
+Single-shot keys (V, Z, F, C, X) disarm leader mode after dispatch.  Chaining
 keys (W, A, S, D, Q, E) keep leader mode active so the user can chain
 movement and scale operations without re-pressing Shift+E each time.  The
 overlay is hidden on the first chaining keypress and does not re-appear
@@ -186,6 +186,13 @@ def _dispatch_clear_state():
         node_layout.clear_layout_state_selected()
 
 
+def _dispatch_select_hidden_downstream():
+    """Select downstream hidden-input nodes for the X key."""
+    import node_layout_util  # noqa: PLC0415
+
+    node_layout_util.select_hidden_outputs()
+
+
 def _dispatch_move_up():
     """Move selected nodes up for the W key (D-01, DISP-05)."""
     import nuke          # noqa: PLC0415
@@ -275,6 +282,7 @@ _DISPATCH_TABLE = {
     Qt.Key.Key_Z: _dispatch_horizontal_layout,
     Qt.Key.Key_F: _dispatch_freeze_toggle,
     Qt.Key.Key_C: _dispatch_clear_state,
+    Qt.Key.Key_X: _dispatch_select_hidden_downstream,
 }
 
 # ---------------------------------------------------------------------------
@@ -300,6 +308,7 @@ _LETTER_TO_QT_KEY = {
     "Z": Qt.Key.Key_Z,
     "F": Qt.Key.Key_F,
     "C": Qt.Key.Key_C,
+    "X": Qt.Key.Key_X,
     "W": Qt.Key.Key_W,
     "A": Qt.Key.Key_A,
     "S": Qt.Key.Key_S,
@@ -429,7 +438,7 @@ def dispatch_key(key_letter):
     Used by ClickableKeyCell in node_layout_overlay.py to wire mouse clicks to
     the same dispatch logic as keyboard input.
 
-    Single-shot keys (V, Z, F, C): disarm leader mode, then dispatch.
+    Single-shot keys (V, Z, F, C, X): disarm leader mode, then dispatch.
     Chaining keys (W, A, S, D, Q, E): hide overlay but keep leader mode active,
     then dispatch.
 

@@ -185,7 +185,7 @@ _KEY_LAYOUT = [
     ("D", "Move Right",   1, 2),
     ("F", "Freeze",       1, 3),
     ("Z", "Horiz Layout", 2, 0),
-    # row 2 col 1 intentionally empty — X is not in the command set
+    ("X", "Sel Hidden",   2, 1),
     ("C", "Clear State", 2, 2),
     ("V", "Layout",       2, 3),
 ]
@@ -324,8 +324,6 @@ class LeaderKeyOverlay(QDialog):
         # D-04/D-05: QWERTY grid layout
         key_grid = QGridLayout()
         key_grid.setSpacing(8)
-        # Give the empty X column (col 1, row 2) visible width matching other cells
-        key_grid.setColumnMinimumWidth(1, 64)
 
         for key_letter, action_label, row, col in _KEY_LAYOUT:
             key_cell_widget = self._make_key_cell(key_letter, action_label)
