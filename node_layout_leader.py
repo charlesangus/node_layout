@@ -349,6 +349,77 @@ _LETTER_TO_QT_KEY = {
     "E": Qt.Key.Key_E,
 }
 
+# ---------------------------------------------------------------------------
+# Keyboard layout remap — adapts dispatch tables for non-QWERTY layouts
+# ---------------------------------------------------------------------------
+
+def _build_layout_remap():
+    """Return a dict mapping QWERTY canonical key letters to current-layout key letters.
+
+    Uses the system locale to infer the likely keyboard layout. This is a
+    heuristic: users can configure any layout on any locale, but this covers
+    the most common cases. Falls back to an empty dict (QWERTY identity) if
+    detection fails or the layout is unrecognised.
+
+    Must match the identical function in node_layout_overlay.py so that
+    the display letters and dispatch keys stay in sync.
+    """
+    try:
+        from PySide6.QtCore import QLocale  # noqa: PLC0415
+        locale_name = QLocale.system().name()  # e.g. "fr_FR", "de_DE"
+        lang, _, country = locale_name.partition("_")
+        # AZERTY: France, Belgium
+        if country in ("FR", "BE") or lang == "fr":
+            return {"Q": "A", "W": "Z", "A": "Q", "Z": "W"}
+        # QWERTZ: Germany, Austria, Switzerland, Czech Republic, Slovakia, etc.
+        if country in ("DE", "AT", "CH") or lang in ("de", "cs", "sk", "sl", "hr"):
+            return {"Y": "Z", "Z": "Y"}
+    except Exception:  # noqa: BLE001
+        pass
+    return {}
+
+
+def _apply_layout_remap(dispatch, chaining_dispatch, letter_to_key, remap):
+    """Rebuild dispatch tables to match the user's keyboard layout.
+
+    Args:
+        dispatch: Single-shot dispatch table {Qt.Key: callable}.
+        chaining_dispatch: Chaining dispatch table {Qt.Key: callable}.
+        letter_to_key: Letter-to-Qt-key mapping {str: Qt.Key}.
+        remap: QWERTY→layout letter mapping e.g. {"Q": "A", "W": "Z", ...}.
+
+    Returns:
+        Tuple of (new_dispatch, new_chaining_dispatch, new_letter_to_key).
+    """
+    # Build QWERTY Qt.Key → layout Qt.Key substitution table
+    qwerty_key_to_layout_key = {}
+    for qwerty_letter, layout_letter in remap.items():
+        qwerty_qt_key = getattr(Qt.Key, f"Key_{qwerty_letter.upper()}")
+        layout_qt_key = getattr(Qt.Key, f"Key_{layout_letter.upper()}")
+        qwerty_key_to_layout_key[qwerty_qt_key] = layout_qt_key
+
+    new_dispatch = {
+        qwerty_key_to_layout_key.get(qt_key, qt_key): func
+        for qt_key, func in dispatch.items()
+    }
+    new_chaining_dispatch = {
+        qwerty_key_to_layout_key.get(qt_key, qt_key): func
+        for qt_key, func in chaining_dispatch.items()
+    }
+    # Remap letter strings and their associated Qt keys
+    new_letter_to_key = {
+        remap.get(letter, letter): qwerty_key_to_layout_key.get(qt_key, qt_key)
+        for letter, qt_key in letter_to_key.items()
+    }
+    return new_dispatch, new_chaining_dispatch, new_letter_to_key
+
+
+_LAYOUT_REMAP = _build_layout_remap()
+if _LAYOUT_REMAP:
+    _DISPATCH_TABLE, _CHAINING_DISPATCH_TABLE, _LETTER_TO_QT_KEY = _apply_layout_remap(
+        _DISPATCH_TABLE, _CHAINING_DISPATCH_TABLE, _LETTER_TO_QT_KEY, _LAYOUT_REMAP
+    )
+
 
 # ---------------------------------------------------------------------------
 # DAG widget discovery helper (D-08)
