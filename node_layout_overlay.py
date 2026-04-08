@@ -409,6 +409,22 @@ class LeaderKeyOverlay(QDialog):
             self.move(x, y)
         super().show()
 
+    def hideEvent(self, event):  # noqa: N802 — Qt naming convention
+        """Ensure leader mode is disarmed when the overlay is dismissed for any reason.
+
+        Qt's Popup window type auto-closes the popup when the user clicks outside
+        it via Qt's internal machinery, bypassing LeaderKeyFilter's MouseButtonPress
+        handler. This override ensures _disarm() is called on every hide path so
+        leader mode state stays consistent.
+
+        Re-entrance is safe: _disarm() guards against double-disarm with its
+        _leader_active check, so the call from _disarm() → _overlay.hide() →
+        hideEvent() is a no-op.
+        """
+        super().hideEvent(event)
+        import node_layout_leader  # noqa: PLC0415
+        node_layout_leader._disarm()
+
     def showEvent(self, event):  # noqa: N802 — Qt naming convention
         """Apply platform-specific activation suppression after the native window is created.
 

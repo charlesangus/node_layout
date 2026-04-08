@@ -475,5 +475,47 @@ class TestOverlayReparentMethod(unittest.TestCase):
         )
 
 
+class TestPopupAutoCloseDisarmsLeader(unittest.TestCase):
+    """hideEvent must call _disarm() to handle Qt Popup auto-close — fixes issue #6."""
+
+    def test_hide_event_method_defined_on_overlay(self):
+        """LeaderKeyOverlay must define hideEvent() to catch Qt Popup auto-close dismissal."""
+        tree = _parse_overlay_ast()
+        overlay_class = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == "LeaderKeyOverlay":
+                overlay_class = node
+                break
+        self.assertIsNotNone(overlay_class, "LeaderKeyOverlay class must exist")
+        method_names = {
+            node.name
+            for node in ast.walk(overlay_class)
+            if isinstance(node, ast.FunctionDef)
+        }
+        self.assertIn(
+            "hideEvent",
+            method_names,
+            "LeaderKeyOverlay must define hideEvent() to catch Qt Popup auto-close dismissal (issue #6)",
+        )
+
+    def test_hide_event_calls_disarm(self):
+        """hideEvent must call node_layout_leader._disarm() to deactivate leader mode."""
+        source = _load_overlay_source()
+        self.assertIn(
+            "_disarm",
+            source,
+            "node_layout_overlay must reference _disarm() so hideEvent can deactivate leader mode (issue #6)",
+        )
+
+    def test_hide_event_imports_node_layout_leader(self):
+        """hideEvent must import node_layout_leader to access _disarm()."""
+        source = _load_overlay_source()
+        self.assertIn(
+            "node_layout_leader",
+            source,
+            "node_layout_overlay must import node_layout_leader for hideEvent _disarm() call (issue #6)",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
