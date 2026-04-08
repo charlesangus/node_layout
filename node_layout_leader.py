@@ -157,28 +157,20 @@ def _dispatch_horizontal_layout():
     node_layout.layout_selected_horizontal()
 
 
-def _dispatch_freeze_toggle():
-    """Freeze / unfreeze toggle dispatch for the F key (D-11, DISP-03).
+def _dispatch_freeze():
+    """Freeze dispatch for the F key — always freezes, never unfreezes.
 
-    Semantics — "any unfrozen means freeze all":
-    - If ALL selected nodes are already frozen  → unfreeze_selected()
-    - If ANY selected node is unfrozen          → freeze_selected()
-    - Empty selection                           → no-op
+    Use the C key (clear state) to unfreeze.
+    - Empty selection → no-op
     """
     import nuke  # noqa: PLC0415
 
     import node_layout  # noqa: PLC0415
-    from node_layout_state import read_freeze_group  # noqa: PLC0415
 
-    selected_nodes = nuke.selectedNodes()
-    if not selected_nodes:
+    if not nuke.selectedNodes():
         return
 
-    all_frozen = all(read_freeze_group(node) is not None for node in selected_nodes)
-    if all_frozen:
-        node_layout.unfreeze_selected()
-    else:
-        node_layout.freeze_selected()
+    node_layout.freeze_selected()
 
 
 def _dispatch_clear_state():
@@ -308,7 +300,7 @@ def _dispatch_expand():
 _DISPATCH_TABLE = {
     Qt.Key.Key_V: _dispatch_layout,
     Qt.Key.Key_Z: _dispatch_horizontal_layout,
-    Qt.Key.Key_F: _dispatch_freeze_toggle,
+    Qt.Key.Key_F: _dispatch_freeze,
     Qt.Key.Key_C: _dispatch_clear_state,
     Qt.Key.Key_X: _dispatch_select_hidden_downstream,
     Qt.Key.Key_H: _dispatch_arrange_horizontal,

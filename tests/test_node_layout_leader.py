@@ -151,11 +151,11 @@ class TestDispatchTableKeys(unittest.TestCase):
         )
 
     def test_dispatch_key_f_present(self):
-        """Key_F must be referenced in source for freeze toggle."""
+        """Key_F must be referenced in source for freeze command."""
         self.assertIn(
             "Key_F",
             self.source,
-            "Dispatch table must reference Qt.Key.Key_F for freeze toggle (DISP-03)",
+            "Dispatch table must reference Qt.Key.Key_F for freeze command (DISP-03)",
         )
 
     def test_dispatch_key_c_present(self):
@@ -479,6 +479,59 @@ class TestArmUsesReparent(unittest.TestCase):
             "_overlay.setParent(",
             self.source,
             "arm() must not call _overlay.setParent() directly — use _overlay.reparent() instead",
+        )
+
+
+class TestFreezeIsNotToggle(unittest.TestCase):
+    """F key must always freeze, never toggle — issue #4."""
+
+    def setUp(self):
+        self.source = _load_leader_source()
+        self.tree = _parse_leader_ast()
+        self.top_level_functions = {
+            node.name: node
+            for node in self.tree.body
+            if isinstance(node, ast.FunctionDef)
+        }
+
+    def test_dispatch_freeze_toggle_removed(self):
+        """_dispatch_freeze_toggle must not exist — it was the toggle implementation."""
+        self.assertNotIn(
+            "_dispatch_freeze_toggle",
+            self.top_level_functions,
+            "_dispatch_freeze_toggle must be removed; F key should always freeze, never toggle",
+        )
+
+    def test_dispatch_freeze_exists(self):
+        """_dispatch_freeze must exist as a top-level function."""
+        self.assertIn(
+            "_dispatch_freeze",
+            self.top_level_functions,
+            "_dispatch_freeze() must be defined as a top-level function",
+        )
+
+    def test_dispatch_freeze_does_not_call_unfreeze(self):
+        """_dispatch_freeze must never call unfreeze_selected — no toggle behavior."""
+        freeze_fn = self.top_level_functions.get("_dispatch_freeze")
+        self.assertIsNotNone(freeze_fn, "_dispatch_freeze() must exist")
+        fn_source = ast.get_source_segment(self.source, freeze_fn)
+        self.assertNotIn(
+            "unfreeze_selected",
+            fn_source,
+            "_dispatch_freeze must not call unfreeze_selected() — F key must only freeze",
+        )
+
+    def test_key_f_maps_to_dispatch_freeze(self):
+        """Key_F entry in _DISPATCH_TABLE must reference _dispatch_freeze, not the old toggle."""
+        self.assertIn(
+            "_dispatch_freeze",
+            self.source,
+            "_dispatch_freeze must be referenced in the dispatch table",
+        )
+        self.assertNotIn(
+            "_dispatch_freeze_toggle",
+            self.source,
+            "_dispatch_freeze_toggle must not appear anywhere in the source",
         )
 
 
