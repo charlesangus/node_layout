@@ -34,7 +34,15 @@ import sys
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QCursor, QFont, QGuiApplication, QPainter
-from PySide6.QtWidgets import QDialog, QGridLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QDialog,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QVBoxLayout,
+    QWidget,
+)
 
 # ---------------------------------------------------------------------------
 # Windows-specific activation suppression via ctypes (260331-axc Task 3)
@@ -161,8 +169,41 @@ def _restore_nuke_focus(parent_widget):
 
 
 # ---------------------------------------------------------------------------
+# Keyboard layout detection — maps QWERTY canonical keys to physical key letters
+# for the user's active keyboard layout.
+# ---------------------------------------------------------------------------
+
+def _build_layout_remap():
+    """Return a dict mapping QWERTY canonical key letters to current-layout key letters.
+
+    Uses the system locale to infer the likely keyboard layout. This is a
+    heuristic: users can configure any layout on any locale, but this covers
+    the most common cases. Falls back to an empty dict (QWERTY identity) if
+    detection fails or the layout is unrecognised.
+
+    Examples:
+        AZERTY (fr_FR): {"Q": "A", "W": "Z", "A": "Q", "Z": "W"}
+        QWERTZ (de_DE): {"Y": "Z", "Z": "Y"}
+        QWERTY (default): {}
+    """
+    try:
+        from PySide6.QtCore import QLocale  # noqa: PLC0415
+        locale_name = QLocale.system().name()  # e.g. "fr_FR", "de_DE"
+        lang, _, country = locale_name.partition("_")
+        # AZERTY: France, Belgium
+        if country in ("FR", "BE") or lang == "fr":
+            return {"Q": "A", "W": "Z", "A": "Q", "Z": "W"}
+        # QWERTZ: Germany, Austria, Switzerland, Czech Republic, Slovakia, etc.
+        if country in ("DE", "AT", "CH") or lang in ("de", "cs", "sk", "sl", "hr"):
+            return {"Y": "Z", "Z": "Y"}
+    except Exception:  # noqa: BLE001
+        pass
+    return {}
+
+
+# ---------------------------------------------------------------------------
 # Module-level constants (D-09, D-10, D-17)
-# Named constants allow AST tests to verify two distinct badge colors without
+# Named constants allow AST tests to verify distinct badge colors without
 # importing PySide6 in the test environment.
 # ---------------------------------------------------------------------------
 
@@ -170,29 +211,46 @@ def _restore_nuke_focus(parent_widget):
 _CHAINING_KEY_COLOR = QColor(40, 120, 160)
 # Neutral white/gray — one-shot keys exit leader mode
 _SINGLE_SHOT_KEY_COLOR = QColor(220, 220, 220)
+# Green tint — primary layout action keys (Horiz Layout, Layout)
+_LAYOUT_KEY_COLOR = QColor(60, 160, 80)
 
-# Keys that keep leader mode active after being pressed (WASD / QE) — D-09
-CHAINING_KEYS = {"W", "A", "S", "D", "Q", "E"}
+# QWERTY canonical key sets — used as source for layout-aware remapping
+_QWERTY_CHAINING_KEYS = {"W", "A", "S", "D", "Q", "E"}
+_QWERTY_LAYOUT_KEYS = {"Z", "V"}
+
+_LAYOUT_REMAP = _build_layout_remap()
+
+# Layout-aware key sets for badge color determination
+CHAINING_KEYS = {_LAYOUT_REMAP.get(k, k) for k in _QWERTY_CHAINING_KEYS}
+LAYOUT_KEYS = {_LAYOUT_REMAP.get(k, k) for k in _QWERTY_LAYOUT_KEYS}
 
 # ---------------------------------------------------------------------------
 # Key layout data — QWERTY grid positions (D-05, D-07)
+# _KEY_LAYOUT_QWERTY holds the canonical QWERTY definitions (required by AST
+# tests for string-literal presence checks).  _KEY_LAYOUT is the active list
+# after applying the keyboard layout remap.
 # ---------------------------------------------------------------------------
 
-_KEY_LAYOUT = [
+_KEY_LAYOUT_QWERTY = [
     # (key_letter, action_label, row, col)
-    ("Q", "Shrink",       0, 0),
-    ("W", "Move Up",      0, 1),
-    ("E", "Expand",       0, 2),
-    ("A", "Move Left",    1, 0),
-    ("S", "Move Down",    1, 1),
-    ("D", "Move Right",   1, 2),
-    ("F", "Freeze",       1, 3),
-    ("Z", "Horiz Layout", 2, 0),
-    ("X", "Sel Hidden",   2, 1),
-    ("C", "Clear State",  2, 2),
-    ("V", "Layout",       2, 3),
+    ("Q", "Shrink",        0, 0),
+    ("W", "Move Up",       0, 1),
+    ("E", "Expand",        0, 2),
+    ("A", "Move Left",     1, 0),
+    ("S", "Move Down",     1, 1),
+    ("D", "Move Right",    1, 2),
+    ("F", "Freeze",        1, 3),
+    ("Z", "Horiz Layout",  2, 0),
+    ("X", "Sel Hidden",    2, 1),
+    ("C", "Clear State",   2, 2),
+    ("V", "Layout",        2, 3),
     ("H", "Arrange Horiz", 1, 5),
     ("Y", "Arrange Vert",  0, 5),
+]
+
+_KEY_LAYOUT = [
+    (_LAYOUT_REMAP.get(letter, letter), label, row, col)
+    for letter, label, row, col in _KEY_LAYOUT_QWERTY
 ]
 
 
@@ -216,34 +274,47 @@ class ClickableKeyCell(QWidget):
         # messages being sent per child widget, which can trigger activation on Windows).
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
-        cell_layout = QVBoxLayout(self)
-        cell_layout.setContentsMargins(2, 2, 2, 2)
-        cell_layout.setSpacing(3)
-
-        # Chaining keys get teal/blue badge; single-shot keys get neutral badge.
-        badge_color = _CHAINING_KEY_COLOR if key_letter in CHAINING_KEYS else _SINGLE_SHOT_KEY_COLOR
+        # Layout keys get green badge; chaining keys get teal/blue; all others get neutral.
+        if key_letter in LAYOUT_KEYS:
+            badge_color = _LAYOUT_KEY_COLOR
+        elif key_letter in CHAINING_KEYS:
+            badge_color = _CHAINING_KEY_COLOR
+        else:
+            badge_color = _SINGLE_SHOT_KEY_COLOR
         badge_rgb = f"rgb({badge_color.red()}, {badge_color.green()}, {badge_color.blue()})"
 
-        # Key badge — bold monospace letter
-        key_badge_label = QLabel(key_letter)
-        badge_font = QFont("monospace", 14, QFont.Weight.Bold)
-        key_badge_label.setFont(badge_font)
-        key_badge_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        key_badge_label.setStyleSheet(
-            f"background-color: {badge_rgb}; color: #111111;"
-            " border-radius: 4px; padding: 4px 12px; min-width: 28px;"
+        # Square badge frame containing both key letter and action label (issue #5).
+        # Fixed size enforces the square shape; QFrame stylesheet sets the background.
+        # Child labels use transparent backgrounds so they don't paint over the frame color.
+        badge_frame = QFrame()
+        badge_frame.setFixedSize(60, 60)
+        badge_frame.setStyleSheet(
+            f"QFrame {{ background-color: {badge_rgb}; border-radius: 6px; }}"
         )
 
-        # Action label — small gray text below badge
-        action_label_widget = QLabel(action_label)
-        action_font = QFont()
-        action_font.setPointSize(8)
-        action_label_widget.setFont(action_font)
-        action_label_widget.setStyleSheet("color: #999999;")
-        action_label_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        badge_inner_layout = QVBoxLayout(badge_frame)
+        badge_inner_layout.setContentsMargins(3, 6, 3, 4)
+        badge_inner_layout.setSpacing(2)
 
-        cell_layout.addWidget(key_badge_label)
-        cell_layout.addWidget(action_label_widget)
+        key_letter_label = QLabel(key_letter)
+        key_letter_label.setFont(QFont("monospace", 13, QFont.Weight.Bold))
+        key_letter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        key_letter_label.setStyleSheet("color: #111111; background-color: transparent;")
+
+        action_text_label = QLabel(action_label)
+        action_text_font = QFont()
+        action_text_font.setPointSize(7)
+        action_text_label.setFont(action_text_font)
+        action_text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        action_text_label.setWordWrap(True)
+        action_text_label.setStyleSheet("color: #2a2a2a; background-color: transparent;")
+
+        badge_inner_layout.addWidget(key_letter_label)
+        badge_inner_layout.addWidget(action_text_label)
+
+        cell_layout = QVBoxLayout(self)
+        cell_layout.setContentsMargins(0, 0, 0, 0)
+        cell_layout.addWidget(badge_frame)
 
     def mousePressEvent(self, event):  # noqa: N802 — Qt naming convention
         """Dispatch the key action when this cell is clicked.
@@ -310,7 +381,7 @@ class LeaderKeyOverlay(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
     def _build_ui(self):
-        """Construct the LEADER KEY title and QWERTY key grid."""
+        """Construct the LEADER KEY title, QWERTY key grid, and sidebar key list."""
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(16, 12, 16, 16)
         main_layout.setSpacing(10)
@@ -325,6 +396,10 @@ class LeaderKeyOverlay(QDialog):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title_label)
 
+        # Content area: key grid on left, sidebar text list on right
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(16)
+
         # D-04/D-05: QWERTY grid layout
         key_grid = QGridLayout()
         key_grid.setSpacing(8)
@@ -333,7 +408,49 @@ class LeaderKeyOverlay(QDialog):
             key_cell_widget = self._make_key_cell(key_letter, action_label)
             key_grid.addWidget(key_cell_widget, row, col)
 
-        main_layout.addLayout(key_grid)
+        content_layout.addLayout(key_grid)
+
+        # Sidebar: compact text list of every key and its action (issue #5)
+        sidebar_widget = QWidget()
+        sidebar_layout = QVBoxLayout(sidebar_widget)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(4)
+
+        sidebar_title = QLabel("KEYS")
+        sidebar_title_font = QFont()
+        sidebar_title_font.setBold(True)
+        sidebar_title_font.setPointSize(8)
+        sidebar_title.setFont(sidebar_title_font)
+        sidebar_title.setStyleSheet("color: #888888;")
+        sidebar_layout.addWidget(sidebar_title)
+
+        for key_letter, action_label, _row, _col in _KEY_LAYOUT:
+            if key_letter in LAYOUT_KEYS:
+                sidebar_color = _LAYOUT_KEY_COLOR
+            elif key_letter in CHAINING_KEYS:
+                sidebar_color = _CHAINING_KEY_COLOR
+            else:
+                sidebar_color = _SINGLE_SHOT_KEY_COLOR
+            key_rgb = (
+                f"rgb({sidebar_color.red()}, "
+                f"{sidebar_color.green()}, "
+                f"{sidebar_color.blue()})"
+            )
+
+            sidebar_row_label = QLabel(
+                f'<span style="color: {key_rgb}; font-weight: bold;">[{key_letter}]</span>'
+                f'<span style="color: #aaaaaa;"> {action_label}</span>'
+            )
+            sidebar_row_label.setTextFormat(Qt.TextFormat.RichText)
+            sidebar_row_font = QFont()
+            sidebar_row_font.setPointSize(8)
+            sidebar_row_label.setFont(sidebar_row_font)
+            sidebar_layout.addWidget(sidebar_row_label)
+
+        sidebar_layout.addStretch()
+        content_layout.addWidget(sidebar_widget)
+
+        main_layout.addLayout(content_layout)
         self.setLayout(main_layout)
 
     def _make_key_cell(self, key_letter, action_label):
