@@ -34,7 +34,15 @@ import sys
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QCursor, QFont, QGuiApplication, QPainter
-from PySide6.QtWidgets import QDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QDialog,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QVBoxLayout,
+    QWidget,
+)
 
 # ---------------------------------------------------------------------------
 # Windows-specific activation suppression via ctypes (260331-axc Task 3)
@@ -418,11 +426,16 @@ class LeaderKeyOverlay(QDialog):
 
         for key_letter, action_label, _row, _col in _KEY_LAYOUT:
             if key_letter in LAYOUT_KEYS:
-                key_rgb = f"rgb({_LAYOUT_KEY_COLOR.red()}, {_LAYOUT_KEY_COLOR.green()}, {_LAYOUT_KEY_COLOR.blue()})"
+                sidebar_color = _LAYOUT_KEY_COLOR
             elif key_letter in CHAINING_KEYS:
-                key_rgb = f"rgb({_CHAINING_KEY_COLOR.red()}, {_CHAINING_KEY_COLOR.green()}, {_CHAINING_KEY_COLOR.blue()})"
+                sidebar_color = _CHAINING_KEY_COLOR
             else:
-                key_rgb = f"rgb({_SINGLE_SHOT_KEY_COLOR.red()}, {_SINGLE_SHOT_KEY_COLOR.green()}, {_SINGLE_SHOT_KEY_COLOR.blue()})"
+                sidebar_color = _SINGLE_SHOT_KEY_COLOR
+            key_rgb = (
+                f"rgb({sidebar_color.red()}, "
+                f"{sidebar_color.green()}, "
+                f"{sidebar_color.blue()})"
+            )
 
             sidebar_row_label = QLabel(
                 f'<span style="color: {key_rgb}; font-weight: bold;">[{key_letter}]</span>'
