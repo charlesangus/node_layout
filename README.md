@@ -70,6 +70,42 @@ Non-mask paths are resolved first; mask paths are deferred and only get a Dot if
 
 ---
 
+### Leader Window — `Shift+D`
+
+Press `Shift+D` to enter leader mode. After a brief delay a floating HUD appears over the DAG showing every available command mapped to a single key.
+
+![Leader Window](docs/leader_window.svg)
+
+Press any key shown in the overlay to dispatch that command. There is no second modifier needed — just the bare key. You can also click any badge directly with the mouse.
+
+**Key colour coding:**
+
+- **Green** — primary layout actions (V, Z). Exits leader mode after dispatch.
+- **Teal/blue** — chaining keys (W, A, S, D, Q, E). Stay in leader mode so you can nudge or scale repeatedly without re-pressing `Shift+D`.
+- **White/gray** — single-shot utility keys (F, C, X, H, Y). Exit leader mode after dispatch.
+
+Any unrecognised key or mouse click outside the overlay dismisses it without doing anything.
+
+**Commands:**
+
+| Key | Action | Behaviour |
+|-----|--------|-----------|
+| `V` | Layout | 1 node selected → layout upstream; 2+ nodes → layout selected |
+| `Z` | Horiz Layout | Lay out the selection along a horizontal spine |
+| `F` | Freeze | Freeze selected nodes (pin them so layout skips them) |
+| `C` | Clear State | Clear layout state; context-aware (upstream or selected) |
+| `X` | Sel Hidden | Select downstream nodes whose inputs are hidden |
+| `H` | Arrange Horiz | Arrange selected nodes in a horizontal row |
+| `Y` | Arrange Vert | Arrange selected nodes in a vertical column |
+| `W` | Move Up | Shift selected nodes up (chaining) |
+| `A` | Move Left | Shift selected nodes left (chaining) |
+| `S` | Move Down | Shift selected nodes down (chaining) |
+| `D` | Move Right | Shift selected nodes right (chaining) |
+| `Q` | Shrink | Scale down selected or upstream tree (chaining) |
+| `E` | Expand | Scale up selected or upstream tree (chaining) |
+
+---
+
 ### Select Upstream Ignoring Hidden — `E`
 
 Select a node and press `E`. All visibly upstream nodes are selected. This is handy for grabbing an entire dependency chain before running Layout Selected, or before moving a subgraph.
@@ -124,4 +160,9 @@ This means same-color nodes snap neatly together while nodes with different colo
 | `node_layout.py` | Core layout engine: dimension calculation, node placement, diamond resolution, collision avoidance |
 | `menu.py` | Registers all commands and keyboard shortcuts in Nuke's Edit menu |
 | `make_room.py` | Bulk node displacement for creating space in the DAG |
-| `util.py` | Upstream selection and file-based sorting utilities |
+| `node_layout_leader.py` | Leader key event filter and state machine (`Shift+D`) |
+| `node_layout_overlay.py` | Floating HUD overlay widget displayed during leader mode |
+| `node_layout_util.py` | Upstream selection, hidden-output selection, and file-based sorting utilities |
+| `node_layout_prefs.py` | Preferences loading and defaults |
+| `node_layout_prefs_dialog.py` | Preferences UI dialog |
+| `node_layout_state.py` | Per-node layout state persistence (freeze, scale) |

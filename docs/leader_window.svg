@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="530" height="320" viewBox="0 0 530 320">
+
+  <!-- Background: dark translucent rounded rect -->
+  <rect x="1" y="1" width="528" height="318" rx="8" ry="8"
+        fill="#141414" stroke="#b4b4b4" stroke-opacity="0.39" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="185" y="32"
+        font-family="sans-serif" font-weight="bold" font-size="14"
+        fill="#cccccc" text-anchor="middle" letter-spacing="1">LEADER KEY</text>
+
+  <!-- ─── KEY GRID ──────────────────────────────────────────────────────── -->
+  <!--
+    Cell size: 60×60, spacing: 8px
+    Col x positions (absolute): col0=16, col1=84, col2=152, col3=220, col5=296
+      (col4 is always empty; collapses to 0 in QGridLayout, leaving 16px total gap)
+    Row y positions: row0=50, row1=118, row2=186
+
+    Key letter baseline:  row_y + 20
+    Action line 1 baseline: row_y + 34
+    Action line 2 baseline: row_y + 44
+
+    Colors:
+      Chaining  (stay in leader mode): #2878A0  (teal/blue)
+      Layout    (primary actions):     #3CA050  (green)
+      Single-shot (exit leader mode):  #DCDCDC  (white/gray)
+  -->
+
+  <!-- ── ROW 0 ── -->
+
+  <!-- Q · Shrink  [chaining] -->
+  <rect x="16"  y="50" width="60" height="60" rx="6" fill="#2878A0"/>
+  <text x="46"  y="70" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">Q</text>
+  <text x="46"  y="84" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Shrink</text>
+
+  <!-- W · Move Up  [chaining] -->
+  <rect x="84"  y="50" width="60" height="60" rx="6" fill="#2878A0"/>
+  <text x="114" y="70" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">W</text>
+  <text x="114" y="84" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Move</text>
+  <text x="114" y="94" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Up</text>
+
+  <!-- E · Expand  [chaining] -->
+  <rect x="152" y="50" width="60" height="60" rx="6" fill="#2878A0"/>
+  <text x="182" y="70" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">E</text>
+  <text x="182" y="84" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Expand</text>
+
+  <!-- Y · Arrange Vert  [single-shot] -->
+  <rect x="296" y="50" width="60" height="60" rx="6" fill="#DCDCDC"/>
+  <text x="326" y="70" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">Y</text>
+  <text x="326" y="84" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Arrange</text>
+  <text x="326" y="94" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Vert</text>
+
+  <!-- ── ROW 1 ── -->
+
+  <!-- A · Move Left  [chaining] -->
+  <rect x="16"  y="118" width="60" height="60" rx="6" fill="#2878A0"/>
+  <text x="46"  y="138" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">A</text>
+  <text x="46"  y="152" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Move</text>
+  <text x="46"  y="162" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Left</text>
+
+  <!-- S · Move Down  [chaining] -->
+  <rect x="84"  y="118" width="60" height="60" rx="6" fill="#2878A0"/>
+  <text x="114" y="138" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">S</text>
+  <text x="114" y="152" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Move</text>
+  <text x="114" y="162" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Down</text>
+
+  <!-- D · Move Right  [chaining] -->
+  <rect x="152" y="118" width="60" height="60" rx="6" fill="#2878A0"/>
+  <text x="182" y="138" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">D</text>
+  <text x="182" y="152" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Move</text>
+  <text x="182" y="162" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Right</text>
+
+  <!-- F · Freeze  [single-shot] -->
+  <rect x="220" y="118" width="60" height="60" rx="6" fill="#DCDCDC"/>
+  <text x="250" y="138" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">F</text>
+  <text x="250" y="154" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Freeze</text>
+
+  <!-- H · Arrange Horiz  [single-shot] -->
+  <rect x="296" y="118" width="60" height="60" rx="6" fill="#DCDCDC"/>
+  <text x="326" y="138" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">H</text>
+  <text x="326" y="152" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Arrange</text>
+  <text x="326" y="162" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Horiz</text>
+
+  <!-- ── ROW 2 ── -->
+
+  <!-- Z · Horiz Layout  [layout] -->
+  <rect x="16"  y="186" width="60" height="60" rx="6" fill="#3CA050"/>
+  <text x="46"  y="206" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">Z</text>
+  <text x="46"  y="220" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Horiz</text>
+  <text x="46"  y="230" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Layout</text>
+
+  <!-- X · Sel Hidden  [single-shot] -->
+  <rect x="84"  y="186" width="60" height="60" rx="6" fill="#DCDCDC"/>
+  <text x="114" y="206" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">X</text>
+  <text x="114" y="220" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Sel</text>
+  <text x="114" y="230" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Hidden</text>
+
+  <!-- C · Clear State  [single-shot] -->
+  <rect x="152" y="186" width="60" height="60" rx="6" fill="#DCDCDC"/>
+  <text x="182" y="206" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">C</text>
+  <text x="182" y="220" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Clear</text>
+  <text x="182" y="230" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">State</text>
+
+  <!-- V · Layout  [layout] -->
+  <rect x="220" y="186" width="60" height="60" rx="6" fill="#3CA050"/>
+  <text x="250" y="206" font-family="monospace" font-weight="bold" font-size="13" fill="#111" text-anchor="middle">V</text>
+  <text x="250" y="222" font-family="sans-serif" font-size="7"  fill="#2a2a2a" text-anchor="middle">Layout</text>
+
+  <!-- ─── SIDEBAR ────────────────────────────────────────────────────────── -->
+  <!-- Starts at x=376 (grid right edge 356 + 16px gap + 4px breathing room) -->
+
+  <text x="376" y="65"
+        font-family="sans-serif" font-weight="bold" font-size="10" fill="#888888">KEYS</text>
+
+  <!-- Entries in _KEY_LAYOUT_QWERTY order; baseline y=83, step=18px -->
+
+  <text x="376" y="83"  font-family="sans-serif" font-size="9"><tspan fill="#2878A0" font-weight="bold" font-family="monospace">[Q]</tspan><tspan fill="#aaaaaa"> Shrink</tspan></text>
+  <text x="376" y="101" font-family="sans-serif" font-size="9"><tspan fill="#2878A0" font-weight="bold" font-family="monospace">[W]</tspan><tspan fill="#aaaaaa"> Move Up</tspan></text>
+  <text x="376" y="119" font-family="sans-serif" font-size="9"><tspan fill="#2878A0" font-weight="bold" font-family="monospace">[E]</tspan><tspan fill="#aaaaaa"> Expand</tspan></text>
+  <text x="376" y="137" font-family="sans-serif" font-size="9"><tspan fill="#2878A0" font-weight="bold" font-family="monospace">[A]</tspan><tspan fill="#aaaaaa"> Move Left</tspan></text>
+  <text x="376" y="155" font-family="sans-serif" font-size="9"><tspan fill="#2878A0" font-weight="bold" font-family="monospace">[S]</tspan><tspan fill="#aaaaaa"> Move Down</tspan></text>
+  <text x="376" y="173" font-family="sans-serif" font-size="9"><tspan fill="#2878A0" font-weight="bold" font-family="monospace">[D]</tspan><tspan fill="#aaaaaa"> Move Right</tspan></text>
+  <text x="376" y="191" font-family="sans-serif" font-size="9"><tspan fill="#DCDCDC" font-weight="bold" font-family="monospace">[F]</tspan><tspan fill="#aaaaaa"> Freeze</tspan></text>
+  <text x="376" y="209" font-family="sans-serif" font-size="9"><tspan fill="#3CA050" font-weight="bold" font-family="monospace">[Z]</tspan><tspan fill="#aaaaaa"> Horiz Layout</tspan></text>
+  <text x="376" y="227" font-family="sans-serif" font-size="9"><tspan fill="#DCDCDC" font-weight="bold" font-family="monospace">[X]</tspan><tspan fill="#aaaaaa"> Sel Hidden</tspan></text>
+  <text x="376" y="245" font-family="sans-serif" font-size="9"><tspan fill="#DCDCDC" font-weight="bold" font-family="monospace">[C]</tspan><tspan fill="#aaaaaa"> Clear State</tspan></text>
+  <text x="376" y="263" font-family="sans-serif" font-size="9"><tspan fill="#3CA050" font-weight="bold" font-family="monospace">[V]</tspan><tspan fill="#aaaaaa"> Layout</tspan></text>
+  <text x="376" y="281" font-family="sans-serif" font-size="9"><tspan fill="#DCDCDC" font-weight="bold" font-family="monospace">[H]</tspan><tspan fill="#aaaaaa"> Arrange Horiz</tspan></text>
+  <text x="376" y="299" font-family="sans-serif" font-size="9"><tspan fill="#DCDCDC" font-weight="bold" font-family="monospace">[Y]</tspan><tspan fill="#aaaaaa"> Arrange Vert</tspan></text>
+
+</svg>
