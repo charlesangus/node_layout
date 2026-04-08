@@ -1,0 +1,73 @@
+#! /usr/local/Nuke16.0v6/libnuke-16.0.6.so -nx
+version 16.0 v6
+Root {
+ inputs 0
+ name ""
+ colorManagement Nuke
+ workingSpaceLUT linear
+}
+# === Scenario E: wide frozen block as vertical-layout side input ===
+#
+# FreezeRoot (Merge2) has:
+#   input[0] = ExternalCB (non-frozen external source)
+#   input[1] = FrozenGrade (frozen non-root member, 300px to the LEFT)
+#
+# FreezeRoot is input[1] (side input) of Merge1.
+# FrozenGrade.left_overhang = FreezeRoot.xpos - FrozenGrade.xpos = 300 - 0 = 300.
+#
+# Without the fix: compute_dims(FreezeRoot) returns root_x_offset=0 so FreezeRoot
+# is placed at alloc1 and FrozenGrade is restored at alloc1-300 (inside Merge1's
+# column).  With the fix: root_x_offset=300 so FreezeRoot lands at alloc1+300 and
+# FrozenGrade lands at alloc1 — cleanly to the right of Merge1.
+
+# FrozenGrade: frozen, positioned 300px LEFT of FreezeRoot
+Grade {
+ inputs 0
+ name FrozenGrade
+ xpos 0
+ ypos -50
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 1.0, \"v_scale\": 1.0, \"freeze_group\": \"a1b2c3d4-0000-0000-0000-frozen-vert\"}"
+}
+# ExternalCB: non-frozen direct input to FreezeRoot
+CheckerBoard2 {
+ inputs 0
+ name ExternalCB
+ xpos 300
+ ypos -100
+}
+# FreezeRoot (Merge2): input[0]=ExternalCB, input[1]=FrozenGrade (frozen)
+Merge2 {
+ inputs 2
+ name FreezeRoot
+ xpos 300
+ ypos 0
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 1.0, \"v_scale\": 1.0, \"freeze_group\": \"a1b2c3d4-0000-0000-0000-frozen-vert\"}"
+}
+# Spine: SpineCB -> SpineGrade -> Merge1 (primary chain)
+CheckerBoard2 {
+ inputs 0
+ name SpineCB
+ xpos 0
+ ypos -200
+}
+Grade {
+ name SpineGrade
+ xpos 0
+ ypos -100
+}
+# Merge1: input[0]=SpineGrade (primary/centered), input[1]=FreezeRoot (side)
+Merge2 {
+ inputs 2
+ name Merge1
+ xpos 0
+ ypos 100
+}
+Write {
+ name Write1
+ xpos 0
+ ypos 200
+}

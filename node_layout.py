@@ -1141,6 +1141,18 @@ def compute_dims(
             )
         result = (W, H, 0)
 
+    # For non-leaf freeze block roots: widen the allocation to the full block bbox and
+    # set root_x_offset to left_overhang so restored members don't escape their band.
+    # The leaf branch above already handles the no-inputs case via leaf_dims; this
+    # covers the case where the root has in-filter external inputs that prevent the
+    # leaf branch from firing, yet frozen non-root members still carry wide X offsets.
+    if inputs and dimension_overrides is not None and id(node) in dimension_overrides:
+        block = dimension_overrides[id(node)]
+        block_total_width = block.right_extent + block.left_overhang
+        w, h, root_x_off = result
+        if block_total_width > w or block.left_overhang > root_x_off:
+            result = (max(w, block_total_width), h, max(root_x_off, block.left_overhang))
+
     memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale, layout_mode)] = result  # noqa: E501
     return result
 

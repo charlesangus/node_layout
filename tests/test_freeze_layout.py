@@ -1075,5 +1075,141 @@ class TestFreezeBlockClass(unittest.TestCase):
         self.assertIn(id(member), member_ids)
 
 
+# ---------------------------------------------------------------------------
+# TestComputeDimsNonLeafFreeze
+# ---------------------------------------------------------------------------
+
+
+class TestComputeDimsNonLeafFreeze(unittest.TestCase):
+    """Tests that compute_dims correctly widens the allocation for non-leaf freeze
+    block roots (roots that have in-filter external inputs).
+
+    Before the fix, compute_dims only applied the leaf_dims override when a freeze
+    block root had NO visible inputs.  When the root had at least one non-frozen
+    external input, the normal width formula fired and produced a result narrower
+    than the block's actual bbox — causing restored members to overlap adjacent
+    subtrees after layout.
+    """
+
+    def _build_snap_threshold(self):
+        return 8
+
+    def test_non_leaf_freeze_root_uses_block_bbox_width(self):
+        """compute_dims for a freeze root with a non-frozen input must return at
+        least block_total_width = right_extent + left_overhang, not just root.screenWidth()."""
+        # ExternalCB → FreezeRoot (Merge2: input0=ExternalCB, input1=FrozenGrade[filtered])
+        # FrozenGrade offset: +300px right → right_extent = 300+80, left_overhang = 0
+        # block_total_width = 380
+
+        external_cb = _make_state_stub_node()
+        external_cb.setXpos(200)
+        external_cb.setYpos(-100)
+
+        freeze_root = _make_state_stub_node(freeze_group="group-aaa")
+        freeze_root.setXpos(200)
+        freeze_root.setYpos(0)
+
+        frozen_grade = _make_state_stub_node(freeze_group="group-aaa")
+        frozen_grade.setXpos(500)   # 300px right of freeze_root
+        frozen_grade.setYpos(-50)
+
+        _wire(external_cb, freeze_root, slot=0)
+        _wire(frozen_grade, freeze_root, slot=1)
+
+        block = _nl.FreezeBlock(root=freeze_root, members=[freeze_root, frozen_grade],
+                                uuid="group-aaa")
+        dimension_overrides = {id(freeze_root): block}
+
+        # vertical_freeze_filter excludes frozen_grade (non-root member)
+        node_filter = {freeze_root, external_cb}
+
+        snap_threshold = self._build_snap_threshold()
+        memo = {}
+        width, height, root_x_offset = _nl.compute_dims(
+            freeze_root, memo, snap_threshold, node_count=3,
+            node_filter=node_filter,
+            dimension_overrides=dimension_overrides,
+        )
+
+        # right_extent = (500+80) - 200 = 380; left_overhang = 0
+        expected_block_total_width = 380
+        self.assertGreaterEqual(
+            width, expected_block_total_width,
+            f"compute_dims width {width} must be >= block_total_width "
+            f"{expected_block_total_width} for non-leaf freeze root",
+        )
+
+    def test_non_leaf_freeze_root_root_x_offset_uses_left_overhang(self):
+        """When the freeze block has left_overhang > 0, root_x_offset must equal
+        left_overhang so the block's left edge aligns with alloc_left."""
+        # FrozenGrade is 200px to the LEFT of FreezeRoot → left_overhang = 200
+        external_cb = _make_state_stub_node()
+        external_cb.setXpos(200)
+        external_cb.setYpos(-100)
+
+        freeze_root = _make_state_stub_node(freeze_group="group-aaa")
+        freeze_root.setXpos(400)
+        freeze_root.setYpos(0)
+
+        frozen_grade = _make_state_stub_node(freeze_group="group-aaa")
+        frozen_grade.setXpos(200)   # 200px to the left → left_overhang = 400-200 = 200
+        frozen_grade.setYpos(-50)
+
+        _wire(external_cb, freeze_root, slot=0)
+        _wire(frozen_grade, freeze_root, slot=1)
+
+        block = _nl.FreezeBlock(root=freeze_root, members=[freeze_root, frozen_grade],
+                                uuid="group-aaa")
+        dimension_overrides = {id(freeze_root): block}
+        node_filter = {freeze_root, external_cb}
+
+        snap_threshold = self._build_snap_threshold()
+        memo = {}
+        width, height, root_x_offset = _nl.compute_dims(
+            freeze_root, memo, snap_threshold, node_count=3,
+            node_filter=node_filter,
+            dimension_overrides=dimension_overrides,
+        )
+
+        self.assertEqual(
+            root_x_offset, 200,
+            f"root_x_offset {root_x_offset} must equal left_overhang 200 "
+            f"so the block's left edge aligns with alloc_left",
+        )
+        # width must also cover total block bbox: left_overhang + right_extent = 200 + 80 = 280
+        self.assertGreaterEqual(width, 280)
+
+    def test_leaf_freeze_root_still_uses_leaf_dims(self):
+        """Freeze root with no in-filter inputs must still use leaf_dims (regression guard)."""
+        freeze_root = _make_state_stub_node(freeze_group="group-aaa")
+        freeze_root.setXpos(200)
+        freeze_root.setYpos(0)
+
+        frozen_member = _make_state_stub_node(freeze_group="group-aaa")
+        frozen_member.setXpos(500)   # 300px right → right_extent = 380
+        frozen_member.setYpos(-50)
+
+        _wire(frozen_member, freeze_root, slot=0)
+
+        block = _nl.FreezeBlock(root=freeze_root, members=[freeze_root, frozen_member],
+                                uuid="group-aaa")
+        dimension_overrides = {id(freeze_root): block}
+
+        # Filter excludes frozen_member (non-root); freeze_root has no visible inputs
+        node_filter = {freeze_root}
+
+        snap_threshold = self._build_snap_threshold()
+        memo = {}
+        width, height, root_x_offset = _nl.compute_dims(
+            freeze_root, memo, snap_threshold, node_count=2,
+            node_filter=node_filter,
+            dimension_overrides=dimension_overrides,
+        )
+
+        # leaf_dims: right_extent=(500+80-200)=380, left_overhang=0 → (380, block_height, 0)
+        self.assertEqual(width, 380, f"leaf freeze root must return leaf_dims width 380, got {width}")
+        self.assertEqual(root_x_offset, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

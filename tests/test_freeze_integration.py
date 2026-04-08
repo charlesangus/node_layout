@@ -417,5 +417,72 @@ class TestFreezeHorizontalBboxOverlap(unittest.TestCase):
         self.assertTrue(os.path.exists(self.after_png))
 
 
+@unittest.skipIf(not _NUKE_PARSER_AVAILABLE, "nuke_parser required for integration tests")
+class TestFreezeVerticalBboxOverlap(unittest.TestCase):
+    """Scenario E: wide frozen block as vertical-layout side input must not overlap
+    the spine column after layout_upstream.
+
+    The fixture has a Merge1 with:
+      input[0] = SpineGrade (normal vertical chain, primary/centered above Merge1)
+      input[1] = FreezeRoot (freeze block root with a non-frozen direct input AND a
+                 frozen non-root member placed 300px to the LEFT of FreezeRoot)
+
+    FreezeRoot's left_overhang is 300.  Without the fix, compute_dims returns
+    root_x_offset=0 so FreezeRoot is placed at alloc1 = Merge1.xpos + node_w + gap.
+    FrozenGrade is then restored at alloc1 - 300, which lands INSIDE Merge1's column
+    (to the left of Merge1.xpos + node_w).  With the fix, root_x_offset=300 so
+    FreezeRoot is placed at alloc1 + 300 and FrozenGrade lands at alloc1, cleanly
+    to the right of Merge1.
+    """
+
+    NODE_WIDTH = 80
+
+    @classmethod
+    def setUpClass(cls):
+        cls.positions, cls.output_nk = _run_nuke_layout(
+            "frozen_vertical.nk",
+            command="layout_upstream",
+            root_node="Write1",
+            output_nk_name="frozen_vertical_after.nk",
+        )
+        fixture_path = os.path.join(_FIXTURES, "frozen_vertical.nk")
+        cls.before_png = _generate_png(
+            fixture_path, "frozen_vertical_BEFORE.png", title="BEFORE layout"
+        )
+        cls.after_png = _generate_png(
+            cls.output_nk, "frozen_vertical_AFTER.png", title="AFTER layout"
+        )
+
+    def test_frozen_member_does_not_intrude_into_spine_column(self):
+        """FrozenGrade (restored with left_overhang offset) must be to the RIGHT of
+        Merge1's right edge, not intruding into the spine / primary-input column."""
+        merge1_x = self.positions["Merge1"]["xpos"]
+        merge1_right = merge1_x + self.NODE_WIDTH
+        frozen_grade_x = self.positions["FrozenGrade"]["xpos"]
+
+        self.assertGreaterEqual(
+            frozen_grade_x,
+            merge1_right,
+            f"FrozenGrade (xpos={frozen_grade_x}) must be >= Merge1 right edge "
+            f"({merge1_right}). Wide freeze block bbox not accounted for in vertical "
+            f"layout: left_overhang caused the member to intrude into the spine column.",
+        )
+
+    def test_freeze_block_relative_offset_preserved(self):
+        """FrozenGrade must maintain its original X offset (-300) from FreezeRoot."""
+        freeze_root_x = self.positions["FreezeRoot"]["xpos"]
+        frozen_grade_x = self.positions["FrozenGrade"]["xpos"]
+        # Original offset: FrozenGrade is 300px to the LEFT of FreezeRoot
+        actual_offset = frozen_grade_x - freeze_root_x
+        self.assertAlmostEqual(
+            actual_offset, -300, delta=2,
+            msg=f"FrozenGrade x-offset from FreezeRoot: {actual_offset} (expected -300)",
+        )
+
+    def test_pngs_generated(self):
+        self.assertTrue(os.path.exists(self.before_png))
+        self.assertTrue(os.path.exists(self.after_png))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
