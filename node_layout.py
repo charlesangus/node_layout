@@ -3037,18 +3037,28 @@ def layout_selected(scheme_multiplier=None):
                             dimension_overrides=dimension_overrides,
                         )
 
-            # place_subtree deselects all nodes before inserting Dots, so nuke.selectedNodes()
-            # returns [] here. Use the original selected_nodes list — the Python objects are
-            # the same, but their positions have been updated by place_subtree.
-            final_selected_ids = {id(n) for n in node_filter}
-            # Include freeze-excluded members in bbox_after so the full footprint is captured,
-            # and add them to the skip-set so they aren't pushed by push_nodes_to_make_room.
-            all_final_nodes = list(selected_nodes)
+            # Collect all nodes actually touched by place_subtree, including newly created
+            # routing Dot nodes that are absent from the original node_filter.  Using no
+            # filter here mirrors layout_upstream's collect_subtree_nodes(root) call so
+            # that newly inserted routing Dots land in the skip-set for
+            # push_nodes_to_make_room and are never incorrectly displaced.
+            final_selected_ids = set()
+            all_final_nodes_dedup = {}  # id(node) -> node, for deduplication
+            for layout_root in roots:
+                for post_node in collect_subtree_nodes(layout_root):  # no filter
+                    node_id = id(post_node)
+                    final_selected_ids.add(node_id)
+                    all_final_nodes_dedup[node_id] = post_node
+            # Include freeze-excluded members in bbox_after so the full footprint is
+            # captured, and add them to the skip-set so they aren't pushed by
+            # push_nodes_to_make_room.
             for block in freeze_blocks:
                 for member in block.members:
-                    if id(member) not in final_selected_ids:
-                        all_final_nodes.append(member)
-                        final_selected_ids.add(id(member))
+                    node_id = id(member)
+                    if node_id not in final_selected_ids:
+                        all_final_nodes_dedup[node_id] = member
+                        final_selected_ids.add(node_id)
+            all_final_nodes = list(all_final_nodes_dedup.values())
             bbox_after = compute_node_bounding_box(all_final_nodes)
 
             if bbox_before and bbox_after:
