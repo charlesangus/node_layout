@@ -1515,9 +1515,13 @@ def place_subtree(
                 per_node_v_scale=per_node_v_scale,
             )
             # After recursion, reposition diamond Dots to be centered under the consumer tile.
-            # The upstream subtree above the Dot is unaffected — only the Dot tile moves.
+            # Only applies to the primary slot (slot 0): that is the "directly above" column
+            # where centering is correct.  Diamond Dots at secondary slots (A inputs, masks)
+            # already have the right side-offset position from x_positions[i]; centering
+            # would incorrectly move them inline with the B input.
             if (inp.Class() == 'Dot'
-                    and inp.knob('node_layout_diamond_dot') is not None):
+                    and inp.knob('node_layout_diamond_dot') is not None
+                    and actual_slots[i] == 0):
                 diamond_centered_x = _center_x(inp.screenWidth(), x, node.screenWidth())
                 inp.setXpos(diamond_centered_x)
 

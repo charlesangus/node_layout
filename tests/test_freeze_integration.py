@@ -484,5 +484,88 @@ class TestFreezeVerticalBboxOverlap(unittest.TestCase):
         self.assertTrue(os.path.exists(self.after_png))
 
 
+@unittest.skipIf(not _NUKE_PARSER_AVAILABLE, "nuke_parser required for integration tests")
+class TestFreezeHorizontalSpineLeftMember(unittest.TestCase):
+    """Scenario F: non-root frozen member on the spine must not create extra spacing.
+
+    When FreezeRoot is a spine node and FrozenMember (its input[0]) is also a
+    selected/spine node, the advance formula must NOT treat FrozenMember as a
+    normal spine node — its final position is determined by restore_positions(),
+    not the formula.  Without the fix, FurtherUpstream (upstream of FrozenMember)
+    is placed relative to FrozenMember's pre-restore (too-far-left) position,
+    leaving a gap of (step_x + screenWidth) extra pixels to the right of
+    FurtherUpstream after restore.
+
+    The fixture: DownstreamA -> FreezeRoot -> FrozenMember -> FurtherUpstream
+    FrozenMember is 200px to the LEFT of FreezeRoot (left_overhang = 200).
+    """
+
+    NODE_WIDTH = 80
+    # Default horizontal_subtree_gap from node_layout_prefs.py
+    STEP_X = 250
+
+    @classmethod
+    def setUpClass(cls):
+        cls.positions, cls.output_nk = _run_nuke_layout(
+            "frozen_horizontal_spine.nk",
+            command="layout_selected_horizontal",
+            select_nodes=["DownstreamA", "FreezeRoot", "FrozenMember", "FurtherUpstream"],
+            output_nk_name="frozen_horizontal_spine_after.nk",
+        )
+        fixture_path = os.path.join(_FIXTURES, "frozen_horizontal_spine.nk")
+        cls.before_png = _generate_png(
+            fixture_path, "frozen_horizontal_spine_BEFORE.png", title="BEFORE layout"
+        )
+        cls.after_png = _generate_png(
+            cls.output_nk, "frozen_horizontal_spine_AFTER.png", title="AFTER layout"
+        )
+
+    def test_frozen_member_offset_preserved(self):
+        """FrozenMember must sit exactly 200px to the LEFT of FreezeRoot."""
+        freeze_root_x = self.positions["FreezeRoot"]["xpos"]
+        frozen_member_x = self.positions["FrozenMember"]["xpos"]
+        left_overhang = 200  # fixture: FreezeRoot.xpos - FrozenMember.xpos = 200 - 0
+        expected_x = freeze_root_x - left_overhang
+        self.assertAlmostEqual(
+            frozen_member_x, expected_x, delta=2,
+            msg=(
+                f"FrozenMember xpos={frozen_member_x} should be FreezeRoot.xpos "
+                f"({freeze_root_x}) - {left_overhang} = {expected_x}"
+            ),
+        )
+
+    def test_no_extra_gap_before_further_upstream(self):
+        """Gap between FurtherUpstream's right edge and FrozenMember's left edge
+        must equal step_x (250px), not step_x + NODE_WIDTH extra."""
+        frozen_member_x = self.positions["FrozenMember"]["xpos"]
+        further_upstream_x = self.positions["FurtherUpstream"]["xpos"]
+        further_upstream_right = further_upstream_x + self.NODE_WIDTH
+        actual_gap = frozen_member_x - further_upstream_right
+        self.assertAlmostEqual(
+            actual_gap, self.STEP_X, delta=10,
+            msg=(
+                f"Gap between FurtherUpstream right edge ({further_upstream_right}) "
+                f"and FrozenMember left edge ({frozen_member_x}) is {actual_gap}px; "
+                f"expected ~{self.STEP_X}px (step_x). "
+                f"Extra gap indicates frozen member was treated as a spine node."
+            ),
+        )
+
+    def test_further_upstream_does_not_overlap_frozen_member(self):
+        """FurtherUpstream's right edge must not overlap FrozenMember."""
+        frozen_member_x = self.positions["FrozenMember"]["xpos"]
+        further_upstream_x = self.positions["FurtherUpstream"]["xpos"]
+        further_upstream_right = further_upstream_x + self.NODE_WIDTH
+        self.assertLessEqual(
+            further_upstream_right, frozen_member_x,
+            f"FurtherUpstream right edge ({further_upstream_right}) overlaps "
+            f"FrozenMember left edge ({frozen_member_x}).",
+        )
+
+    def test_pngs_generated(self):
+        self.assertTrue(os.path.exists(self.before_png))
+        self.assertTrue(os.path.exists(self.after_png))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

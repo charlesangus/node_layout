@@ -17,7 +17,7 @@ _WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _WORKSPACE not in sys.path:
     sys.path.insert(0, _WORKSPACE)
 
-import nuke  # noqa: E402
+import nuke  # noqa: E402, I001
 import node_layout  # noqa: E402
 import node_layout_state  # noqa: E402
 
@@ -89,13 +89,15 @@ def main():
         print(f"    left_overhang={block.left_overhang}, right_extent={block.right_extent}")
         print(f"    leaf_dims={block.leaf_dims}")
         for m in members:
-            print(f"    {m.name()}: xpos={m.xpos()}, ypos={m.ypos()}, "
-                  f"inputs=[{', '.join(m.input(s).name() for s in range(m.inputs()) if m.input(s))}]")
+            inp_names = ', '.join(
+                m.input(s).name() for s in range(m.inputs()) if m.input(s)
+            )
+            print(f"    {m.name()}: xpos={m.xpos()}, ypos={m.ypos()}, inputs=[{inp_names}]")
 
     # Print Merge1's inputs
     merge1 = nuke.toNode("Merge1")
     if merge1:
-        print(f"\n  Merge1 inputs:")
+        print("\n  Merge1 inputs:")
         for slot in range(merge1.inputs()):
             inp = merge1.input(slot)
             if inp:
@@ -140,7 +142,7 @@ def main():
         subtree = node_layout.collect_subtree_nodes(side_root)
         # Include any freeze members that are part of this subtree
         subtree_ids = {id(n) for n in subtree}
-        for uuid, members in freeze_groups.items():
+        for _uuid, members in freeze_groups.items():
             for member in members:
                 if id(member) in subtree_ids:
                     # Add all members of this freeze group
@@ -152,7 +154,7 @@ def main():
 
     # Compute bounding boxes
     spine_bbox = group_bbox(spine_nodes)
-    print(f"\n=== Bounding Boxes ===")
+    print("\n=== Bounding Boxes ===")
     print_bbox("B-spine", spine_bbox)
 
     side_bboxes = []
@@ -198,7 +200,7 @@ def main():
             if strict_overlap(bbox_i, bbox_j):
                 failures.append(f"{label_i} overlaps {label_j}")
 
-    print(f"\n=== Results ===")
+    print("\n=== Results ===")
     if failures:
         for msg in failures:
             print(f"  FAIL: {msg}")
