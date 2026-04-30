@@ -159,18 +159,21 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
     Local frame convention: ``node``'s top-left is placed at (0, 0). The
     returned Subtree is in this frame; the parent caller translates it.
     """
-    # --- Freeze block leaf (opaque rigid bbox) ---
+    # --- Freeze block detection ---
     block = ctx.dimension_overrides.get(id(node))
-    if block is not None and id(node) == block.root_id:
-        # Drop the entire freeze block as an opaque leaf. The block is anchored
-        # so its root sits at (0, 0).  Members keep their stored relative offsets.
+    is_block_root = block is not None and id(node) == block.root_id
+
+    pairs, all_side, fan_active = _filtered_input_pairs(node, ctx)
+
+    if is_block_root and not pairs:
+        # Block root with no in-filter external inputs: opaque rigid leaf.
+        # Members keep their stored relative offsets; root sits at (0, 0).
         nodes = {id(block.root): (0, 0)}
         for member in block.members:
             if id(member) == block.root_id:
                 continue
-            dx, dy = block.offsets.get(id(member), (0, 0))
-            nodes[id(member)] = (dx, dy)
-        # bbox spans the full block: left_overhang to the left, right_extent to the right.
+            dx_off, dy_off = block.offsets.get(id(member), (0, 0))
+            nodes[id(member)] = (dx_off, dy_off)
         bbox = (
             -block.left_overhang,
             0,
@@ -183,8 +186,6 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
             nodes=nodes,
             root_node=node,
         )
-
-    pairs, all_side, fan_active = _filtered_input_pairs(node, ctx)
 
     if not pairs:
         # Plain leaf
@@ -428,6 +429,23 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
             bbox_top = min(bbox_top, dot_y)
             bbox_right = max(bbox_right, dot_x + dot_w)
             bbox_bottom = max(bbox_bottom, dot_y + dot_h)
+
+    # If this node is a freeze block root with external inputs, fold the rigid
+    # block geometry into the result: add non-root members at their stored
+    # offsets and widen the bbox to include the full block extent.
+    if is_block_root:
+        for member in block.members:
+            if id(member) == block.root_id:
+                continue
+            dx_off, dy_off = block.offsets.get(id(member), (0, 0))
+            nodes_dict[id(member)] = (dx_off, dy_off)
+            bbox_left = min(bbox_left, dx_off)
+            bbox_top = min(bbox_top, dy_off)
+            bbox_right = max(bbox_right, dx_off + member.screenWidth())
+            bbox_bottom = max(bbox_bottom, dy_off + member.screenHeight())
+        # Reserve at least the block's pre-baked extents.
+        bbox_left = min(bbox_left, -block.left_overhang)
+        bbox_right = max(bbox_right, block.right_extent)
 
     return Subtree(
         bbox=(bbox_left, bbox_top, bbox_right, bbox_bottom),
@@ -887,12 +905,16 @@ class BboxEngine(node_layout_engine.LayoutEngine):
             block.restore_positions()
 
         # Phase 7b: lay out non-frozen subtrees that feed into freeze blocks
-        # from outside.  Each external input is laid out vertically and placed
-        # above its connecting block member (which is already at its final pos
-        # after restore_positions).
+        # from outside.  Each external input to a NON-root member is laid out
+        # vertically and placed above its connecting block member (which is
+        # already at its final pos after restore_positions).  External inputs
+        # to the BLOCK ROOT are handled in-recursion (the root is processed
+        # as a normal node with its in-filter inputs as side inputs).
         for block in freeze_blocks:
             external_inputs = block.get_external_inputs(node_layout.get_inputs)
             for entry_node, connecting_member in external_inputs:
+                if id(connecting_member) == block.root_id:
+                    continue
                 upstream_subtree_nodes = node_layout.collect_subtree_nodes(entry_node)
                 upstream_filter = set(upstream_subtree_nodes)
                 upstream_ctx = LayoutContext(
