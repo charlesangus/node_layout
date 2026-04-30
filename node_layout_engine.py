@@ -32,6 +32,7 @@ executed by the legacy implementation regardless of engine selection.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 from abc import ABC, abstractmethod
 
@@ -90,11 +91,26 @@ def get_engine_name() -> str:
     return "legacy"
 
 
+def _try_autoload(name: str) -> None:
+    """Auto-import the engine module that owns the given name.
+
+    Each engine module registers itself via ``@register(name)`` at import.
+    Importing here is a no-op if the module has already been imported, and
+    silently skipped if the module does not exist on this branch.
+    """
+    if name in _ENGINES:
+        return
+    module_name = f"node_layout_v2_{name}"
+    with contextlib.suppress(ImportError):
+        __import__(module_name)
+
+
 def get_engine() -> LayoutEngine | None:
     """Return an instance of the active engine, or None if it's legacy."""
     name = get_engine_name()
     if name == "legacy":
         return None
+    _try_autoload(name)
     engine_cls = _ENGINES.get(name)
     if engine_cls is None:
         raise ValueError(
