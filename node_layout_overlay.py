@@ -169,39 +169,6 @@ def _restore_nuke_focus(parent_widget):
 
 
 # ---------------------------------------------------------------------------
-# Keyboard layout detection — maps QWERTY canonical keys to physical key letters
-# for the user's active keyboard layout.
-# ---------------------------------------------------------------------------
-
-def _build_layout_remap():
-    """Return a dict mapping QWERTY canonical key letters to current-layout key letters.
-
-    Uses the system locale to infer the likely keyboard layout. This is a
-    heuristic: users can configure any layout on any locale, but this covers
-    the most common cases. Falls back to an empty dict (QWERTY identity) if
-    detection fails or the layout is unrecognised.
-
-    Examples:
-        AZERTY (fr_FR): {"Q": "A", "W": "Z", "A": "Q", "Z": "W"}
-        QWERTZ (de_DE): {"Y": "Z", "Z": "Y"}
-        QWERTY (default): {}
-    """
-    try:
-        from PySide6.QtCore import QLocale  # noqa: PLC0415
-        locale_name = QLocale.system().name()  # e.g. "fr_FR", "de_DE"
-        lang, _, country = locale_name.partition("_")
-        # AZERTY: France, Belgium
-        if country in ("FR", "BE") or lang == "fr":
-            return {"Q": "A", "W": "Z", "A": "Q", "Z": "W"}
-        # QWERTZ: Germany, Austria, Switzerland, Czech Republic, Slovakia, etc.
-        if country in ("DE", "AT", "CH") or lang in ("de", "cs", "sk", "sl", "hr"):
-            return {"Y": "Z", "Z": "Y"}
-    except Exception:  # noqa: BLE001
-        pass
-    return {}
-
-
-# ---------------------------------------------------------------------------
 # Module-level constants (D-09, D-10, D-17)
 # Named constants allow AST tests to verify distinct badge colors without
 # importing PySide6 in the test environment.
@@ -214,22 +181,24 @@ _SINGLE_SHOT_KEY_COLOR = QColor(220, 220, 220)
 # Green tint — primary layout action keys (Horiz Layout, Layout)
 _LAYOUT_KEY_COLOR = QColor(60, 160, 80)
 
-# QWERTY canonical key sets — used as source for layout-aware remapping
-_QWERTY_CHAINING_KEYS = {"W", "A", "S", "D", "Q", "E"}
-_QWERTY_LAYOUT_KEYS = {"Z", "V"}
-
-_LAYOUT_REMAP = _build_layout_remap()
-
-# Layout-aware key sets for badge color determination
-CHAINING_KEYS = {_LAYOUT_REMAP.get(k, k) for k in _QWERTY_CHAINING_KEYS}
-LAYOUT_KEYS = {_LAYOUT_REMAP.get(k, k) for k in _QWERTY_LAYOUT_KEYS}
+# QWERTY canonical key sets.  Display letters are resolved through
+# node_layout_leader.physical_letter_for(), which is backed by preferences.
+CHAINING_KEYS = {"W", "A", "S", "D", "Q", "E"}
+LAYOUT_KEYS = {"Z", "V"}
 
 # ---------------------------------------------------------------------------
 # Key layout data — QWERTY grid positions (D-05, D-07)
-# _KEY_LAYOUT_QWERTY holds the canonical QWERTY definitions (required by AST
-# tests for string-literal presence checks).  _KEY_LAYOUT is the active list
-# after applying the keyboard layout remap.
+# _KEY_LAYOUT_QWERTY holds canonical QWERTY definitions.  Row/col positions
+# mirror physical keyboard geometry, including blank columns between separated
+# keys:
+#   Row 0 (Q-row): Q=0 W=1 E=2 R=3 T=4 Y=5 U=6 I=7 O=8 P=9
+#   Row 1 (A-row): A=0 S=1 D=2 F=3 G=4 H=5 J=6 K=7 L=8 ;=9
+#   Row 2 (Z-row): Z=0 X=1 C=2 V=3 B=4 N=5 M=6 ,=7 .=8 /=9
 # ---------------------------------------------------------------------------
+
+_KEYBOARD_GRID_COLUMNS = 10
+_KEYBOARD_GRID_ROWS = 3
+_KEYBOARD_CELL_SIZE = 60
 
 _KEY_LAYOUT_QWERTY = [
     # (key_letter, action_label, row, col)
@@ -248,10 +217,28 @@ _KEY_LAYOUT_QWERTY = [
     ("Y", "Arrange Vert",  0, 5),
 ]
 
-_KEY_LAYOUT = [
-    (_LAYOUT_REMAP.get(letter, letter), label, row, col)
-    for letter, label, row, col in _KEY_LAYOUT_QWERTY
-]
+def _physical_letter_for(canonical_letter):
+    try:
+        import node_layout_leader  # noqa: PLC0415
+        return node_layout_leader.physical_letter_for(canonical_letter)
+    except Exception:  # noqa: BLE001
+        return canonical_letter
+
+
+def _build_key_layout():
+    """Return overlay rows with preference-backed physical display letters."""
+    return [
+        (_physical_letter_for(letter), label, row, col, letter)
+        for letter, label, row, col in _KEY_LAYOUT_QWERTY
+    ]
+
+
+def _reserve_keyboard_grid_cells(key_grid):
+    """Keep empty keyboard columns/rows visible even when no widget occupies them."""
+    for col in range(_KEYBOARD_GRID_COLUMNS):
+        key_grid.setColumnMinimumWidth(col, _KEYBOARD_CELL_SIZE)
+    for row in range(_KEYBOARD_GRID_ROWS):
+        key_grid.setRowMinimumHeight(row, _KEYBOARD_CELL_SIZE)
 
 
 class ClickableKeyCell(QWidget):
@@ -265,9 +252,10 @@ class ClickableKeyCell(QWidget):
     indicating the cell is clickable.
     """
 
-    def __init__(self, key_letter, action_label, parent=None):
+    def __init__(self, key_letter, action_label, canonical_letter=None, parent=None):
         super().__init__(parent)
         self._key_letter = key_letter
+        self._canonical_letter = canonical_letter or key_letter
 
         # NoFocus prevents any implicit focus grab when the cell is shown or clicked.
         # Cursor is inherited from LeaderKeyOverlay (set there to avoid WM_SETCURSOR
@@ -275,9 +263,9 @@ class ClickableKeyCell(QWidget):
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         # Layout keys get green badge; chaining keys get teal/blue; all others get neutral.
-        if key_letter in LAYOUT_KEYS:
+        if self._canonical_letter in LAYOUT_KEYS:
             badge_color = _LAYOUT_KEY_COLOR
-        elif key_letter in CHAINING_KEYS:
+        elif self._canonical_letter in CHAINING_KEYS:
             badge_color = _CHAINING_KEY_COLOR
         else:
             badge_color = _SINGLE_SHOT_KEY_COLOR
@@ -403,9 +391,12 @@ class LeaderKeyOverlay(QDialog):
         # D-04/D-05: QWERTY grid layout
         key_grid = QGridLayout()
         key_grid.setSpacing(8)
+        _reserve_keyboard_grid_cells(key_grid)
 
-        for key_letter, action_label, row, col in _KEY_LAYOUT:
-            key_cell_widget = self._make_key_cell(key_letter, action_label)
+        key_layout = _build_key_layout()
+
+        for key_letter, action_label, row, col, canonical_letter in key_layout:
+            key_cell_widget = self._make_key_cell(key_letter, action_label, canonical_letter)
             key_grid.addWidget(key_cell_widget, row, col)
 
         content_layout.addLayout(key_grid)
@@ -424,10 +415,10 @@ class LeaderKeyOverlay(QDialog):
         sidebar_title.setStyleSheet("color: #888888;")
         sidebar_layout.addWidget(sidebar_title)
 
-        for key_letter, action_label, _row, _col in _KEY_LAYOUT:
-            if key_letter in LAYOUT_KEYS:
+        for key_letter, action_label, _row, _col, canonical_letter in key_layout:
+            if canonical_letter in LAYOUT_KEYS:
                 sidebar_color = _LAYOUT_KEY_COLOR
-            elif key_letter in CHAINING_KEYS:
+            elif canonical_letter in CHAINING_KEYS:
                 sidebar_color = _CHAINING_KEY_COLOR
             else:
                 sidebar_color = _SINGLE_SHOT_KEY_COLOR
@@ -453,7 +444,7 @@ class LeaderKeyOverlay(QDialog):
         main_layout.addLayout(content_layout)
         self.setLayout(main_layout)
 
-    def _make_key_cell(self, key_letter, action_label):
+    def _make_key_cell(self, key_letter, action_label, canonical_letter=None):
         """Build a 2-line key cell: bold key badge over gray action label (D-02, D-06).
 
         Args:
@@ -464,7 +455,7 @@ class LeaderKeyOverlay(QDialog):
             A ClickableKeyCell containing the key badge and action label stacked
             vertically.  Mouse clicks on the returned widget dispatch the key action.
         """
-        return ClickableKeyCell(key_letter, action_label)
+        return ClickableKeyCell(key_letter, action_label, canonical_letter)
 
     def paintEvent(self, event):
         """Draw a semi-transparent rounded-rect background (D-01).

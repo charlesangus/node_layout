@@ -17,7 +17,10 @@ DEFAULTS = {
     "mask_input_ratio": 0.333,
     "scaling_reference_count": 150,
     "hint_popup_delay_ms": 0,              # Hint popup delay (ms); 0=immediate
+    "keyboard_layout": "qwerty",           # one of qwerty, azerty, qwertz
 }
+
+_VALID_KEYBOARD_LAYOUTS = {"qwerty", "azerty", "qwertz"}
 
 
 class NodeLayoutPrefs:
@@ -31,7 +34,10 @@ class NodeLayoutPrefs:
                 raw_content = prefs_file_handle.read().strip()
             if raw_content:
                 loaded = json.loads(raw_content)
-                return {**DEFAULTS, **loaded}
+                prefs = {**DEFAULTS, **loaded}
+                if prefs.get("keyboard_layout") not in _VALID_KEYBOARD_LAYOUTS:
+                    prefs["keyboard_layout"] = DEFAULTS["keyboard_layout"]
+                return prefs
         return dict(DEFAULTS)
 
     def get(self, key):

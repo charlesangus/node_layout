@@ -294,38 +294,36 @@ def _dispatch_expand():
 
 
 # ---------------------------------------------------------------------------
-# Dispatch table — maps Qt key codes to handler callables (D-10)
+# Keyboard layout remap — adapts dispatch tables for the configured layout.
+#
+# Dispatch is keyed by physical key position, not produced QWERTY letter.  The
+# active layout comes from node_layout_prefs.keyboard_layout; rebuild_layout()
+# re-derives tables after the preference changes.
 # ---------------------------------------------------------------------------
 
-_DISPATCH_TABLE = {
-    Qt.Key.Key_V: _dispatch_layout,
-    Qt.Key.Key_Z: _dispatch_horizontal_layout,
-    Qt.Key.Key_F: _dispatch_freeze,
-    Qt.Key.Key_C: _dispatch_clear_state,
-    Qt.Key.Key_X: _dispatch_select_hidden_downstream,
-    Qt.Key.Key_H: _dispatch_arrange_horizontal,
-    Qt.Key.Key_Y: _dispatch_arrange_vertical,
+_AZERTY_REMAP = {"Q": "A", "W": "Z", "A": "Q", "Z": "W"}
+_QWERTZ_REMAP = {"Y": "Z", "Z": "Y"}
+_REMAPS_BY_LAYOUT = {
+    "qwerty": {},
+    "azerty": _AZERTY_REMAP,
+    "qwertz": _QWERTZ_REMAP,
 }
 
-# ---------------------------------------------------------------------------
-# Chaining dispatch table — maps chaining key codes to handler callables (D-07)
-# Chaining keys keep leader mode active after dispatch (D-08).
-# ---------------------------------------------------------------------------
 
-_CHAINING_DISPATCH_TABLE = {
-    Qt.Key.Key_W: _dispatch_move_up,
-    Qt.Key.Key_S: _dispatch_move_down,
-    Qt.Key.Key_A: _dispatch_move_left,
-    Qt.Key.Key_D: _dispatch_move_right,
-    Qt.Key.Key_Q: _dispatch_shrink,
-    Qt.Key.Key_E: _dispatch_expand,
-}
+def _remap_from_prefs():
+    """Return the remap dict configured in node_layout_prefs."""
+    try:
+        import node_layout_prefs  # noqa: PLC0415
+        return _REMAPS_BY_LAYOUT.get(
+            node_layout_prefs.prefs_singleton.get("keyboard_layout"), {}
+        )
+    except Exception:  # noqa: BLE001
+        return {}
 
-# ---------------------------------------------------------------------------
-# Letter-to-Qt-key mapping — used by dispatch_key() for click-based dispatch
-# ---------------------------------------------------------------------------
 
-_LETTER_TO_QT_KEY = {
+_LAYOUT_REMAP = _remap_from_prefs()
+
+_CANONICAL_LETTER_TO_QT_KEY = {
     "V": Qt.Key.Key_V,
     "Z": Qt.Key.Key_Z,
     "F": Qt.Key.Key_F,
@@ -341,76 +339,72 @@ _LETTER_TO_QT_KEY = {
     "E": Qt.Key.Key_E,
 }
 
-# ---------------------------------------------------------------------------
-# Keyboard layout remap — adapts dispatch tables for non-QWERTY layouts
-# ---------------------------------------------------------------------------
 
-def _build_layout_remap():
-    """Return a dict mapping QWERTY canonical key letters to current-layout key letters.
-
-    Uses the system locale to infer the likely keyboard layout. This is a
-    heuristic: users can configure any layout on any locale, but this covers
-    the most common cases. Falls back to an empty dict (QWERTY identity) if
-    detection fails or the layout is unrecognised.
-
-    Must match the identical function in node_layout_overlay.py so that
-    the display letters and dispatch keys stay in sync.
-    """
-    try:
-        from PySide6.QtCore import QLocale  # noqa: PLC0415
-        locale_name = QLocale.system().name()  # e.g. "fr_FR", "de_DE"
-        lang, _, country = locale_name.partition("_")
-        # AZERTY: France, Belgium
-        if country in ("FR", "BE") or lang == "fr":
-            return {"Q": "A", "W": "Z", "A": "Q", "Z": "W"}
-        # QWERTZ: Germany, Austria, Switzerland, Czech Republic, Slovakia, etc.
-        if country in ("DE", "AT", "CH") or lang in ("de", "cs", "sk", "sl", "hr"):
-            return {"Y": "Z", "Z": "Y"}
-    except Exception:  # noqa: BLE001
-        pass
-    return {}
+def _letter_to_qt_key(letter):
+    return _CANONICAL_LETTER_TO_QT_KEY.get(letter)
 
 
-def _apply_layout_remap(dispatch, chaining_dispatch, letter_to_key, remap):
-    """Rebuild dispatch tables to match the user's keyboard layout.
-
-    Args:
-        dispatch: Single-shot dispatch table {Qt.Key: callable}.
-        chaining_dispatch: Chaining dispatch table {Qt.Key: callable}.
-        letter_to_key: Letter-to-Qt-key mapping {str: Qt.Key}.
-        remap: QWERTY→layout letter mapping e.g. {"Q": "A", "W": "Z", ...}.
-
-    Returns:
-        Tuple of (new_dispatch, new_chaining_dispatch, new_letter_to_key).
-    """
-    # Build QWERTY Qt.Key → layout Qt.Key substitution table
-    qwerty_key_to_layout_key = {}
-    for qwerty_letter, layout_letter in remap.items():
-        qwerty_qt_key = getattr(Qt.Key, f"Key_{qwerty_letter.upper()}")
-        layout_qt_key = getattr(Qt.Key, f"Key_{layout_letter.upper()}")
-        qwerty_key_to_layout_key[qwerty_qt_key] = layout_qt_key
-
-    new_dispatch = {
-        qwerty_key_to_layout_key.get(qt_key, qt_key): func
-        for qt_key, func in dispatch.items()
-    }
-    new_chaining_dispatch = {
-        qwerty_key_to_layout_key.get(qt_key, qt_key): func
-        for qt_key, func in chaining_dispatch.items()
-    }
-    # Remap letter strings and their associated Qt keys
-    new_letter_to_key = {
-        remap.get(letter, letter): qwerty_key_to_layout_key.get(qt_key, qt_key)
-        for letter, qt_key in letter_to_key.items()
-    }
-    return new_dispatch, new_chaining_dispatch, new_letter_to_key
+def physical_letter_for(canonical_letter):
+    """Return the visible/typed letter for a canonical QWERTY binding."""
+    return _LAYOUT_REMAP.get(canonical_letter, canonical_letter)
 
 
-_LAYOUT_REMAP = _build_layout_remap()
-if _LAYOUT_REMAP:
-    _DISPATCH_TABLE, _CHAINING_DISPATCH_TABLE, _LETTER_TO_QT_KEY = _apply_layout_remap(
-        _DISPATCH_TABLE, _CHAINING_DISPATCH_TABLE, _LETTER_TO_QT_KEY, _LAYOUT_REMAP
-    )
+_SINGLE_SHOT_DISPATCH_BY_LETTER = {
+    "V": _dispatch_layout,
+    "Z": _dispatch_horizontal_layout,
+    "F": _dispatch_freeze,
+    "C": _dispatch_clear_state,
+    "X": _dispatch_select_hidden_downstream,
+    "H": _dispatch_arrange_horizontal,
+    "Y": _dispatch_arrange_vertical,
+}
+
+_CHAINING_DISPATCH_BY_LETTER = {
+    "W": _dispatch_move_up,
+    "S": _dispatch_move_down,
+    "A": _dispatch_move_left,
+    "D": _dispatch_move_right,
+    "Q": _dispatch_shrink,
+    "E": _dispatch_expand,
+}
+
+
+def _build_dispatch_tables():
+    """Return (single, chaining, physical_letter_to_qt_key) for current prefs."""
+    single = {}
+    chaining = {}
+    letter_to_key = {}
+    for canonical_letter, dispatch_function in _SINGLE_SHOT_DISPATCH_BY_LETTER.items():
+        physical_letter = physical_letter_for(canonical_letter)
+        qt_key = _letter_to_qt_key(physical_letter)
+        if qt_key is None:
+            continue
+        single[qt_key] = dispatch_function
+        letter_to_key[physical_letter] = qt_key
+    for canonical_letter, dispatch_function in _CHAINING_DISPATCH_BY_LETTER.items():
+        physical_letter = physical_letter_for(canonical_letter)
+        qt_key = _letter_to_qt_key(physical_letter)
+        if qt_key is None:
+            continue
+        chaining[qt_key] = dispatch_function
+        letter_to_key[physical_letter] = qt_key
+    return single, chaining, letter_to_key
+
+
+_DISPATCH_TABLE, _CHAINING_DISPATCH_TABLE, _LETTER_TO_QT_KEY = _build_dispatch_tables()
+
+
+def rebuild_layout():
+    """Rebuild keyboard remap, dispatch tables, and cached overlay from prefs."""
+    global _LAYOUT_REMAP, _DISPATCH_TABLE, _CHAINING_DISPATCH_TABLE, _LETTER_TO_QT_KEY, _overlay
+    _LAYOUT_REMAP = _remap_from_prefs()
+    _DISPATCH_TABLE, _CHAINING_DISPATCH_TABLE, _LETTER_TO_QT_KEY = _build_dispatch_tables()
+    if _overlay is not None:
+        try:
+            _overlay.deleteLater()
+        except Exception:  # noqa: BLE001
+            pass
+        _overlay = None
 
 
 # ---------------------------------------------------------------------------
