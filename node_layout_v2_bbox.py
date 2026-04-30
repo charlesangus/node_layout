@@ -780,6 +780,61 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                 continue
             block.restore_positions()
 
+        # Phase 7b: lay out non-frozen subtrees that feed into freeze blocks
+        # from outside.  Each external input is laid out vertically and placed
+        # above its connecting block member (which is already at its final pos
+        # after restore_positions).
+        for block in freeze_blocks:
+            external_inputs = block.get_external_inputs(node_layout.get_inputs)
+            for entry_node, connecting_member in external_inputs:
+                upstream_subtree_nodes = node_layout.collect_subtree_nodes(entry_node)
+                upstream_filter = set(upstream_subtree_nodes)
+                upstream_ctx = LayoutContext(
+                    snap_threshold=snap,
+                    node_count=len(upstream_subtree_nodes),
+                    node_filter=upstream_filter,
+                    per_node_scheme=per_node_scheme,
+                    per_node_h_scale=per_node_h_scale,
+                    per_node_v_scale=per_node_v_scale,
+                    dimension_overrides=dimension_overrides,
+                )
+                entry_subtree = layout_vertical(entry_node, upstream_ctx)
+                # Place entry centered above connecting_member.
+                entry_h = entry_subtree.bbox[3] - entry_subtree.bbox[1]
+                raw_gap = node_layout.vertical_gap_between(
+                    entry_node, connecting_member, snap,
+                    scheme_multiplier=per_node_scheme.get(
+                        id(entry_node), prefs.get("normal_multiplier")
+                    ),
+                )
+                gap = max(snap - 1, raw_gap)
+                entry_x = node_layout._center_x(
+                    entry_node.screenWidth(),
+                    connecting_member.xpos(),
+                    connecting_member.screenWidth(),
+                )
+                # The bottom of entry's bbox should sit `gap` above connecting member's top.
+                bbox_bottom_target = connecting_member.ypos() - gap
+                # entry_subtree root sits at (0,0) in its local frame.
+                # We want the root placed at (entry_x, ?) such that
+                # bbox_bottom in world = bbox_bottom_target.
+                # entry_subtree.nodes[id(entry_node)] = (0, 0) in local frame;
+                # bbox bottom in local = entry_subtree.bbox[3].
+                # World root y = (bbox_bottom_target - entry_subtree.bbox[3])
+                root_y = bbox_bottom_target - entry_subtree.bbox[3]
+                upstream_id_map = collect_id_to_node(entry_subtree)
+                # Translate so entry_node lands at (entry_x, root_y).
+                local_root_x, local_root_y = entry_subtree.nodes[id(entry_node)]
+                ux = entry_x - local_root_x
+                uy = root_y - local_root_y
+                _ = entry_h
+                for nid, (lx, ly) in entry_subtree.nodes.items():
+                    obj = upstream_id_map.get(nid)
+                    if obj is None:
+                        continue
+                    obj.setXpos(lx + ux)
+                    obj.setYpos(ly + uy)
+
         # Phase 8: state write-back.
         final_nodes = node_layout.collect_subtree_nodes(original_selected)
         for n in final_nodes:
