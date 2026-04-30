@@ -153,6 +153,27 @@ This means same-color nodes snap neatly together while nodes with different colo
 
 ---
 
+## Development
+
+### Setting up pre-commit hooks
+
+The repo ships a pre-commit hook in `.githooks/` that mirrors the CI checks (ruff lint + pytest). To activate it:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Run this once after cloning. Commits will be blocked if linting or tests fail.
+
+### Running checks manually
+
+```bash
+ruff check .
+pytest tests/ -v
+```
+
+---
+
 ## File Overview
 
 | File | Purpose |

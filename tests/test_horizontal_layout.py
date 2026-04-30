@@ -174,6 +174,9 @@ class _StubInt_Knob:
     def setValue(self, value):
         pass
 
+    def setFlag(self, flag):
+        pass
+
 
 _stub_all_nodes_list = []
 

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo ">>> pre-commit: running ruff..."
+ruff check .
+
+echo ">>> pre-commit: running pytest..."
+pytest tests/ -v
+
+echo ">>> pre-commit: all checks passed."
