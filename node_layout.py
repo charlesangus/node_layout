@@ -3,6 +3,7 @@ import uuid
 
 import nuke
 
+import node_layout_engine
 import node_layout_prefs
 import node_layout_state
 
@@ -2073,6 +2074,10 @@ def _expand_scope_for_freeze_groups(selected_nodes, current_group):
 
 
 def layout_upstream(scheme_multiplier=None):
+    if node_layout_engine.maybe_dispatch(
+        "layout_upstream", scheme_multiplier=scheme_multiplier,
+    ):
+        return
     global _TOOLBAR_FOLDER_MAP
     _TOOLBAR_FOLDER_MAP = None
     _clear_color_cache()
@@ -2586,6 +2591,10 @@ def find_selection_roots(selected_nodes):
 
 
 def layout_selected(scheme_multiplier=None):
+    if node_layout_engine.maybe_dispatch(
+        "layout_selected", scheme_multiplier=scheme_multiplier,
+    ):
+        return
     global _TOOLBAR_FOLDER_MAP
     _TOOLBAR_FOLDER_MAP = None
     _clear_color_cache()
@@ -3269,6 +3278,10 @@ def layout_selected_horizontal(scheme_multiplier=None):
     Writes mode='horizontal' to selected nodes so that subsequent layout_selected()
     calls replay the horizontal layout automatically (HORIZ-03 mode replay).
     """
+    if node_layout_engine.maybe_dispatch(
+        "layout_selected_horizontal", scheme_multiplier=scheme_multiplier,
+    ):
+        return
     _layout_selected_horizontal_impl(scheme_multiplier, "recursive", "Layout Selected Horizontal")
 
 
@@ -3285,6 +3298,10 @@ def layout_selected_horizontal_place_only(scheme_multiplier=None):
     Writes mode='horizontal' to the selected (spine) nodes so that subsequent
     layout_upstream or layout_selected replays the horizontal mode automatically.
     """
+    if node_layout_engine.maybe_dispatch(
+        "layout_selected_horizontal_place_only", scheme_multiplier=scheme_multiplier,
+    ):
+        return
     _layout_selected_horizontal_impl(
         scheme_multiplier, "place_only", "Layout Selected Horizontal (Place Only)"
     )
