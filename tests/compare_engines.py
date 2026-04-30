@@ -66,9 +66,10 @@ def _engine_available(name: str) -> bool:
     """
     if name == "legacy":
         return True
+    # Install stub Nuke before the engine module imports it.
+    from tests import _compare_stub_nuke as stubs
+    stubs.install_nuke_stub()
     try:
-        # Trigger registration. The bbox/shape modules only exist on their
-        # respective branches.
         if name == "bbox":
             import node_layout_v2_bbox  # noqa: F401
         elif name == "shape":
@@ -91,18 +92,36 @@ def _engine_available(name: str) -> bool:
 # scenarios covering vertical, horizontal, freeze, diamond, mask, fan.
 # ---------------------------------------------------------------------------
 def discover_scenarios() -> list[dict[str, Any]]:
-    """Return scenario dicts. Skeleton: empty list (subagents fill in).
+    """Return scenario dicts.
 
     Each scenario looks like::
 
         {
-            "name": "vertical_3input",
-            "build": _build_vertical_3input,   # callable returning (root, selection)
-            "command": "layout_upstream",      # or layout_selected / layout_selected_horizontal
+            "name": "vertical_chain",
+            "build": <callable returning (root_node, selection_list, universe)>,
+            "command": "layout_upstream",  # or layout_selected / layout_selected_horizontal
             "scheme_multiplier": None,
         }
+
+    Builders come from ``tests/_compare_stub_nuke.py``; each one constructs a
+    fresh stub-Nuke ``Universe`` and registers it. The harness installs the
+    stub Nuke before importing node_layout so the recursion uses these stub
+    nodes.
     """
-    return []
+    # Defer import: _compare_stub_nuke installs a stub `nuke` module side-effect.
+    from tests import _compare_stub_nuke as stubs
+
+    scenarios = []
+    for name, builder in stubs.SCENARIO_BUILDERS.items():
+        # All scenarios use layout_upstream; horizontal mode is picked up via
+        # the stored node_layout_state mode knob, not a different command.
+        scenarios.append({
+            "name": name,
+            "build": builder,
+            "command": "layout_upstream",
+            "scheme_multiplier": None,
+        })
+    return scenarios
 
 
 # ---------------------------------------------------------------------------
@@ -113,9 +132,54 @@ def run_one(scenario: dict[str, Any], engine: str) -> dict[str, Any]:
     """Run one scenario under one engine and return a result dict."""
     os.environ["NODE_LAYOUT_ENGINE"] = engine
     try:
-        root, selection = scenario["build"]()
+        # Install stub Nuke FIRST so `import nuke` inside node_layout binds to it.
+        from tests import _compare_stub_nuke as stubs
+        stubs.install_nuke_stub()
 
-        import node_layout
+        # Build scenario AFTER stub is in sys.modules; the builder calls into
+        # the stub helpers and registers a fresh universe.
+        root, selection, universe = scenario["build"]()
+        stubs.set_universe(universe)
+        # Re-register selection now that universe is the active one.
+        if selection:
+            universe.select(*selection)
+
+        # Import node_layout the same way as tests do (via importlib spec).
+        import importlib
+        import importlib.util
+        if "node_layout_prefs" not in sys.modules:
+            prefs_spec = importlib.util.spec_from_file_location(
+                "node_layout_prefs",
+                str(_WORKSPACE / "node_layout_prefs.py"),
+            )
+            prefs_mod = importlib.util.module_from_spec(prefs_spec)
+            prefs_spec.loader.exec_module(prefs_mod)
+            sys.modules["node_layout_prefs"] = prefs_mod
+        if "node_layout_state" not in sys.modules:
+            state_spec = importlib.util.spec_from_file_location(
+                "node_layout_state",
+                str(_WORKSPACE / "node_layout_state.py"),
+            )
+            state_mod = importlib.util.module_from_spec(state_spec)
+            state_spec.loader.exec_module(state_mod)
+            sys.modules["node_layout_state"] = state_mod
+        if "node_layout_engine" not in sys.modules:
+            eng_spec = importlib.util.spec_from_file_location(
+                "node_layout_engine",
+                str(_WORKSPACE / "node_layout_engine.py"),
+            )
+            eng_mod = importlib.util.module_from_spec(eng_spec)
+            eng_spec.loader.exec_module(eng_mod)
+            sys.modules["node_layout_engine"] = eng_mod
+        if "node_layout" not in sys.modules:
+            nl_spec = importlib.util.spec_from_file_location(
+                "node_layout", str(_WORKSPACE / "node_layout.py"),
+            )
+            nl_mod = importlib.util.module_from_spec(nl_spec)
+            nl_spec.loader.exec_module(nl_mod)
+            sys.modules["node_layout"] = nl_mod
+        node_layout = sys.modules["node_layout"]
+
         command = scenario["command"]
         scheme_multiplier = scenario.get("scheme_multiplier")
 
@@ -134,34 +198,43 @@ def run_one(scenario: dict[str, Any], engine: str) -> dict[str, Any]:
             raise ValueError(f"Unknown command: {command}")
         elapsed = time.perf_counter() - start
 
-        positions = _collect_positions(root, selection)
+        positions = _collect_positions(universe)
         bbox = _bbox_of(positions)
+        overlaps = stubs.find_overlapping_node_pairs(universe)
         return {
             "engine": engine,
             "scenario": scenario["name"],
             "positions": positions,
             "bbox": bbox,
+            "overlaps": overlaps,
             "elapsed_s": elapsed,
             "ok": True,
         }
     except Exception as e:  # noqa: BLE001
+        import traceback
         return {
             "engine": engine,
             "scenario": scenario["name"],
             "error": f"{type(e).__name__}: {e}",
+            "traceback": traceback.format_exc(),
             "ok": False,
         }
     finally:
         os.environ.pop("NODE_LAYOUT_ENGINE", None)
 
 
-def _collect_positions(root, selection) -> dict[str, dict]:
-    """Record xpos/ypos for every node in the scenario's universe.
-
-    Subagents implementing the harness fully will walk root + selection
-    + their upstream closure. Skeleton returns empty.
-    """
-    return {}
+def _collect_positions(universe) -> dict[str, dict]:
+    """Record xpos/ypos for every node in the universe."""
+    out = {}
+    for n in universe.nodes:
+        out[n.name()] = {
+            "xpos": n.xpos(),
+            "ypos": n.ypos(),
+            "class": n.Class(),
+            "width": n.screenWidth(),
+            "height": n.screenHeight(),
+        }
+    return out
 
 
 def _bbox_of(positions: dict[str, dict]) -> tuple[int, int, int, int] | None:
