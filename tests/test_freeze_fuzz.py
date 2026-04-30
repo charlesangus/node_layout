@@ -182,7 +182,11 @@ _nuke_stub.Tab_Knob = _StubTab_Knob
 _nuke_stub.String_Knob = lambda name='', label='': _StubKnob(0)
 sys.modules["nuke"] = _nuke_stub
 
-if "node_layout_prefs" not in sys.modules:
+if "node_layout_prefs" in sys.modules:
+    # Another test module loaded prefs first (typical under unittest discover);
+    # reuse that handle so module-level globals stay consistent.
+    _node_layout_prefs_module = sys.modules["node_layout_prefs"]
+else:
     _prefs_spec = importlib.util.spec_from_file_location(
         "node_layout_prefs", NODE_LAYOUT_PREFS_PATH
     )
@@ -190,7 +194,9 @@ if "node_layout_prefs" not in sys.modules:
     sys.modules["node_layout_prefs"] = _node_layout_prefs_module
     _prefs_spec.loader.exec_module(_node_layout_prefs_module)
 
-if "node_layout_state" not in sys.modules:
+if "node_layout_state" in sys.modules:
+    _node_layout_state_module = sys.modules["node_layout_state"]
+else:
     _state_spec = importlib.util.spec_from_file_location(
         "node_layout_state", NODE_LAYOUT_STATE_PATH
     )
@@ -699,6 +705,163 @@ class TestHorizontalLayoutNoOverlapFuzz(unittest.TestCase):
                             f"  block_b uuid={block_b.uuid} bbox={box_b}\n"
                             f"  fixture: {description}"
                         )
+
+
+# ---------------------------------------------------------------------------
+# Property — compute_horizontal_chain_extents is consistent with the
+# place_subtree_horizontal pre-pass.
+# ---------------------------------------------------------------------------
+
+
+class TestHorizontalChainExtents(unittest.TestCase):
+    """``compute_horizontal_chain_extents`` is the pre-placement helper that
+    ``layout_upstream`` and ``layout_selected`` use to size spine_x.  These
+    unit tests pin the helper's contract on representative fixtures with
+    hand-computed expected values so a regression in either the helper or
+    the proxy lookup it uses surfaces immediately.
+
+    Coverage:
+      * Empty / singleton spine — zero extent.
+      * Multi-node spine of plain nodes — matches the legacy screen-width sum.
+      * Spine with a wide freeze block on an intermediate node — extent
+        widens by the block's right_extent (replacing screenWidth) and by
+        the block's left_overhang (added separately).
+      * Spine with a side input — extent widens by the side input's
+        contribution past the spine node.
+
+    The pure unit-test approach was chosen over a property/fuzz test
+    because the latter has to reconstruct the full pre-pass logic in the
+    fixture, which loops back to "two implementations of the same math"
+    — exactly what the helper exists to prevent.
+    """
+
+    def setUp(self):
+        self.prefs = _node_layout_prefs_module.prefs_singleton
+        self.snap_threshold = 8
+        self.scheme_multiplier = self.prefs.get("normal_multiplier")
+        self.step_x = int(
+            self.prefs.get("horizontal_subtree_gap") * self.scheme_multiplier
+        )
+
+    def _call_helper(self, spine_nodes_ordered, dimension_overrides=None):
+        return _nl.compute_horizontal_chain_extents(
+            spine_nodes_ordered, self.snap_threshold, node_count=10,
+            scheme_multiplier=self.scheme_multiplier,
+            current_prefs=self.prefs,
+            dimension_overrides=dimension_overrides,
+        )
+
+    def test_empty_spine_yields_zero(self):
+        """An empty spine has no leftward extent past a non-existent root."""
+        self.assertEqual(self._call_helper([]), 0)
+
+    def test_single_node_spine_yields_zero(self):
+        """The root contributes nothing leftward of itself."""
+        single_node = _StubNode(width=80, height=28)
+        self.assertEqual(self._call_helper([single_node]), 0)
+
+    def test_two_node_spine_normal_nodes(self):
+        """Two normal spine nodes: extent = step_x + spine[1].screenWidth().
+
+        This is the legacy formula that ``layout_upstream`` previously
+        inlined.  The helper must reproduce it exactly when no freeze
+        blocks or side inputs are involved — otherwise plain horizontal
+        chains regress.
+        """
+        spine_root = _StubNode(width=120, height=28)
+        spine_upstream = _StubNode(width=80, height=28)
+        _wire(spine_upstream, spine_root, slot=0)
+        expected = self.step_x + 80
+        self.assertEqual(self._call_helper([spine_root, spine_upstream]), expected)
+
+    def test_three_node_spine_normal_nodes(self):
+        """Three normal spine nodes: extent = sum(step_x + W[i]) for i=1,2."""
+        spine_root = _StubNode(width=120, height=28)
+        spine_mid = _StubNode(width=90, height=28)
+        spine_far = _StubNode(width=70, height=28)
+        _wire(spine_mid, spine_root, slot=0)
+        _wire(spine_far, spine_mid, slot=0)
+        expected = (self.step_x + 90) + (self.step_x + 70)
+        self.assertEqual(
+            self._call_helper([spine_root, spine_mid, spine_far]), expected
+        )
+
+    def test_freeze_block_on_intermediate_spine_widens_extent(self):
+        """A freeze block on an intermediate spine node contributes its
+        right_extent (replacing screenWidth) AND its left_overhang
+        (added separately as the node's leftward bbox extent).  The helper
+        must combine both to reproduce ``place_subtree_horizontal``'s
+        advance formula.
+        """
+        spine_root = _StubNode(width=120, height=28)
+        # Build a freeze block whose root is the middle spine node.  The
+        # block extends 200 left of the root and 80 right of the root —
+        # so right_extent = 80 (since root.W=80) and left_overhang = 200.
+        block, members = _make_freeze_block_with_geometry(
+            member_widths=[80, 60],
+            member_x_offsets=[0, -200],   # extra member sits 200 left of root
+            member_y_offsets=[0, -100],
+            uuid_str="middle-block",
+        )
+        spine_mid_block_root = members[0]
+        # Wire spine: root.input(0) = block_root.  Don't rely on block's
+        # internal _wire (which would otherwise be overwritten anyway).
+        _wire(spine_mid_block_root, spine_root, slot=0)
+        spine_far = _StubNode(width=70, height=28)
+        _wire(spine_far, spine_mid_block_root, slot=0)
+        dimension_overrides = {id(spine_mid_block_root): block}
+
+        # Expected:
+        #   effective_widths = [120, max(80, right_extent=80), 70]
+        #   left_extents     = [0,   max(0,  left_overhang=200), 0]
+        #   intermediate_step_total = (step_x + 80) + (step_x + 70)
+        #   leftward_overhang_total = 0 + 200 + 0 = 200
+        expected = (self.step_x + 80) + (self.step_x + 70) + 200
+        self.assertEqual(
+            self._call_helper(
+                [spine_root, spine_mid_block_root, spine_far],
+                dimension_overrides=dimension_overrides,
+            ),
+            expected,
+            "Freeze block left_overhang must be added to the chain's "
+            "total leftward extent — without it spine_x lands too close "
+            "to the consumer.",
+        )
+
+    def test_side_input_on_spine_node_widens_left_extent_when_wider_than_spine(self):
+        """A side input wider than its spine node extends the chain leftward.
+
+        ``place_subtree_horizontal`` centers a side input above its spine
+        node; if the side input is wider, it overhangs both edges.  The
+        leftward overhang past the spine node's left edge feeds into
+        ``left_extents[i]`` and therefore into the helper's result.
+        """
+        spine_root = _StubNode(width=80, height=28)
+        spine_upstream = _StubNode(width=80, height=28)
+        _wire(spine_upstream, spine_root, slot=0)
+        # Side input wider than spine — overhangs by (W_side - W_spine)/2
+        # on each edge.  W_side=200, W_spine=80 → overhang = 60 each side.
+        wide_side_input = _StubNode(width=200, height=28)
+        _wire(wide_side_input, spine_root, slot=1)
+        # Expected:
+        #   effective_widths[0] = max(80, centering_offset + 200 - 0) where
+        #     centering_offset = (80 - 200) // 2 = -60
+        #     right_extent = -60 + 200 - 0 = 140
+        #   effective_widths[0] = max(80, 140) = 140 (relevant for [1] use)
+        #   left_extents[0] = max(0, 0 - (-60)) = 60
+        #   intermediate_step_total = step_x + spine_upstream.W = step_x + 80
+        #   leftward_overhang_total = 60 + 0 = 60
+        # The side input's rightward extent only affects effective_widths[0],
+        # which contributes to spacing IF there were a downstream consumer
+        # — for this leftward-extent helper, only its leftward overhang
+        # matters.
+        expected = (self.step_x + 80) + 60
+        self.assertEqual(
+            self._call_helper([spine_root, spine_upstream]),
+            expected,
+            "Side input wider than its spine node must contribute its "
+            "leftward overhang to the chain's leftward extent.",
+        )
 
 
 if __name__ == "__main__":

@@ -985,32 +985,40 @@ class TestDownstreamReplayAnchor(unittest.TestCase):
         return ""
 
     def test_horizontal_replay_placed_right_of_consumer(self):
-        """layout_upstream horizontal anchor must use left-extent-aware spine_x formula.
+        """layout_upstream horizontal anchor must use the proxy-aware chain extent.
 
-        The corrected spine_x formula (Bug 1 fix) places the horizontal chain to the
-        RIGHT of the downstream consumer node, accounting for the full leftward extent
-        of the spine so the leftmost node clears the consumer with a clean gap:
-            consumer = original_selected_root
-            spine_x = consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
+        After the chain-anchoring refactor, ``leftward_extent`` is no longer a
+        local screen-width sum.  ``compute_horizontal_chain_extents`` is the
+        single helper that returns the chain's true leftward extent (including
+        side subtrees and freeze-block geometry).  spine_x in the BFS-from-
+        below branch must call this helper and feed the result into a
+        right-of-consumer formula:
 
-        This test confirms the left-extent-aware formula is present. It fails RED when
-        the old formula (which only accounts for root clearance) is present.
+            chain_leftward_extent = compute_horizontal_chain_extents(...)
+            spine_x = chain_target_left_edge + chain_leftward_extent
+            spine_y = consumer.ypos() - dot_gap - root.screenHeight()
+
+        Test fails RED if either the helper call or the
+        ``+ chain_leftward_extent`` term is missing — both regression vectors
+        for the original "chain placed too far left, leftmost spine inside
+        consumer" bug.
         """
         fn_source = self._get_layout_upstream_source()
         self.assertNotEqual(fn_source, "", "layout_upstream() not found in source")
 
-        # The corrected formula must reference consumer.screenWidth() in the spine_x
-        # assignment together with the leftward_extent variable from the spine walk.
-        has_left_extent_formula = (
-            "consumer.screenWidth() + step_x + leftward_extent" in fn_source
+        self.assertIn(
+            "compute_horizontal_chain_extents(",
+            fn_source,
+            "layout_upstream() horizontal anchor block must call "
+            "compute_horizontal_chain_extents() to get the chain's true leftward "
+            "extent.  Without it, side subtrees and freeze-block geometry are "
+            "not counted and spine_x lands too close to the consumer.",
         )
-        self.assertTrue(
-            has_left_extent_formula,
-            "layout_upstream() horizontal anchor block must use the left-extent-aware formula:\n"
-            "  spine_x = consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent\n"
-            "Found old formula instead (only accounts for root clearance, not full spine extent). "
-            "Fix: replace the right-of-consumer anchor with the leftward-extent formula"
-            " in layout_upstream()."
+        self.assertIn(
+            "+ chain_leftward_extent",
+            fn_source,
+            "layout_upstream() horizontal anchor block must add chain_leftward_extent "
+            "into spine_x so the chain's leftmost edge clears the consumer.",
         )
 
     def test_vertical_formula_removed_from_horizontal_anchor(self):
@@ -1058,6 +1066,50 @@ class TestDownstreamReplayAnchor(unittest.TestCase):
             "layout_upstream() horizontal anchor must set spine_y = consumer.ypos()\n"
             "to place the chain at the same Y level as the consumer (not above it).\n"
             "consumer is the local alias for original_selected_root in the if-branch."
+        )
+
+    def test_phase2_anchor_clamp_removed(self):
+        """The Phase 2 anchor clamp must NOT be present in layout_upstream.
+
+        The previous clamp re-assigned ``phase2_anchor_x`` to a value derived
+        from the chain's left edge whenever Phase 2's rightward extent
+        threatened to enter the chain bbox.  But ``phase2_anchor_x`` is the
+        anchor passed to ``place_subtree`` for ``original_selected_root`` —
+        i.e. the SELECTED node — so the clamp moved the user's selected
+        node, violating layout_upstream's contract.
+
+        After the fix, the chain must clear Phase 2's full rightward extent
+        via spine_x pre-computation (so the clamp is unnecessary).  This
+        test guards against the clamp being re-introduced under a future
+        regression.
+
+        Detection: the clamp's distinguishing symbols ``_max_right_for_phase2``
+        and ``_phase2_rightmost`` are unique to the clamp block — no other
+        code path needs them.  Their presence anywhere in the file implies
+        the clamp has come back.
+        """
+        for clamp_symbol in ("_max_right_for_phase2", "_phase2_rightmost"):
+            self.assertNotIn(
+                clamp_symbol,
+                self.source_text,
+                f"Phase 2 anchor clamp re-introduced — symbol {clamp_symbol!r} found in "
+                f"node_layout.py.  This clamp moves the originally selected node, which "
+                f"violates layout_upstream's contract.  The chain must clear Phase 2 via "
+                f"spine_x pre-computation (chain_target_left_edge) instead.",
+            )
+
+    def test_chain_target_left_edge_uses_phase2_required_width(self):
+        """The chain anchor formula must include ``phase2_required_width`` so
+        the chain leaves room for Phase 2's vertical inputs without the
+        removed clamp.  Guards against accidental simplification back to
+        ``consumer.right + step_x + chain_leftward_extent`` (which would
+        re-trigger the bug)."""
+        fn_source = self._get_layout_upstream_source()
+        self.assertIn(
+            "phase2_required_width",
+            fn_source,
+            "layout_upstream() must reference phase2_required_width in spine_x "
+            "pre-computation so the chain clears Phase 2's rightward extent.",
         )
 
 

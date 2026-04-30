@@ -635,6 +635,119 @@ def effective_top_extent(node, dimension_overrides):
     return 0
 
 
+def compute_horizontal_chain_extents(spine_nodes_ordered, snap_threshold, node_count,
+                                     scheme_multiplier, current_prefs,
+                                     per_node_h_scale=None, per_node_v_scale=None,
+                                     dimension_overrides=None, memo=None):
+    """Return the chain's total leftward extent past spine[0]'s left edge.
+
+    Mirrors the spine pre-pass in ``place_subtree_horizontal`` so that
+    ``layout_upstream`` can position the chain accurately *before* the chain
+    is actually placed.  The returned value is the X distance from spine[0]
+    (rightmost / root) to the leftmost edge of any node visually attached
+    to the chain — including side subtrees, freeze-block geometry, and the
+    leftward overhang of every spine node.
+
+    Why this is needed
+    ------------------
+    The previous spine_x calculation in ``layout_upstream`` summed only
+    ``step_x + spine[i].screenWidth()`` for intermediate spine nodes,
+    ignoring side subtrees, freeze blocks, and the spine root's own
+    leftward overhang.  When any spine node carried a wide side input or a
+    freeze block, the chain extended further left than the screen-width
+    sum predicted, so spine_x was placed too close to the consumer and the
+    chain ran into adjacent space.  Routing the calculation through the
+    proxy (``effective_node_dims``) closes that gap — every freeze-aware
+    site now uses the same source of truth.
+
+    Parameters
+    ----------
+    spine_nodes_ordered : list[Node]
+        Spine nodes ordered from rightmost (root, index 0) to leftmost.
+    snap_threshold, node_count, scheme_multiplier, current_prefs,
+    per_node_h_scale, per_node_v_scale, dimension_overrides, memo
+        Pass-throughs forwarded to ``compute_dims`` for any side-input
+        subtree the helper needs to size.  ``memo`` may be ``None``; a
+        local memo is created in that case.
+
+    Returns
+    -------
+    int
+        ``chain_leftward_extent`` — the X distance from spine[0]'s ``xpos``
+        to the chain's leftmost edge.  To position the chain so its
+        leftmost edge sits at a target X (for example, one ``step_x``
+        right of the consumer's right edge), set ``spine_x = target_left
+        + chain_leftward_extent``.
+    """
+    if memo is None:
+        memo = {}
+    if not spine_nodes_ordered:
+        return 0
+
+    step_x = int(current_prefs.get("horizontal_subtree_gap") * scheme_multiplier)
+
+    # Mirror the pre-pass arrays from place_subtree_horizontal so the math
+    # below is structurally identical to the production layout pass.  Any
+    # divergence between this helper and the actual placement is exactly
+    # the bug class the proxy refactor is designed to prevent — keep these
+    # two pre-passes in lockstep when adding new geometry sources.
+    effective_widths = [sn.screenWidth() for sn in spine_nodes_ordered]
+    left_extents = [0] * len(spine_nodes_ordered)
+
+    # 1. Spine-node intrinsic geometry (freeze block bbox if applicable).
+    for i, spine_node in enumerate(spine_nodes_ordered):
+        spine_eff_w, _, spine_eff_left_overhang = effective_node_dims(
+            spine_node, dimension_overrides
+        )
+        spine_right_extent = spine_eff_w - spine_eff_left_overhang
+        effective_widths[i] = max(effective_widths[i], spine_right_extent)
+        left_extents[i] = max(left_extents[i], spine_eff_left_overhang)
+
+    # 2. Side-input contributions per spine node (recursive layout — the
+    # mode used by ``layout_upstream``'s horizontal dispatch).  Place_only
+    # is excluded because layout_upstream always replays in recursive mode.
+    for i, spine_node in enumerate(spine_nodes_ordered):
+        for slot_index in range(1, spine_node.inputs()):
+            side_node = spine_node.input(slot_index)
+            if side_node is None:
+                continue
+            side_count = len(collect_subtree_nodes(side_node))
+            side_w, _, side_root_x_offset = compute_dims(
+                side_node, memo, snap_threshold, side_count,
+                scheme_multiplier=scheme_multiplier,
+                per_node_h_scale=per_node_h_scale,
+                per_node_v_scale=per_node_v_scale,
+                dimension_overrides=dimension_overrides,
+            )
+            proxy_w, _, proxy_left_overhang = effective_node_dims(
+                side_node, dimension_overrides
+            )
+            if proxy_w > side_w:
+                side_w = proxy_w
+                side_root_x_offset = proxy_left_overhang
+            centering_offset = (
+                spine_node.screenWidth() - side_node.screenWidth()
+            ) // 2
+            right_extent = centering_offset + side_w - side_root_x_offset
+            effective_widths[i] = max(effective_widths[i], right_extent)
+            left_past_spine = side_root_x_offset - centering_offset
+            if left_past_spine > 0:
+                left_extents[i] = max(left_extents[i], left_past_spine)
+
+    # 3. Total leftward distance from spine[0]'s xpos to the chain's
+    # leftmost edge.  Derived from the advance formula at the bottom of
+    # place_subtree_horizontal:
+    #     cur_x[i+1] = cur_x[i] - step_x - effective_widths[i+1] - left_extents[i]
+    # Walking the recurrence from i=0 to i=n-1 and adding the leftmost
+    # spine node's own left_extent gives:
+    spine_count = len(spine_nodes_ordered)
+    intermediate_step_total = sum(
+        step_x + effective_widths[i] for i in range(1, spine_count)
+    )
+    leftward_overhang_total = sum(left_extents)
+    return intermediate_step_total + leftward_overhang_total
+
+
 def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                              scheme_multiplier=None, per_node_h_scale=None,
                              per_node_v_scale=None, current_prefs=None,
@@ -2086,31 +2199,81 @@ def layout_upstream(scheme_multiplier=None):
                     step_x = int(
                         current_prefs.get("horizontal_subtree_gap") * root_scheme_multiplier
                     )
-                    # Walk the already-built replay_spine_set to compute full leftward extent.
-                    # Each spine node beyond the root (index 1 onward) advances the chain left by
-                    # step_x + that node's width.  spine_x must account for this entire extent so
-                    # the leftmost spine node still clears the consumer's right edge with a clean
-                    # gap. Note: left_extents (side-subtree widths) are treated as out-of-scope
-                    # here —
-                    # this fix addresses primary spine-node overlap; side-subtree overlap is a
-                    # secondary edge case.
+                    horizontal_subtree_gap = current_prefs.get("horizontal_subtree_gap")
+                    # Walk the already-built replay_spine_set to enumerate the spine
+                    # in root-first order.  ``compute_horizontal_chain_extents`` then
+                    # turns it into the chain's true leftward extent — counting
+                    # side subtrees, freeze-block geometry, and per-spine-node
+                    # left overhang via the same proxy used by
+                    # ``place_subtree_horizontal``'s pre-pass.  This replaces the
+                    # earlier screenWidth-only sum that under-counted the chain's
+                    # actual leftward reach and put spine_x too close to the
+                    # consumer for any chain carrying wide side inputs.
                     spine_nodes_ordered = []
                     cursor = root
                     while cursor is not None and id(cursor) in replay_spine_set:
                         spine_nodes_ordered.append(cursor)
                         cursor = cursor.input(0)
-                    leftward_extent = sum(
-                        step_x + spine_nodes_ordered[i].screenWidth()
-                        for i in range(1, len(spine_nodes_ordered))
+                    chain_leftward_extent = compute_horizontal_chain_extents(
+                        spine_nodes_ordered, snap_threshold, node_count,
+                        scheme_multiplier=root_scheme_multiplier,
+                        current_prefs=current_prefs,
+                        per_node_h_scale=per_node_h_scale,
+                        per_node_v_scale=per_node_v_scale,
+                        dimension_overrides=dimension_overrides,
+                        memo=memo,
                     )
+                    # Pre-compute Phase 2's rightward width so spine_x clears it.
+                    # Phase 2 re-lays out original_selected_root's NON-chain
+                    # vertical inputs anchored at the selected node's xpos; its
+                    # rightmost extent is selected.x + phase2_required_width.
+                    # Without clearing this here, the previous Phase 2 clamp had
+                    # to shift the selected node leftward to avoid overlap — a
+                    # layout_upstream contract violation (the selected node must
+                    # not move).
+                    horizontal_chain_node_ids_pre = {
+                        id(n) for n in collect_subtree_nodes(root)
+                    }
+                    phase2_vertical_filter = {
+                        n for n in subtree_nodes_for_count
+                        if id(n) not in horizontal_chain_node_ids_pre
+                    }
+                    phase2_required_width = original_selected_root.screenWidth()
+                    if phase2_vertical_filter:
+                        consumer_scheme_multiplier_pre = per_node_scheme.get(
+                            id(original_selected_root),
+                            current_prefs.get("normal_multiplier"),
+                        )
+                        phase2_required_width, _, _ = compute_dims(
+                            original_selected_root, {}, snap_threshold, node_count,
+                            node_filter=phase2_vertical_filter,
+                            scheme_multiplier=consumer_scheme_multiplier_pre,
+                            per_node_h_scale=per_node_h_scale,
+                            per_node_v_scale=per_node_v_scale,
+                            dimension_overrides=dimension_overrides,
+                        )
                     consumer = original_selected_root
                     loose_gap_multiplier = node_layout_prefs.prefs_singleton.get(
                         "loose_gap_multiplier"
                     )
                     dot_gap = int(loose_gap_multiplier * root_scheme_multiplier * snap_threshold)
-                    spine_x = (
-                        consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
+                    # spine_x positions spine[0] (rightmost).  The chain's leftmost
+                    # edge sits at ``spine_x - chain_leftward_extent`` and must
+                    # clear BOTH the consumer's right edge with one ``step_x`` of
+                    # gap AND Phase 2's full rightward extent with one
+                    # ``horizontal_subtree_gap`` of gap.  Take whichever target
+                    # is further right.
+                    # The Phase 2 term carries a ``+ 1`` so the chain leaves
+                    # *strictly more* than ``horizontal_subtree_gap`` of empty
+                    # space between Phase 2's right edge and the chain's left
+                    # edge — matching the strict-less invariant the previous
+                    # clamp enforced via its own ``- 1`` offset.
+                    chain_target_left_edge = max(
+                        consumer.xpos() + consumer.screenWidth() + step_x,
+                        consumer.xpos() + phase2_required_width
+                        + horizontal_subtree_gap + 1,
                     )
+                    spine_x = chain_target_left_edge + chain_leftward_extent
                     spine_y = consumer.ypos() - dot_gap - root.screenHeight()
                 else:
                     # root IS the originally selected node.  Find its downstream consumer
@@ -2163,14 +2326,23 @@ def layout_upstream(scheme_multiplier=None):
                         while cursor is not None and id(cursor) in replay_spine_set:
                             spine_nodes_ordered.append(cursor)
                             cursor = cursor.input(0)
-                        leftward_extent = sum(
-                            step_x + spine_nodes_ordered[i].screenWidth()
-                            for i in range(1, len(spine_nodes_ordered))
+                        # Same proxy-aware leftward-extent calculation as the
+                        # BFS-from-below branch.  No Phase 2 widening here —
+                        # root IS the originally selected node, so there is no
+                        # separate vertical consumer subtree to clear.
+                        chain_leftward_extent = compute_horizontal_chain_extents(
+                            spine_nodes_ordered, snap_threshold, node_count,
+                            scheme_multiplier=root_scheme_multiplier,
+                            current_prefs=current_prefs,
+                            per_node_h_scale=per_node_h_scale,
+                            per_node_v_scale=per_node_v_scale,
+                            dimension_overrides=dimension_overrides,
+                            memo=memo,
                         )
                         spine_x = (
                             downstream_consumer.xpos()
                             + downstream_consumer.screenWidth()
-                            + step_x + leftward_extent
+                            + step_x + chain_leftward_extent
                         )
                         spine_y = downstream_consumer.ypos() - dot_gap - root.screenHeight()
                     else:
@@ -2223,7 +2395,11 @@ def layout_upstream(scheme_multiplier=None):
                 )
 
                 # Fix B: compute the full horizontal chain bbox (including output dot, now placed)
-                # so Phase 2 can clamp its X-anchor and avoid landing inside the chain's extent.
+                # so Fix C can shift Phase 2 input nodes upward to clear the chain's top.
+                # Note: the previous "Phase 2 anchor clamp" (which used the chain's left
+                # edge to push Phase 2 leftward) was removed — it violated layout_upstream's
+                # "selected node does not move" contract.  Chain clearance of Phase 2's
+                # rightward extent is now handled by spine_x pre-computation.
                 _chain_all_nodes_fix_b = collect_subtree_nodes(root)
                 for _fix_b_slot in range(original_selected_root.inputs()):
                     _fix_b_inp = original_selected_root.input(_fix_b_slot)
@@ -2233,7 +2409,6 @@ def layout_upstream(scheme_multiplier=None):
                     ):
                         _chain_all_nodes_fix_b.append(_fix_b_inp)
                 _chain_bbox = compute_node_bounding_box(_chain_all_nodes_fix_b)
-                _chain_left_for_phase2 = _chain_bbox[0] if _chain_bbox is not None else None
 
                 # Phase 2: when a vertical consumer (original_selected_root) triggered the
                 # horizontal layout above, also run the standard vertical layout on that
@@ -2259,33 +2434,16 @@ def layout_upstream(scheme_multiplier=None):
                     )
                     if vertical_filter:
                         memo_phase2 = {}
-                        phase2_w, _, _ = compute_dims(
-                            original_selected_root, memo_phase2, snap_threshold, node_count,
-                            node_filter=vertical_filter,
-                            scheme_multiplier=consumer_scheme_multiplier,
-                            per_node_h_scale=per_node_h_scale,
-                            per_node_v_scale=per_node_v_scale,
-                            dimension_overrides=dimension_overrides,
-                        )
-                        # Clamp phase2_anchor_x so Phase 2 subtree right extent doesn't enter
-                        # the horizontal chain bbox.
-                        # place_subtree places the root at phase2_anchor_x and side inputs step
-                        # rightward from the root's right edge.  The actual rightmost extent of
-                        # the Phase 2 subtree is therefore phase2_anchor_x + phase2_w.
-                        # Require: phase2_anchor_x + phase2_w < chain_left - horizontal_subtree_gap
-                        # (strictly less — the chain gap must not be eaten by Phase 2 nodes)
-                        phase2_anchor_x = original_selected_root.xpos()
-                        if _chain_left_for_phase2 is not None:
-                            _max_right_for_phase2 = (
-                                _chain_left_for_phase2
-                                - current_prefs.get("horizontal_subtree_gap")
-                            )
-                            _phase2_rightmost = phase2_anchor_x + phase2_w
-                            if _phase2_rightmost >= _max_right_for_phase2:
-                                phase2_anchor_x = _max_right_for_phase2 - phase2_w - 1
+                        # Phase 2 anchors at the originally selected node's
+                        # xpos and ypos — UNCONDITIONALLY.  layout_upstream's
+                        # contract is "the selected node does not move".  Any
+                        # collision between Phase 2's rightward extent and the
+                        # horizontal chain is the chain's responsibility to
+                        # clear (handled by spine_x pre-computation that adds
+                        # phase2_required_width earlier in this branch).
                         place_subtree(
                             original_selected_root,
-                            phase2_anchor_x, original_selected_root.ypos(),
+                            original_selected_root.xpos(), original_selected_root.ypos(),
                             memo_phase2, snap_threshold, node_count,
                             node_filter=vertical_filter,
                             scheme_multiplier=consumer_scheme_multiplier,
@@ -2592,10 +2750,45 @@ def layout_selected(scheme_multiplier=None):
                         while cursor is not None and id(cursor) in root_spine_set:
                             spine_nodes_ordered.append(cursor)
                             cursor = cursor.input(0)
-                        leftward_extent = sum(
-                            step_x + spine_nodes_ordered[i].screenWidth()
-                            for i in range(1, len(spine_nodes_ordered))
+                        horizontal_subtree_gap = current_prefs.get("horizontal_subtree_gap")
+                        # Proxy-aware chain extent — see compute_horizontal_chain_extents.
+                        chain_leftward_extent = compute_horizontal_chain_extents(
+                            spine_nodes_ordered, snap_threshold, node_count,
+                            scheme_multiplier=root_scheme_multiplier,
+                            current_prefs=current_prefs,
+                            per_node_h_scale=per_node_h_scale,
+                            per_node_v_scale=per_node_v_scale,
+                            dimension_overrides=dimension_overrides,
+                            memo=memo,
                         )
+                        # Pre-compute Phase 2's rightward width so spine_x clears
+                        # it without the post-placement clamp moving the selected
+                        # node — same logic as the layout_upstream BFS branch.
+                        # In layout_selected the universe of layout-touched nodes
+                        # is ``node_filter`` (the user's expanded selection),
+                        # not ``subtree_nodes_for_count`` (which is layout_upstream's
+                        # term for the same concept).
+                        horizontal_chain_node_ids_pre = {
+                            id(n) for n in collect_subtree_nodes(root)
+                        }
+                        phase2_vertical_filter = {
+                            n for n in node_filter
+                            if id(n) not in horizontal_chain_node_ids_pre
+                        }
+                        phase2_required_width = original_selected_root.screenWidth()
+                        if phase2_vertical_filter:
+                            consumer_scheme_multiplier_pre = per_node_scheme.get(
+                                id(original_selected_root),
+                                current_prefs.get("normal_multiplier"),
+                            )
+                            phase2_required_width, _, _ = compute_dims(
+                                original_selected_root, {}, snap_threshold, node_count,
+                                node_filter=phase2_vertical_filter,
+                                scheme_multiplier=consumer_scheme_multiplier_pre,
+                                per_node_h_scale=per_node_h_scale,
+                                per_node_v_scale=per_node_v_scale,
+                                dimension_overrides=dimension_overrides,
+                            )
                         consumer = original_selected_root
                         loose_gap_multiplier = node_layout_prefs.prefs_singleton.get(
                             "loose_gap_multiplier"
@@ -2603,9 +2796,12 @@ def layout_selected(scheme_multiplier=None):
                         dot_gap = int(
                             loose_gap_multiplier * root_scheme_multiplier * snap_threshold
                         )
-                        spine_x = (
-                            consumer.xpos() + consumer.screenWidth() + step_x + leftward_extent
+                        chain_target_left_edge = max(
+                            consumer.xpos() + consumer.screenWidth() + step_x,
+                            consumer.xpos() + phase2_required_width
+                            + horizontal_subtree_gap,
                         )
+                        spine_x = chain_target_left_edge + chain_leftward_extent
                         spine_y = consumer.ypos() - dot_gap - root.screenHeight()
                     else:
                         # root IS the originally selected node.  Find its downstream consumer
@@ -2660,14 +2856,21 @@ def layout_selected(scheme_multiplier=None):
                             while cursor is not None and id(cursor) in root_spine_set:
                                 spine_nodes_ordered.append(cursor)
                                 cursor = cursor.input(0)
-                            leftward_extent = sum(
-                                step_x + spine_nodes_ordered[i].screenWidth()
-                                for i in range(1, len(spine_nodes_ordered))
+                            # Proxy-aware leftward extent (no Phase 2 here — root
+                            # IS the originally selected node).
+                            chain_leftward_extent = compute_horizontal_chain_extents(
+                                spine_nodes_ordered, snap_threshold, node_count,
+                                scheme_multiplier=root_scheme_multiplier,
+                                current_prefs=current_prefs,
+                                per_node_h_scale=per_node_h_scale,
+                                per_node_v_scale=per_node_v_scale,
+                                dimension_overrides=dimension_overrides,
+                                memo=memo,
                             )
                             spine_x = (
                                 downstream_consumer.xpos()
                                 + downstream_consumer.screenWidth()
-                                + step_x + leftward_extent
+                                + step_x + chain_leftward_extent
                             )
                             spine_y = downstream_consumer.ypos() - dot_gap - root.screenHeight()
                         else:
@@ -2719,9 +2922,10 @@ def layout_selected(scheme_multiplier=None):
                     root, current_group, snap_threshold, root_scheme_multiplier
                 )
 
-                    # Fix B: compute the full horizontal chain bbox (including output dot, now
-                    # placed) so Phase 2 can clamp its X-anchor and avoid landing inside the
-                    # chain's extent.
+                    # Fix B: compute the full horizontal chain bbox (including output dot,
+                    # now placed) so Fix C can shift Phase 2 inputs upward to clear the
+                    # chain's top.  See the matching block in layout_upstream for why the
+                    # previous "Phase 2 anchor clamp" was removed.
                     _chain_all_nodes_fix_b = collect_subtree_nodes(root)
                     for _fix_b_slot in range(original_selected_root.inputs()):
                         _fix_b_inp = original_selected_root.input(_fix_b_slot)
@@ -2731,7 +2935,6 @@ def layout_selected(scheme_multiplier=None):
                         ):
                             _chain_all_nodes_fix_b.append(_fix_b_inp)
                     _chain_bbox = compute_node_bounding_box(_chain_all_nodes_fix_b)
-                    _chain_left_for_phase2 = _chain_bbox[0] if _chain_bbox is not None else None
 
                     # Phase 2: when a vertical consumer triggered the horizontal layout,
                     # also run the standard vertical layout on that consumer so that any
@@ -2751,34 +2954,15 @@ def layout_selected(scheme_multiplier=None):
                         )
                         if vertical_filter:
                             memo_phase2 = {}
-                            phase2_w, _, _ = compute_dims(
-                                original_selected_root, memo_phase2, snap_threshold, node_count,
-                                node_filter=vertical_filter,
-                                scheme_multiplier=consumer_scheme_multiplier,
-                                per_node_h_scale=per_node_h_scale,
-                                per_node_v_scale=per_node_v_scale,
-                                dimension_overrides=dimension_overrides,
-                            )
-                            # Clamp phase2_anchor_x so Phase 2 subtree right extent doesn't enter
-                            # the horizontal chain bbox.
-                            # place_subtree places the root at phase2_anchor_x and side inputs step
-                            # rightward from the root's right edge.  The actual rightmost extent of
-                            # the Phase 2 subtree is therefore phase2_anchor_x + phase2_w.
-                            # Require: phase2_anchor_x + phase2_w < chain_left
-                            # - horizontal_subtree_gap
-                            # (strictly less — the chain gap must not be eaten by Phase 2 nodes)
-                            phase2_anchor_x = original_selected_root.xpos()
-                            if _chain_left_for_phase2 is not None:
-                                _max_right_for_phase2 = (
-                                    _chain_left_for_phase2
-                                    - current_prefs.get("horizontal_subtree_gap")
-                                )
-                                _phase2_rightmost = phase2_anchor_x + phase2_w
-                                if _phase2_rightmost >= _max_right_for_phase2:
-                                    phase2_anchor_x = _max_right_for_phase2 - phase2_w - 1
+                            # Phase 2 anchors at the originally selected node's
+                            # position UNCONDITIONALLY — see the layout_upstream
+                            # branch for the contract rationale.  Chain clearance
+                            # of Phase 2's rightward extent is handled in spine_x
+                            # pre-computation above.
                             place_subtree(
                                 original_selected_root,
-                                phase2_anchor_x, original_selected_root.ypos(),
+                                original_selected_root.xpos(),
+                                original_selected_root.ypos(),
                                 memo_phase2, snap_threshold, node_count,
                                 node_filter=vertical_filter,
                                 scheme_multiplier=consumer_scheme_multiplier,
