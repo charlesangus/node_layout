@@ -864,21 +864,46 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                                 member.xpos(), member.ypos()
                             )
                     block.restore_positions()
-                    # Translate each external input subtree by the delta of its
-                    # connecting freeze member's move
+                    # Re-place each external input subtree above its connecting
+                    # freeze member's restored position.  A blind delta translation
+                    # can land external inputs inside the block when restore_positions
+                    # moves the connecting member downward.
                     for external_input, connecting_member in block.get_external_inputs(get_inputs):
-                        if id(connecting_member) not in positions_before_restore:
-                            continue
-                        old_x, old_y = positions_before_restore[id(connecting_member)]
-                        member_delta_x = connecting_member.xpos() - old_x
-                        member_delta_y = connecting_member.ypos() - old_y
-                        for external_subtree_node in collect_subtree_nodes(external_input):
-                            external_subtree_node.setXpos(
-                                external_subtree_node.xpos() + member_delta_x
-                            )
-                            external_subtree_node.setYpos(
-                                external_subtree_node.ypos() + member_delta_y
-                            )
+                        upstream_subtree = collect_subtree_nodes(external_input)
+                        upstream_filter = set(upstream_subtree)
+                        upstream_count = len(upstream_subtree)
+                        upstream_memo = {}
+                        entry_dims = compute_dims(
+                            external_input, upstream_memo, snap_threshold,
+                            upstream_count, upstream_filter,
+                            scheme_multiplier=scheme_multiplier,
+                            per_node_h_scale=per_node_h_scale,
+                            per_node_v_scale=per_node_v_scale,
+                            dimension_overrides=dimension_overrides,
+                        )
+                        entry_x = _center_x(
+                            external_input.screenWidth(),
+                            connecting_member.xpos(),
+                            connecting_member.screenWidth(),
+                        )
+                        raw_gap = vertical_gap_between(
+                            external_input, connecting_member,
+                            snap_threshold, scheme_multiplier=scheme_multiplier,
+                        )
+                        entry_y = (
+                            connecting_member.ypos()
+                            - max(snap_threshold - 1, raw_gap)
+                            - entry_dims[1]
+                        )
+                        place_subtree(
+                            external_input, entry_x, entry_y,
+                            upstream_memo, snap_threshold, upstream_count,
+                            upstream_filter,
+                            scheme_multiplier=scheme_multiplier,
+                            per_node_h_scale=per_node_h_scale,
+                            per_node_v_scale=per_node_v_scale,
+                            dimension_overrides=dimension_overrides,
+                        )
             else:
                 # Translate the entire side subtree as a unit (preserving its
                 # internal layout) so that the subtree root lands at (side_x, side_y).
@@ -1060,6 +1085,10 @@ def compute_dims(
         n = len(inputs)
         if n == 1:
             W = max(node.screenWidth(), child_dims[0][0])
+            # Propagate left_overhang from the child so freeze block extents
+            # are visible to parent allocation logic (e.g. when a Dot sits
+            # between the freeze root and the Merge consuming it).
+            child_left_overhang = child_dims[0][2]
         elif n == 2:
             # input[0] centered above node; input[1] sits at x + node_w + side_margins_h[1]
             W = max(child_dims[0][0],
@@ -1139,7 +1168,10 @@ def compute_dims(
                 node.screenHeight() + sum(h for w, h, _ in child_dims)
                 + 2 * gap_to_consumer + inter_band_gaps
             )
-        result = (W, H, 0)
+        # For n==1 chains (including routing Dots above a freeze root), propagate
+        # the child's left_overhang so the parent allocation reserves the right width.
+        propagated_overhang = child_left_overhang if n == 1 else 0
+        result = (W, H, propagated_overhang)
 
     # For non-leaf freeze block roots: widen the allocation to the full block bbox and
     # set root_x_offset to left_overhang so restored members don't escape their band.
@@ -1500,6 +1532,108 @@ def compute_node_bounding_box(nodes):
     return (min_x, min_y, max_x, max_y)
 
 
+def _collect_full_side_subtree(side_root, freeze_blocks):
+    """Collect all nodes in a side-input subtree, including freeze block members
+    and their external upstream chains that were placed by the post-pass."""
+    nodes = collect_subtree_nodes(side_root)
+    node_ids = {id(n) for n in nodes}
+    # Add freeze block members and their upstream chains
+    for block in freeze_blocks:
+        # If any block member is already in the subtree, include all members
+        if any(id(m) in node_ids for m in block.members):
+            for member in block.members:
+                if id(member) not in node_ids:
+                    nodes.append(member)
+                    node_ids.add(id(member))
+                    # Also include upstream chains placed by the post-pass
+                    for upstream_node in collect_subtree_nodes(member):
+                        if id(upstream_node) not in node_ids:
+                            nodes.append(upstream_node)
+                            node_ids.add(id(upstream_node))
+    return nodes
+
+
+def _resolve_freeze_subtree_overlaps(root, freeze_blocks, all_non_root_ids,
+                                     _unused_filter):
+    """Post-layout pass: resolve overlapping side-input subtree bounding boxes.
+
+    Walks the spine (input-0 chain from root), and for each node with side inputs,
+    collects the actual bounding box of each side-input subtree (including freeze
+    members and their upstream chains).  If any bbox overlaps the spine or a
+    previous sibling, shifts all nodes in that subtree rightward.
+    """
+    # Minimum cell dimensions — in GUI mode screenWidth/screenHeight are real;
+    # in headless mode they return 0, so use a floor to avoid zero-width bboxes.
+    min_cell_w = 80
+    min_cell_h = 20
+
+    def _robust_bbox(nodes):
+        """Bounding box using at least min_cell_w/min_cell_h per node."""
+        if not nodes:
+            return None
+        min_x = min(n.xpos() for n in nodes)
+        min_y = min(n.ypos() for n in nodes)
+        max_x = max(n.xpos() + max(n.screenWidth(), min_cell_w) for n in nodes)
+        max_y = max(n.ypos() + max(n.screenHeight(), min_cell_h) for n in nodes)
+        return (min_x, min_y, max_x, max_y)
+
+    # Collect spine nodes (input-0 chain)
+    spine_nodes = []
+    cursor = root
+    while cursor is not None:
+        spine_nodes.append(cursor)
+        cursor = cursor.input(0)
+
+    spine_ids = {id(n) for n in spine_nodes}
+    spine_bbox = _robust_bbox(spine_nodes)
+    if spine_bbox is None:
+        return
+
+    # Collect all side-input subtrees with their actual bounding boxes
+    side_subtrees = []  # list of (nodes_list, bbox)
+    for spine_node in spine_nodes:
+        for slot in range(1, spine_node.inputs()):
+            side_input = spine_node.input(slot)
+            if side_input is None:
+                continue
+            subtree_nodes = _collect_full_side_subtree(side_input, freeze_blocks)
+            # Remove any spine nodes that may have been collected
+            subtree_nodes = [n for n in subtree_nodes if id(n) not in spine_ids]
+            if not subtree_nodes:
+                continue
+            bbox = _robust_bbox(subtree_nodes)
+            if bbox is not None:
+                side_subtrees.append((subtree_nodes, bbox))
+
+    # Resolve overlaps: ensure each subtree's bbox doesn't overlap the spine
+    # or any previously placed subtree
+    occupied_bboxes = [spine_bbox]  # start with spine as occupied
+
+    for subtree_nodes, bbox in side_subtrees:
+        shift_x = 0
+        subtree_left, subtree_top, subtree_right, subtree_bottom = bbox
+
+        for occupied_bbox in occupied_bboxes:
+            occ_left, occ_top, occ_right, occ_bottom = occupied_bbox
+            # Check for overlap (both X and Y ranges must intersect).
+            overlaps_x = subtree_left < occ_right and occ_left < subtree_right
+            overlaps_y = subtree_top < occ_bottom and occ_top < subtree_bottom
+            if overlaps_x and overlaps_y:
+                # Shift right by exactly the overlap amount to clear.
+                needed_shift = occ_right - subtree_left
+                if needed_shift > shift_x:
+                    shift_x = needed_shift
+
+        if shift_x > 0:
+            for node in subtree_nodes:
+                node.setXpos(node.xpos() + shift_x)
+            # Update bbox after shift
+            bbox = (subtree_left + shift_x, subtree_top,
+                    subtree_right + shift_x, subtree_bottom)
+
+        occupied_bboxes.append(bbox)
+
+
 def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after, current_group=None,
                             freeze_blocks=None):
     """Push surrounding nodes to make room after a subtree grows.
@@ -1623,6 +1757,10 @@ class FreezeBlock:
         self.left_overhang = root.xpos() - block_min_x
         self.block_height = block_max_y - block_min_y
 
+        # Additional height from external upstream subtrees above block members.
+        # Set by _augment_freeze_block_heights() before compute_dims runs.
+        self.external_height = 0
+
         # Root-relative offsets for position restoration
         self.offsets = {}
         for member in members:
@@ -1639,7 +1777,9 @@ class FreezeBlock:
     @property
     def leaf_dims(self):
         """3-tuple for compute_dims leaf override: (total_w, height, left_overhang)."""
-        return (self.right_extent + self.left_overhang, self.block_height, self.left_overhang)
+        return (self.right_extent + self.left_overhang,
+                self.block_height + self.external_height,
+                self.left_overhang)
 
     def restore_positions(self):
         """Reposition non-root members relative to root's current (post-layout) position."""
@@ -1681,6 +1821,41 @@ def _build_freeze_blocks(freeze_group_map):
         all_non_root_ids |= block.non_root_ids
         all_member_ids |= block.member_ids
     return blocks, dimension_overrides, all_non_root_ids, all_member_ids
+
+
+def _augment_freeze_block_heights(freeze_blocks, snap_threshold,
+                                  scheme_multiplier=None,
+                                  per_node_h_scale=None, per_node_v_scale=None,
+                                  dimension_overrides=None):
+    """Pre-compute external upstream subtree heights for each freeze block.
+
+    The post-pass in layout_upstream places upstream subtrees above freeze block
+    members.  This function computes those heights so leaf_dims reserves the
+    right Y space in the staircase.
+    """
+    for block in freeze_blocks:
+        external_inputs = block.get_external_inputs(get_inputs)
+        total_external_height = 0
+        for entry_node, connecting_member in external_inputs:
+            upstream_subtree = collect_subtree_nodes(entry_node)
+            upstream_filter = set(upstream_subtree)
+            upstream_count = len(upstream_subtree)
+            upstream_memo = {}
+            entry_dims = compute_dims(
+                entry_node, upstream_memo, snap_threshold, upstream_count,
+                upstream_filter,
+                scheme_multiplier=scheme_multiplier,
+                per_node_h_scale=per_node_h_scale,
+                per_node_v_scale=per_node_v_scale,
+                dimension_overrides=dimension_overrides,
+            )
+            raw_gap = vertical_gap_between(
+                entry_node, connecting_member, snap_threshold,
+                scheme_multiplier=scheme_multiplier,
+            )
+            gap = max(snap_threshold - 1, raw_gap)
+            total_external_height += entry_dims[1] + gap
+        block.external_height = total_external_height
 
 
 def _find_freeze_block_root(block_members):
@@ -1896,7 +2071,7 @@ def layout_upstream(scheme_multiplier=None):
                 _build_freeze_blocks(freeze_group_map)
             )
 
-            # Capture starting state before any changes
+            # Capture starting state before any changes.
             original_subtree_nodes = collect_subtree_nodes(root)
             bbox_before = compute_node_bounding_box(original_subtree_nodes)
 
@@ -1929,6 +2104,17 @@ def layout_upstream(scheme_multiplier=None):
 
             memo = {}
             snap_threshold = get_dag_snap_threshold()
+
+            # Pre-compute external upstream subtree heights for freeze blocks
+            # so leaf_dims reserves correct Y space in the staircase.
+            if freeze_blocks:
+                _augment_freeze_block_heights(
+                    freeze_blocks, snap_threshold,
+                    scheme_multiplier=root_scheme_multiplier,
+                    per_node_h_scale=per_node_h_scale,
+                    per_node_v_scale=per_node_v_scale,
+                    dimension_overrides=dimension_overrides,
+                )
 
             # Mode dispatch: read the root's stored mode to decide horizontal vs vertical path.
             root_stored_state = node_layout_state.read_node_state(root)
@@ -2343,7 +2529,16 @@ def layout_upstream(scheme_multiplier=None):
                 node_layout_state.write_node_state(state_node, stored_state)
 
             final_subtree_node_ids = {id(n) for n in final_subtree_nodes}
-            bbox_after = compute_node_bounding_box(final_subtree_nodes)
+            # Include freeze block members in bbox_after and the skip-set so
+            # push_nodes_to_make_room sees the full footprint and doesn't push
+            # the block's own members.
+            all_bbox_after_nodes = list(final_subtree_nodes)
+            for block in freeze_blocks:
+                for member in block.members:
+                    if id(member) not in final_subtree_node_ids:
+                        all_bbox_after_nodes.append(member)
+                        final_subtree_node_ids.add(id(member))
+            bbox_after = compute_node_bounding_box(all_bbox_after_nodes)
 
             if bbox_before is not None and bbox_after is not None:
                 push_nodes_to_make_room(
@@ -2846,12 +3041,14 @@ def layout_selected(scheme_multiplier=None):
             # returns [] here. Use the original selected_nodes list — the Python objects are
             # the same, but their positions have been updated by place_subtree.
             final_selected_ids = {id(n) for n in node_filter}
-            # Include freeze-excluded members in bbox_after so the full footprint is captured.
+            # Include freeze-excluded members in bbox_after so the full footprint is captured,
+            # and add them to the skip-set so they aren't pushed by push_nodes_to_make_room.
             all_final_nodes = list(selected_nodes)
             for block in freeze_blocks:
                 for member in block.members:
                     if id(member) not in final_selected_ids:
                         all_final_nodes.append(member)
+                        final_selected_ids.add(id(member))
             bbox_after = compute_node_bounding_box(all_final_nodes)
 
             if bbox_before and bbox_after:
@@ -3013,7 +3210,15 @@ def _layout_selected_horizontal_impl(scheme_multiplier, side_layout_mode, undo_l
                 # h_scale and v_scale are NOT reset by re-layout — preserve existing values
                 node_layout_state.write_node_state(state_node, stored_state)
 
-            bbox_after = compute_node_bounding_box(selected_nodes)
+            # Include freeze-excluded members in bbox_after so the full footprint
+            # is captured, and add them to the skip-set.
+            all_final_nodes = list(selected_nodes)
+            for block in freeze_blocks:
+                for member in block.members:
+                    if id(member) not in spine_set:
+                        all_final_nodes.append(member)
+                        spine_set.add(id(member))
+            bbox_after = compute_node_bounding_box(all_final_nodes)
             if bbox_before and bbox_after:
                 push_nodes_to_make_room(spine_set, bbox_before, bbox_after, current_group)
     except Exception:
