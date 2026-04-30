@@ -17,10 +17,9 @@ _WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _WORKSPACE not in sys.path:
     sys.path.insert(0, _WORKSPACE)
 
-import nuke  # noqa: E402
-
-import node_layout  # noqa: E402
+import node_layout  # noqa: E402, I001
 import node_layout_state  # noqa: E402
+import nuke  # noqa: E402
 
 node_layout._build_toolbar_folder_map = lambda: {}
 nuke.lastHitGroup = lambda: nuke.root()
@@ -90,8 +89,11 @@ def main():
         print(f"    left_overhang={block.left_overhang}, right_extent={block.right_extent}")
         print(f"    leaf_dims={block.leaf_dims}")
         for m in members:
+            input_names = ", ".join(
+                m.input(s).name() for s in range(m.inputs()) if m.input(s)
+            )
             print(f"    {m.name()}: xpos={m.xpos()}, ypos={m.ypos()}, "
-                  f"inputs=[{', '.join(m.input(s).name() for s in range(m.inputs()) if m.input(s))}]")  # noqa: E501
+                  f"inputs=[{input_names}]")
 
     # Print Merge1's inputs
     merge1 = nuke.toNode("Merge1")
