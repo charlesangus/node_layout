@@ -587,6 +587,54 @@ def _find_freeze_block_through_dots(node, dimension_overrides):
     return None
 
 
+def effective_node_dims(node, dimension_overrides):
+    """Return the layout pipeline's (width, height, left_overhang) for *node*.
+
+    This is the single proxy-node abstraction that hides the difference between
+    a normal node and a freeze block root.  It always returns the ``(W, H,
+    left_overhang)`` triple consumed by ``compute_dims`` / ``place_subtree``:
+
+    * For a freeze block root (directly, or routed via one or more Dots),
+      the triple is the block's full bounding-box dimensions — width covers
+      both the left overhang and the right extent of all members; height is
+      the block bbox height; left_overhang is the distance the block extends
+      left of the root's xpos().
+    * For any other node, the triple is ``(screenWidth, screenHeight, 0)``.
+
+    Use this anywhere the horizontal layout needs to reason about a node's
+    real bounding-box footprint rather than its bare screen tile.  Callers
+    no longer need to special-case freeze blocks at every site — the proxy
+    is the only place where freeze geometry leaks in.
+    """
+    block = _find_freeze_block_through_dots(node, dimension_overrides)
+    if block is not None:
+        return (
+            block.right_extent + block.left_overhang,
+            block.block_height,
+            block.left_overhang,
+        )
+    return (node.screenWidth(), node.screenHeight(), 0)
+
+
+def effective_top_extent(node, dimension_overrides):
+    """Return how far *node*'s effective bbox extends ABOVE its top edge.
+
+    For a freeze block root (directly or via a Dot chain), this is
+    ``block.top_extent`` — the distance the block bbox reaches above the
+    root's ``ypos()`` in screen coordinates (positive value, since Nuke's Y
+    axis points down).  For any other node, returns 0.
+
+    Side inputs and upstream subtrees that sit above a spine node must add
+    this value to their vertical clearance, otherwise they land inside the
+    block bbox of a frozen spine root that contains members extending well
+    above the root.
+    """
+    block = _find_freeze_block_through_dots(node, dimension_overrides)
+    if block is not None:
+        return block.top_extent
+    return 0
+
+
 def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                              scheme_multiplier=None, per_node_h_scale=None,
                              per_node_v_scale=None, current_prefs=None,
@@ -673,17 +721,19 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
     effective_widths = [sn.screenWidth() for sn in spine_nodes]
     left_extents = [0] * len(spine_nodes)
 
-    # When a spine node IS a freeze block root, expand its effective width and left
-    # extent to cover the full block bounding box.  Without this, the advance formula
-    # only reserves space for the root node's own screenWidth(), and the non-root
-    # block members (restored via offset after placement) overlap the adjacent spine
-    # node's side subtrees.
-    if dimension_overrides:
-        for i, spine_node in enumerate(spine_nodes):
-            if id(spine_node) in dimension_overrides:
-                block = dimension_overrides[id(spine_node)]
-                effective_widths[i] = max(effective_widths[i], block.right_extent)
-                left_extents[i] = max(left_extents[i], block.left_overhang)
+    # When a spine node IS a freeze block root (directly or routed via Dots), expand
+    # its effective width and left extent to cover the full block bounding box.
+    # Without this, the advance formula only reserves space for the root node's own
+    # screenWidth(), and the non-root block members (restored via offset after
+    # placement) overlap the adjacent spine node's side subtrees.  Going through
+    # ``effective_node_dims`` is the single proxy lookup — same helper used at every
+    # other freeze-aware site so spine nodes and side inputs cannot drift apart.
+    for i, spine_node in enumerate(spine_nodes):
+        spine_eff_w, _, spine_eff_left_overhang = effective_node_dims(
+            spine_node, dimension_overrides
+        )
+        effective_widths[i] = max(effective_widths[i], spine_eff_w)
+        left_extents[i] = max(left_extents[i], spine_eff_left_overhang)
 
     if side_layout_mode == "recursive":
         for i, spine_node in enumerate(spine_nodes):
@@ -703,20 +753,15 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                 # When the side input is (or routes through Dots to) a freeze
                 # block root, the block's restored bounding box is typically
                 # wider than what compute_dims returns (which treats frozen
-                # members as a normal vertical chain).  Override side_w and
-                # side_root_x_offset with the block's true dimensions so the
-                # advance formula reserves enough horizontal space.
-                side_freeze_block = _find_freeze_block_through_dots(
+                # members as a normal vertical chain).  Use the proxy lookup
+                # to widen side_w / side_root_x_offset to the block's true
+                # dimensions so the advance formula reserves enough space.
+                proxy_w, _, proxy_left_overhang = effective_node_dims(
                     side_node, dimension_overrides
                 )
-                if side_freeze_block is not None:
-                    freeze_block_total_width = (
-                        side_freeze_block.right_extent
-                        + side_freeze_block.left_overhang
-                    )
-                    if freeze_block_total_width > side_w:
-                        side_w = freeze_block_total_width
-                        side_root_x_offset = side_freeze_block.left_overhang
+                if proxy_w > side_w:
+                    side_w = proxy_w
+                    side_root_x_offset = proxy_left_overhang
                 # centering_offset: displacement from spine node's left edge to side
                 # node's left edge.  Negative when side node is wider than spine node
                 # (side subtree extends leftward past the spine node's left edge).
@@ -820,12 +865,22 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
 
         is_last_spine_node = (index == len(spine_nodes) - 1)
 
+        # If the spine node is a freeze block root, the block can extend well
+        # above the root's tile (non-root frozen members upstream).  Side
+        # inputs and the upstream subtree above the leftmost Dot must clear
+        # that vertical extent — same proxy abstraction used for X clearance,
+        # via ``effective_top_extent``.
+        spine_block_top_extent = effective_top_extent(spine_node, dimension_overrides)
+
         # Place side inputs (slots 1+) above this spine node.
         for slot_index in range(1, spine_node.inputs()):
             side_node = spine_node.input(slot_index)
             if side_node is None:
                 continue
-            side_y = cur_y - horizontal_side_gap - side_node.screenHeight()
+            side_y = (
+                cur_y - spine_block_top_extent - horizontal_side_gap
+                - side_node.screenHeight()
+            )
             side_x = _center_x(side_node.screenWidth(), cur_x, spine_node.screenWidth())
             if side_layout_mode == "recursive":
                 side_count = side_input_counts.get(
@@ -946,7 +1001,10 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
                     # Fallback (no Dot possible — spine node has no input[0]): place A
                     # to the left of the spine using the upstream root's own width.
                     upstream_x = cur_x - step_x - upstream_root.screenWidth()
-                upstream_y = cur_y - horizontal_side_gap - upstream_root.screenHeight()
+                upstream_y = (
+                    cur_y - spine_block_top_extent - horizontal_side_gap
+                    - upstream_root.screenHeight()
+                )
 
                 if side_layout_mode == "recursive":
                     # Recursive: compute full subtree dims, then recursively place
@@ -1021,10 +1079,10 @@ def compute_dims(
     ]
 
     if not inputs:
-        if dimension_overrides is not None and id(node) in dimension_overrides:
-            result = dimension_overrides[id(node)].leaf_dims
-        else:
-            result = (node.screenWidth(), node.screenHeight(), 0)
+        # Leaf in the filtered graph: defer to the proxy.  When *node* is a
+        # freeze block root (or routes through Dots to one) this returns the
+        # block's full bbox triple; otherwise it returns the bare screen tile.
+        result = effective_node_dims(node, dimension_overrides)
     elif all_side:
         # All in-filter inputs are side inputs; none goes directly above.
         child_dims = [
@@ -1141,17 +1199,20 @@ def compute_dims(
             )
         result = (W, H, 0)
 
-    # For non-leaf freeze block roots: widen the allocation to the full block bbox and
-    # set root_x_offset to left_overhang so restored members don't escape their band.
-    # The leaf branch above already handles the no-inputs case via leaf_dims; this
-    # covers the case where the root has in-filter external inputs that prevent the
-    # leaf branch from firing, yet frozen non-root members still carry wide X offsets.
-    if inputs and dimension_overrides is not None and id(node) in dimension_overrides:
-        block = dimension_overrides[id(node)]
-        block_total_width = block.right_extent + block.left_overhang
+    # For non-leaf freeze block roots: widen the allocation to the full block bbox
+    # and set root_x_offset to left_overhang so restored members don't escape their
+    # band.  The leaf branch above already handles the no-inputs case via the proxy;
+    # this covers the case where the root has in-filter external inputs that prevent
+    # the leaf branch from firing, yet frozen non-root members still carry wide X
+    # offsets.  We go through ``effective_node_dims`` so the widening rule lives in
+    # one place — width and left_overhang come from the same proxy used everywhere
+    # else, and ``height`` from the recursive computation above (which is correct
+    # for the layout-visible subtree).
+    if inputs:
+        proxy_w, _, proxy_left_overhang = effective_node_dims(node, dimension_overrides)
         w, h, root_x_off = result
-        if block_total_width > w or block.left_overhang > root_x_off:
-            result = (max(w, block_total_width), h, max(root_x_off, block.left_overhang))
+        if proxy_w > w or proxy_left_overhang > root_x_off:
+            result = (max(w, proxy_w), h, max(root_x_off, proxy_left_overhang))
 
     memo[(id(node), scheme_multiplier, node_h_scale, node_v_scale, layout_mode)] = result  # noqa: E501
     return result
@@ -1622,6 +1683,15 @@ class FreezeBlock:
         self.right_extent = block_max_x - root.xpos()
         self.left_overhang = root.xpos() - block_min_x
         self.block_height = block_max_y - block_min_y
+        # Y-axis extents (Nuke DAG: positive Y points DOWN, so upstream nodes
+        # have SMALLER ypos than the root).  ``top_extent`` measures how far
+        # the block bbox extends ABOVE (smaller-Y direction) the root's top
+        # edge; ``bottom_extent`` how far it extends BELOW (larger-Y) the
+        # root's bottom edge.  Both are non-negative.  Side inputs and
+        # upstream subtrees placed above a freeze-block spine root must clear
+        # ``top_extent`` to avoid landing inside the block bbox.
+        self.top_extent = root.ypos() - block_min_y
+        self.bottom_extent = block_max_y - (root.ypos() + root.screenHeight())
 
         # Root-relative offsets for position restoration
         self.offsets = {}
