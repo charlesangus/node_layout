@@ -89,9 +89,11 @@ def main():
         print(f"    left_overhang={block.left_overhang}, right_extent={block.right_extent}")
         print(f"    leaf_dims={block.leaf_dims}")
         for m in members:
-            inputs = ', '.join(m.input(s).name() for s in range(m.inputs()) if m.input(s))
+            input_names = ", ".join(
+                m.input(s).name() for s in range(m.inputs()) if m.input(s)
+            )
             print(f"    {m.name()}: xpos={m.xpos()}, ypos={m.ypos()}, "
-                  f"inputs=[{inputs}]")
+                  f"inputs=[{input_names}]")
 
     # Print Merge1's inputs
     merge1 = nuke.toNode("Merge1")

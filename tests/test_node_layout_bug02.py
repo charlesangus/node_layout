@@ -127,13 +127,17 @@ class TestNodeFilterObjectMembership(unittest.TestCase):
             "collect_subtree_nodes() must use 'node not in node_filter'",
         )
 
-    def test_final_selected_ids_derived_from_node_filter_objects(self):
-        """final_selected_ids must be derived from node_filter via {id(n) for n in node_filter}."""
+    def test_final_selected_ids_built_via_collect_subtree_nodes(self):
+        """final_selected_ids must be built from collect_subtree_nodes (no filter) so
+        newly created routing Dots are included in the push_nodes_to_make_room skip-set
+        (fix for issue #10)."""
         source = _load_source()
         self.assertIn(
-            "final_selected_ids = {id(n) for n in node_filter}",
+            "collect_subtree_nodes(layout_root)",
             source,
-            "final_selected_ids must be derived from node_filter via {id(n) for n in node_filter}",
+            "layout_selected() must use collect_subtree_nodes(layout_root) with no "
+            "filter to build final_selected_ids, ensuring new routing Dots are skipped "
+            "by push_nodes_to_make_room",
         )
 
     def test_file_parses_without_syntax_errors(self):
