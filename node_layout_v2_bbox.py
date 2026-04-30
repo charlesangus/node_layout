@@ -741,28 +741,48 @@ class BboxEngine(node_layout_engine.LayoutEngine):
         else:
             subtree = layout_vertical(root, ctx)
 
-        # Phase 6: apply. Anchor: keep root at its current position
-        # so the selected node stays put (invariant from spec).
-        if root_mode == "horizontal" and root is not original_selected:
-            anchor_root = original_selected
-        else:
-            anchor_root = root
-        anchor_x = anchor_root.xpos()
-        anchor_y = anchor_root.ypos()
-
+        # Phase 6: apply. Anchor strategy.
+        # - vertical: root's existing position stays put.
+        # - horizontal where root IS the originally selected node: same.
+        # - horizontal where root is upstream of selected node: anchor the
+        #   chain to the RIGHT of the consumer (original_selected) with a
+        #   horizontal_subtree_gap clearance so the chain reads R-to-L.
         id_to_node = collect_id_to_node(
             subtree,
             extra_nodes=[m for b in freeze_blocks for m in b.members],
         )
 
-        # Compute translation so anchor_root lands at its current position.
-        if id(anchor_root) in subtree.nodes:
-            local_x, local_y = subtree.nodes[id(anchor_root)]
-            dx = anchor_x - local_x
-            dy = anchor_y - local_y
+        if root_mode == "horizontal" and root is not original_selected:
+            # Anchor: place root just right of original_selected, dot_gap above.
+            step_x = int(prefs.get("horizontal_subtree_gap") * prefs.get("normal_multiplier"))
+            loose_gap = prefs.get("loose_gap_multiplier")
+            dot_gap = int(loose_gap * prefs.get("normal_multiplier") * snap)
+            # subtree.bbox[2] is the right edge of the chain in subtree-local
+            # frame; root sits at (0, 0). We want subtree's bbox left edge to
+            # land at (consumer.right + step_x).
+            target_left_world = (
+                original_selected.xpos() + original_selected.screenWidth() + step_x
+            )
+            target_root_y = original_selected.ypos() - dot_gap - root.screenHeight()
+            # Root is at (0, 0) in subtree frame; subtree bbox left = bbox[0].
+            # World left = root_x + bbox[0]; root_x = target_left_world - bbox[0].
+            root_x_world = target_left_world - subtree.bbox[0]
+            local_root_x, local_root_y = subtree.nodes.get(
+                id(root), subtree.anchor_out
+            )
+            dx = root_x_world - local_root_x
+            dy = target_root_y - local_root_y
         else:
-            dx = anchor_x - subtree.anchor_out[0]
-            dy = anchor_y - subtree.anchor_out[1]
+            anchor_root = root
+            anchor_x = anchor_root.xpos()
+            anchor_y = anchor_root.ypos()
+            if id(anchor_root) in subtree.nodes:
+                local_x, local_y = subtree.nodes[id(anchor_root)]
+                dx = anchor_x - local_x
+                dy = anchor_y - local_y
+            else:
+                dx = anchor_x - subtree.anchor_out[0]
+                dy = anchor_y - subtree.anchor_out[1]
 
         for node_id, (lx, ly) in subtree.nodes.items():
             obj = id_to_node.get(node_id)
@@ -770,6 +790,92 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                 continue
             obj.setXpos(lx + dx)
             obj.setYpos(ly + dy)
+
+        # Phase 6b: horizontal output-dot — when chain root is upstream of
+        # the originally selected consumer, drop a routing Dot between root
+        # and consumer, vertically centered on the consumer.
+        if root_mode == "horizontal":
+            node_layout._place_output_dot_for_horizontal_root(
+                root, current_group, snap, prefs.get("normal_multiplier"),
+            )
+
+        # Phase 6c: when running horizontal upstream, the consumer's other
+        # vertical inputs (slots whose direct input is NOT the chain root)
+        # still need a vertical layout above the consumer. Compute chain bbox
+        # to know how far above we must push the Phase 2 subtree.
+        if root_mode == "horizontal" and root is not original_selected:
+            chain_nodes = node_layout.collect_subtree_nodes(root)
+            chain_min_y = min(c.ypos() for c in chain_nodes) if chain_nodes else None
+            phase2_inputs = []
+            if not node_layout._hides_inputs(original_selected):
+                for slot in range(original_selected.inputs()):
+                    inp = original_selected.input(slot)
+                    if inp is None:
+                        continue
+                    # Skip the chain root itself and any output dot routing to it.
+                    if id(inp) == id(root):
+                        continue
+                    if (inp.knob('node_layout_output_dot') is not None
+                            and inp.input(0) is not None
+                            and id(inp.input(0)) == id(root)):
+                        continue
+                    phase2_inputs.append((slot, inp))
+            chain_min_x = (
+                min(c.xpos() for c in chain_nodes) if chain_nodes else None
+            )
+            for _slot, inp in phase2_inputs:
+                p2_subtree_nodes = node_layout.collect_subtree_nodes(inp)
+                p2_filter = set(p2_subtree_nodes)
+                p2_ctx = LayoutContext(
+                    snap_threshold=snap,
+                    node_count=len(p2_subtree_nodes),
+                    node_filter=p2_filter,
+                    per_node_scheme=per_node_scheme,
+                    per_node_h_scale=per_node_h_scale,
+                    per_node_v_scale=per_node_v_scale,
+                    dimension_overrides=dimension_overrides,
+                )
+                p2_subtree = layout_vertical(inp, p2_ctx)
+                # Anchor: input root above original_selected, centered.
+                p2_root_x = node_layout._center_x(
+                    inp.screenWidth(),
+                    original_selected.xpos(),
+                    original_selected.screenWidth(),
+                )
+                raw_gap = node_layout.vertical_gap_between(
+                    inp, original_selected, snap,
+                    scheme_multiplier=per_node_scheme.get(
+                        id(inp), prefs.get("normal_multiplier")
+                    ),
+                )
+                gap_to_consumer = max(snap - 1, raw_gap)
+                bbox_bottom_target = original_selected.ypos() - gap_to_consumer
+                # Push above chain top if needed.
+                if chain_min_y is not None:
+                    side_v_gap = prefs.get("horizontal_side_vertical_gap")
+                    chain_required_top = chain_min_y - side_v_gap
+                    if bbox_bottom_target > chain_required_top:
+                        bbox_bottom_target = chain_required_top
+                p2_root_y = bbox_bottom_target - p2_subtree.bbox[3]
+                # Clamp X so the subtree's right edge does NOT enter the chain
+                # bbox: bbox_right_world < chain_min_x - h_gap (strictly less).
+                if chain_min_x is not None:
+                    h_gap = prefs.get("horizontal_subtree_gap")
+                    p2_w = p2_subtree.bbox[2] - p2_subtree.bbox[0]
+                    p2_root_offset = -p2_subtree.bbox[0]
+                    max_root_x = chain_min_x - h_gap - 1 - p2_w + p2_root_offset
+                    if p2_root_x > max_root_x:
+                        p2_root_x = max_root_x
+                p2_id_to_node = collect_id_to_node(p2_subtree)
+                local_root_x, local_root_y = p2_subtree.nodes[id(inp)]
+                p2_dx = p2_root_x - local_root_x
+                p2_dy = p2_root_y - local_root_y
+                for nid, (lx, ly) in p2_subtree.nodes.items():
+                    obj = p2_id_to_node.get(nid)
+                    if obj is None:
+                        continue
+                    obj.setXpos(lx + p2_dx)
+                    obj.setYpos(ly + p2_dy)
 
         # Phase 7: restore freeze block member positions (their offsets are
         # baked into nodes_dict, but if any block root was a leaf, we already
