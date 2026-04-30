@@ -728,11 +728,18 @@ def place_subtree_horizontal(root, spine_x, spine_y, snap_threshold, node_count,
     # placement) overlap the adjacent spine node's side subtrees.  Going through
     # ``effective_node_dims`` is the single proxy lookup — same helper used at every
     # other freeze-aware site so spine nodes and side inputs cannot drift apart.
+    #
+    # NOTE: ``effective_node_dims`` returns (total_width, height, left_overhang) where
+    # total_width = right_extent + left_overhang.  ``effective_widths`` tracks only the
+    # RIGHTWARD extent from the spine node's left edge (= right_extent), so subtract
+    # left_overhang before comparing.  ``left_extents`` separately captures the leftward
+    # component so the advance formula accounts for both sides without double-counting.
     for i, spine_node in enumerate(spine_nodes):
         spine_eff_w, _, spine_eff_left_overhang = effective_node_dims(
             spine_node, dimension_overrides
         )
-        effective_widths[i] = max(effective_widths[i], spine_eff_w)
+        spine_right_extent = spine_eff_w - spine_eff_left_overhang
+        effective_widths[i] = max(effective_widths[i], spine_right_extent)
         left_extents[i] = max(left_extents[i], spine_eff_left_overhang)
 
     if side_layout_mode == "recursive":
@@ -1687,11 +1694,13 @@ class FreezeBlock:
         # have SMALLER ypos than the root).  ``top_extent`` measures how far
         # the block bbox extends ABOVE (smaller-Y direction) the root's top
         # edge; ``bottom_extent`` how far it extends BELOW (larger-Y) the
-        # root's bottom edge.  Both are non-negative.  Side inputs and
-        # upstream subtrees placed above a freeze-block spine root must clear
-        # ``top_extent`` to avoid landing inside the block bbox.
-        self.top_extent = root.ypos() - block_min_y
-        self.bottom_extent = block_max_y - (root.ypos() + root.screenHeight())
+        # root's bottom edge.  Both are clamped to non-negative: a block whose
+        # members all sit on the same side of the root tile still yields zero
+        # in the opposite direction.  Side inputs and upstream subtrees placed
+        # above a freeze-block spine root must clear ``top_extent`` to avoid
+        # landing inside the block bbox.
+        self.top_extent = max(0, root.ypos() - block_min_y)
+        self.bottom_extent = max(0, block_max_y - (root.ypos() + root.screenHeight()))
 
         # Root-relative offsets for position restoration
         self.offsets = {}
