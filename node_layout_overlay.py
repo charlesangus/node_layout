@@ -275,7 +275,7 @@ class ClickableKeyCell(QWidget):
         # Fixed size enforces the square shape; QFrame stylesheet sets the background.
         # Child labels use transparent backgrounds so they don't paint over the frame color.
         badge_frame = QFrame()
-        badge_frame.setFixedSize(60, 60)
+        badge_frame.setFixedSize(_KEYBOARD_CELL_SIZE, _KEYBOARD_CELL_SIZE)
         badge_frame.setStyleSheet(
             f"QFrame {{ background-color: {badge_rgb}; border-radius: 6px; }}"
         )

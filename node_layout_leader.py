@@ -296,9 +296,10 @@ def _dispatch_expand():
 # ---------------------------------------------------------------------------
 # Keyboard layout remap — adapts dispatch tables for the configured layout.
 #
-# Dispatch is keyed by physical key position, not produced QWERTY letter.  The
-# active layout comes from node_layout_prefs.keyboard_layout; rebuild_layout()
-# re-derives tables after the preference changes.
+# Dispatch is keyed by Qt.Key values derived from the remapped letter Qt
+# reports for the active layout. The active layout comes from
+# node_layout_prefs.keyboard_layout; rebuild_layout() re-derives the tables
+# after that preference changes.
 # ---------------------------------------------------------------------------
 
 _AZERTY_REMAP = {"Q": "A", "W": "Z", "A": "Q", "Z": "W"}
@@ -400,10 +401,8 @@ def rebuild_layout():
     _LAYOUT_REMAP = _remap_from_prefs()
     _DISPATCH_TABLE, _CHAINING_DISPATCH_TABLE, _LETTER_TO_QT_KEY = _build_dispatch_tables()
     if _overlay is not None:
-        try:
+        with contextlib.suppress(Exception):
             _overlay.deleteLater()
-        except Exception:  # noqa: BLE001
-            pass
         _overlay = None
 
 

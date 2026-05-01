@@ -185,16 +185,30 @@ class TestOverlayKeyLayout(unittest.TestCase):
 
     def test_arrange_keys_keep_physical_y_and_h_columns(self):
         """Y/H actions must sit in their physical keyboard columns with blanks before them."""
-        self.assertIn(
-            '("Y", "Arrange Vert",  0, 5)',
-            self.source,
-            "Arrange Vert must appear at the physical Y key column",
-        )
-        self.assertIn(
-            '("H", "Arrange Horiz", 1, 5)',
-            self.source,
-            "Arrange Horiz must appear at the physical H key column",
-        )
+        tree = _parse_overlay_ast()
+        # Find the _KEY_LAYOUT_QWERTY assignment and extract (letter, label, row, col) tuples.
+        key_layout = None
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Assign)
+                and any(
+                    isinstance(t, ast.Name) and t.id == "_KEY_LAYOUT_QWERTY"
+                    for t in node.targets
+                )
+            ):
+                key_layout = node.value
+                break
+        self.assertIsNotNone(key_layout, "_KEY_LAYOUT_QWERTY must be defined in node_layout_overlay.py")
+        entries = {}
+        for elt in key_layout.elts:
+            if isinstance(elt, ast.Tuple) and len(elt.elts) == 4:
+                letter, _label, row, col = elt.elts
+                if isinstance(letter, ast.Constant) and isinstance(row, ast.Constant) and isinstance(col, ast.Constant):
+                    entries[letter.value] = (row.value, col.value)
+        self.assertIn("Y", entries, "Y key must be present in _KEY_LAYOUT_QWERTY")
+        self.assertEqual(entries["Y"], (0, 5), "Arrange Vert (Y) must be at row=0, col=5")
+        self.assertIn("H", entries, "H key must be present in _KEY_LAYOUT_QWERTY")
+        self.assertEqual(entries["H"], (1, 5), "Arrange Horiz (H) must be at row=1, col=5")
 
 
 class TestOverlayColorConstants(unittest.TestCase):

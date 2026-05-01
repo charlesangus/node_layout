@@ -1,10 +1,10 @@
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
     QLabel,
     QLineEdit,
-    QComboBox,
     QVBoxLayout,
 )
 
