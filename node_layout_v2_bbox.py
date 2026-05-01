@@ -764,7 +764,17 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                     leftmost.setInput(0, new_dot)
                     inserted_dot = new_dot
 
-            target_zero_bbox_right = leftmost_x - step_x
+            # Right edge of the leftward extension: clear the spine tile by
+            # step_x, AND clear the leftmost spine's segment bbox (which
+            # extends further left when its side input subtrees contain
+            # horizontal nodes) by h_gap.
+            leftmost_seg_left_world = (
+                leftmost_x + segments[-1]["bbox"][0]
+            )
+            target_zero_bbox_right = min(
+                leftmost_x - step_x,
+                leftmost_seg_left_world - h_gap,
+            )
             if inserted_dot is not None:
                 # The new Dot acts as the routing element at the spine
                 # boundary: centred-in-Y on the leftmost spine tile,
