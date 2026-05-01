@@ -295,9 +295,20 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         int(node_layout._horizontal_margin(node, slot) * h_scale)
         for slot in actual_slots
     ]
+    # Use the prefs' reference node-count so ``_subtree_margin`` returns a
+    # value independent of the layout-scope size. Without this the margin
+    # scales as ``sqrt(node_count) / sqrt(reference_count)``, so running
+    # ``layout_upstream`` from a subtree root produces tighter spacing
+    # than running from the full graph's root — same DAG, different
+    # spacing depending on where you start, which is surprising.
+    margin_reference_count = node_layout_prefs.prefs_singleton.get(
+        "scaling_reference_count"
+    )
     side_margins_v = [
         int(
-            node_layout._subtree_margin(node, slot, ctx.node_count, mode_multiplier=scheme)
+            node_layout._subtree_margin(
+                node, slot, margin_reference_count, mode_multiplier=scheme,
+            )
             * v_scale
         )
         for slot in actual_slots
