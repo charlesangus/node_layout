@@ -1699,6 +1699,12 @@ class TestLayoutUpstreamEndToEnd(unittest.TestCase):
     # Test 1: First run — consumer (m1) selected; dot created centred on m1
     # -------------------------------------------------------------------
 
+    @unittest.skipIf(
+        os.environ.get("NODE_LAYOUT_ENGINE") == "bbox",
+        "Legacy-specific: bbox engine intentionally omits the output Dot "
+        "below a horizontal seed (the seed sits naturally above its "
+        "consumer, so a Dot at consumer mid-Y would overlap the consumer).",
+    )
     def test_first_run_dot_y_centred_on_consumer(self):
         """First run: output dot Y must be centred on the consumer (m1).
 
@@ -1743,6 +1749,11 @@ class TestLayoutUpstreamEndToEnd(unittest.TestCase):
     # Test 2: Replay — dot Y stays centred on m1 when dot already wired
     # -------------------------------------------------------------------
 
+    @unittest.skipIf(
+        os.environ.get("NODE_LAYOUT_ENGINE") == "bbox",
+        "Legacy-specific: bbox engine intentionally omits the output Dot "
+        "below a horizontal seed (see test_first_run_dot_y_centred_on_consumer).",
+    )
     def test_replay_dot_y_stays_centred_on_consumer(self):
         """Replay: output dot Y must remain centred on m1 on the second layout run.
 

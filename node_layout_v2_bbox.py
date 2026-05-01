@@ -996,13 +996,14 @@ class BboxEngine(node_layout_engine.LayoutEngine):
             obj.setXpos(lx + dx)
             obj.setYpos(ly + dy)
 
-        # Phase 5b: place/reposition routing Dots for every horizontal subtree
-        # the dispatcher entered. The helper finds each spine root's downstream
-        # consumer in the live DAG and inserts/repositions a Dot between them.
-        for seed in ctx.horizontal_seeds:
-            node_layout._place_output_dot_for_horizontal_root(
-                seed, current_group, snap, prefs.get("normal_multiplier"),
-            )
+        # (Output dot insertion intentionally omitted. The legacy
+        # ``_place_output_dot_for_horizontal_root`` positions a Dot at
+        # consumer mid-Y — appropriate when the chain is anchored to the
+        # right of the consumer (legacy), but in the bbox layout the
+        # horizontal subtree sits naturally above its consumer, so a Dot
+        # at consumer mid-Y overlaps the consumer tile. The leftmost-spine
+        # boundary Dot inserted by ``layout_horizontal`` provides the only
+        # routing turn the chain needs.)
 
         # (Former "Phase 6c" deleted — the recursion now handles the consumer's
         # mixed vertical+horizontal inputs natively. A vertical consumer with
@@ -1255,11 +1256,7 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                 obj.setXpos(lx + dx)
                 obj.setYpos(ly + dy)
 
-        # Place/reposition routing Dots for each horizontal subtree.
-        for seed in all_horizontal_seeds:
-            node_layout._place_output_dot_for_horizontal_root(
-                seed, current_group, snap, prefs.get("normal_multiplier"),
-            )
+        # (Output dot insertion intentionally omitted — see _run_layout_upstream.)
 
         # State write-back
         for n in selected:
