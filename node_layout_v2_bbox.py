@@ -1283,9 +1283,7 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                 # spine node, so side inputs (slot >= 1 of each spine node) and
                 # the leftmost spine node's input(0) subtree get laid out by
                 # the recursion. Without this they'd be excluded by
-                # ``node_filter`` and never repositioned. Per-node mode +
-                # scheme + scale fall back to defaults for nodes that weren't
-                # in the original selection.
+                # ``node_filter`` and never repositioned.
                 wider_filter = set(node_filter)
                 for sid in spine_set:
                     spine_node_obj = next(
@@ -1296,11 +1294,33 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                     wider_filter.update(
                         node_layout.collect_subtree_nodes(spine_node_obj)
                     )
-                # Drop frozen non-root members from the recursion scope (they
-                # ride along with their block roots).
+
+                # Re-detect freeze groups against the wider scope. Freeze
+                # blocks living entirely upstream of the spine (no member in
+                # the original selection) were invisible to the first pass,
+                # so the recursion would have laid out their members as
+                # regular nodes — breaking the rigid offsets and (because
+                # state write-back never restored them) leaving the block
+                # visually disassembled. Pulling them in here makes them
+                # opaque leaves to the recursion. ``_expand_scope_for_freeze_groups``
+                # also pulls partial blocks into full blocks before detection.
+                wider_filter = set(node_layout._expand_scope_for_freeze_groups(
+                    list(wider_filter), current_group
+                ))
+                wider_freeze_map, _ = node_layout._detect_freeze_groups(
+                    list(wider_filter)
+                )
+                freeze_blocks, dim_overrides, all_non_root_ids, all_member_ids = (
+                    node_layout._build_freeze_blocks(wider_freeze_map)
+                )
+                # Frozen non-root members are folded into their block roots
+                # by the recursion; they must not appear in the recursion
+                # filter as standalone nodes.
                 if all_non_root_ids:
                     wider_filter = {n for n in wider_filter
                                     if id(n) not in all_non_root_ids}
+                    selected = [n for n in selected
+                                if id(n) not in all_non_root_ids]
 
                 # Resolve scheme/scale defaults for the newly-included nodes.
                 for n in wider_filter:
