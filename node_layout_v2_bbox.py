@@ -378,6 +378,18 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
             bottom_y[i] - child_subtrees[i].bbox[3] for i in range(n)
         ]
 
+        # When a side-input slot's root IS a Dot, position the Dot at the
+        # consumer's mid-Y instead of the staircase Y. Same rule as the
+        # auto-inserted routing dots — the Dot is the bottom-of-subtree
+        # routing element. The subtree above the Dot rides along (its
+        # relative offsets within the subtree's local frame are unchanged).
+        for i in range(n):
+            if i == 0 and not all_side:
+                continue
+            if inputs[i].Class() != 'Dot':
+                continue
+            y_positions[i] = (node_h - inputs[i].screenHeight()) // 2
+
     # ----- X placement -----
     # consumer_right / consumer_left bound the allocation on each side; for a
     # plain node they're the tile edges, for a freeze-block root they're the
@@ -732,35 +744,42 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                     leftmost.setInput(0, new_dot)
                     inserted_dot = new_dot
 
-            # Target Y: zero subtree's root vertically centered on the
-            # leftmost spine tile (so the wire from zero's output enters
-            # leftmost.input(0) horizontally).
-            target_zero_root_y = (
-                cur_y + leftmost.screenHeight() // 2 - zero.screenHeight() // 2
-            )
-            # Target X: subtree right edge sits step_x left of leftmost.
-            # If a routing Dot was inserted, that becomes the rightmost
-            # tile in this leftward segment, so reserve dot_w + h_gap of
-            # space between the dot and the spine tile.
             target_zero_bbox_right = leftmost_x - step_x
             if inserted_dot is not None:
-                # Place dot first, then push subtree further left.
+                # The new Dot acts as the routing element at the spine
+                # boundary: centred-in-Y on the leftmost spine tile,
+                # centred-in-X on the input subtree's root tile. The
+                # input subtree itself sits ABOVE the Dot, not at the
+                # Dot's Y, so they don't overlap.
                 dot_w = inserted_dot.screenWidth()
                 dot_h = inserted_dot.screenHeight()
                 dot_y = (
                     cur_y + leftmost.screenHeight() // 2 - dot_h // 2
                 )
-                # Place the input subtree first, then the dot at its X
-                # centre, so the dot sits centred-in-X on its input tile.
-                zero_root_x = target_zero_bbox_right - zero_subtree.bbox[2] - dot_w
+                # Position zero's tile so its right edge clears the spine
+                # by step_x; the Dot sits to the right of zero's column,
+                # centred-in-X on zero's tile.
+                zero_root_x = target_zero_bbox_right - zero_subtree.bbox[2]
                 dot_x = zero_root_x + zero.screenWidth() // 2 - dot_w // 2
                 nodes_dict[id(inserted_dot)] = (dot_x, dot_y)
                 bbox_l = min(bbox_l, dot_x)
                 bbox_t = min(bbox_t, dot_y)
                 bbox_r = max(bbox_r, dot_x + dot_w)
                 bbox_b = max(bbox_b, dot_y + dot_h)
+                # Place zero subtree so its bbox bottom sits side_v_gap
+                # above the Dot's top — i.e., the Dot is the bottom of the
+                # leftward column.
+                target_zero_root_y = (
+                    dot_y - side_v_gap - zero_subtree.bbox[3]
+                )
             else:
-                # No routing dot inserted (input(0) was already a Dot).
+                # input(0) was already a Dot; treat that Dot as the routing
+                # element and centre it in Y on the leftmost spine tile.
+                # zero IS the dot here, so zero_subtree.nodes[id(zero)] is
+                # the Dot tile at (0, 0) in local frame.
+                target_zero_root_y = (
+                    cur_y + leftmost.screenHeight() // 2 - zero.screenHeight() // 2
+                )
                 zero_root_x = target_zero_bbox_right - zero_subtree.bbox[2]
 
             translated = _translate(

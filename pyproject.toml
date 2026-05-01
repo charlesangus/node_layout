@@ -1,6 +1,6 @@
 [tool.ruff]
 line-length = 100
-exclude = [".claude/", ".bg-shell/", "nuke_tests/output/"]
+exclude = [".claude/", ".bg-shell/", ".codex/", "nuke_tests/output/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "I", "SIM"]
