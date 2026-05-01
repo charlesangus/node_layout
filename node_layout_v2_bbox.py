@@ -494,7 +494,11 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         anchor_in_per_slot[actual_slots[i]] = translated.anchor_out
 
         # If a routing dot was inserted at slot i, position it now.
-        # Dot sits between the consumer (this node) and the child root.
+        # The routing dot is the bottom-of-subtree node — it should be
+        # centered in Y on the consuming node and centered in X on its
+        # input subtree's root (anchor_out_x + upstream_width/2). For fan
+        # mode the visualization is different (dots in a row above the
+        # consumer), so we keep the legacy fan-mode placement.
         if i in new_dots:
             dot = new_dots[i]
             dot_w = dot.screenWidth()
@@ -502,25 +506,13 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
             child_root_x_in_parent = translated.anchor_out[0]
             actual_upstream_w = inputs[i].screenWidth()
             dot_center_x = child_root_x_in_parent + actual_upstream_w // 2
-            if is_fan:
-                dot_y = -(snap - 1) - dot_h
-            elif i == n - 1:
-                # Bottom-most dot: vertically centered next to root tile
-                dot_y = (node_h - dot_h) // 2
-            else:
-                # Staggered: just above bottom-row, using subtree margin
-                dot_y = (
-                    y_positions[i] + actual_upstream_w * 0  # placeholder
-                )
-                dot_y = (
-                    translated.bbox[3]
-                    + int(
-                        node_layout._subtree_margin(
-                            node, actual_slots[n - 1], ctx.node_count,
-                            mode_multiplier=scheme,
-                        ) * v_scale
-                    )
-                )
+            # Fan mode places dots in a row above the consumer; staircase
+            # mode centers each dot in Y on the consumer regardless of its
+            # staircase position. The subtree above each dot keeps its
+            # staircase Y.
+            dot_y = (
+                -(snap - 1) - dot_h if is_fan else (node_h - dot_h) // 2
+            )
             dot_x = dot_center_x - dot_w // 2
             nodes_dict[id(dot)] = (dot_x, dot_y)
             bbox_left = min(bbox_left, dot_x)
@@ -585,32 +577,12 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         spine_nodes.append(cursor)
         cursor = cursor.input(0)
 
-    # Place root at (0, 0). Each prior spine node sits to the left.
     nodes_dict: dict[int, tuple[int, int]] = {}
     bbox_l, bbox_t, bbox_r, bbox_b = 0, 0, 0, 0
     cur_y = 0
 
-    # Walk spine left to right (index 0 = rightmost root).
-    # We place the root first, then each upstream spine node steps left.
-    spine_x_per_index: list[int] = []
-    for i, spine_node in enumerate(spine_nodes):
-        if i == 0:
-            spine_x = 0
-        else:
-            prev_left_edge = spine_x_per_index[i - 1]
-            spine_x = prev_left_edge - step_x - spine_node.screenWidth()
-        spine_x_per_index.append(spine_x)
-        nodes_dict[id(spine_node)] = (spine_x, cur_y)
-        # Update bbox for spine node tile
-        bbox_l = min(bbox_l, spine_x)
-        bbox_t = min(bbox_t, cur_y)
-        bbox_r = max(bbox_r, spine_x + spine_node.screenWidth())
-        bbox_b = max(bbox_b, cur_y + spine_node.screenHeight())
-
-    # Now lay out side inputs (slot >= 1) of each spine node vertically.
-    # We build a vertical Subtree for each side input via layout_vertical,
-    # then translate so its root sits centered above the spine node tile.
-    # Use a recursive context with horizontal_root_id=None and spine_set=None.
+    # Side-input recursion context shared by the per-spine-node pre-pass
+    # below and by the leftward-extension code further down.
     side_ctx = LayoutContext(
         snap_threshold=ctx.snap_threshold,
         node_count=ctx.node_count,
@@ -626,12 +598,25 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         all_horizontal_ids=ctx.all_horizontal_ids,
     )
 
-    for i, spine_node in enumerate(spine_nodes):
-        spine_x = spine_x_per_index[i]
+    h_gap = int(prefs.get("horizontal_subtree_gap") * scheme)
+
+    # ----- Pre-pass: build each spine node's "segment" in spine-tile-local
+    # frame (spine tile at (0, cur_y); side inputs above it). The segment's
+    # bbox tells the spine placement how much horizontal room it needs, so
+    # adjacent spine nodes can step apart by at least max(step_x, side input
+    # widths + gap). Without this, wide side input subtrees overlap with
+    # neighbouring spine nodes' columns.
+    segments: list[dict] = []
+    for spine_node in spine_nodes:
+        seg_nodes: dict[int, tuple[int, int]] = {
+            id(spine_node): (0, cur_y),
+        }
+        seg_l = 0
+        seg_t = cur_y
+        seg_r = spine_node.screenWidth()
+        seg_b = cur_y + spine_node.screenHeight()
+
         slot_count = spine_node.inputs()
-        # Side inputs: slots 1+ on every spine node go ABOVE the spine node.
-        # input(0) of the leftmost spine node — if non-spine — extends the
-        # spine LEFTWARD; it is handled separately after this loop, not here.
         side_slot_pairs = []
         for slot in range(1, slot_count):
             inp = spine_node.input(slot)
@@ -643,34 +628,24 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                 continue
             side_slot_pairs.append((slot, inp))
 
-        if not side_slot_pairs:
-            continue
-
-        # Lay out side inputs as vertical subtrees above the spine node.
-        # Stack their bboxes rightward (cur_alloc) so multiple side inputs on
-        # one spine node don't overlap each other. The first band's left edge
-        # sits at the spine node's right edge; each subsequent band starts at
-        # the previous band's right edge plus a horizontal gap. Single side
-        # input case: it sits centered above the spine node tile.
-        h_gap = int(prefs.get("horizontal_subtree_gap") * scheme)
         target_bbox_bottom = -side_v_gap
         if len(side_slot_pairs) == 1:
-            slot, side_root = side_slot_pairs[0]
+            _slot, side_root = side_slot_pairs[0]
             child_subtree = layout(side_root, side_ctx)
-            center_x = spine_x + spine_node.screenWidth() // 2
+            center_x = spine_node.screenWidth() // 2
             child_root_x = center_x - side_root.screenWidth() // 2
             translated = _translate(
                 child_subtree,
                 child_root_x,
                 target_bbox_bottom - child_subtree.bbox[3],
             )
-            nodes_dict.update(translated.nodes)
-            bbox_l = min(bbox_l, translated.bbox[0])
-            bbox_t = min(bbox_t, translated.bbox[1])
-            bbox_r = max(bbox_r, translated.bbox[2])
-            bbox_b = max(bbox_b, translated.bbox[3])
-        else:
-            cur_alloc = spine_x + spine_node.screenWidth()
+            seg_nodes.update(translated.nodes)
+            seg_l = min(seg_l, translated.bbox[0])
+            seg_t = min(seg_t, translated.bbox[1])
+            seg_r = max(seg_r, translated.bbox[2])
+            seg_b = max(seg_b, translated.bbox[3])
+        elif side_slot_pairs:
+            cur_alloc = spine_node.screenWidth()
             for _slot, side_root in side_slot_pairs:
                 child_subtree = layout(side_root, side_ctx)
                 child_w_total = child_subtree.bbox[2] - child_subtree.bbox[0]
@@ -680,19 +655,52 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                     child_root_x,
                     target_bbox_bottom - child_subtree.bbox[3],
                 )
-                nodes_dict.update(translated.nodes)
-                bbox_l = min(bbox_l, translated.bbox[0])
-                bbox_t = min(bbox_t, translated.bbox[1])
-                bbox_r = max(bbox_r, translated.bbox[2])
-                bbox_b = max(bbox_b, translated.bbox[3])
+                seg_nodes.update(translated.nodes)
+                seg_l = min(seg_l, translated.bbox[0])
+                seg_t = min(seg_t, translated.bbox[1])
+                seg_r = max(seg_r, translated.bbox[2])
+                seg_b = max(seg_b, translated.bbox[3])
                 cur_alloc += child_w_total + h_gap
+
+        segments.append({
+            "nodes": seg_nodes,
+            "bbox": (seg_l, seg_t, seg_r, seg_b),
+        })
+
+    # Spine placement: walk left-to-right (i=0 is rightmost root).
+    # spine_x[i] is bounded BOTH by the standard step_x rule AND by the
+    # constraint that segment[i]'s right edge must be at least h_gap to the
+    # left of segment[i-1]'s left edge — so wide side input subtrees push
+    # spine nodes further apart instead of colliding.
+    spine_x_per_index: list[int] = []
+    for i, spine_node in enumerate(spine_nodes):
+        if i == 0:
+            spine_x = 0
+        else:
+            prev_x = spine_x_per_index[i - 1]
+            prev_seg_left_world = prev_x + segments[i - 1]["bbox"][0]
+            cur_seg_right_local = segments[i]["bbox"][2]
+            adaptive_x = prev_seg_left_world - cur_seg_right_local - h_gap
+            standard_x = prev_x - step_x - spine_node.screenWidth()
+            spine_x = min(adaptive_x, standard_x)
+        spine_x_per_index.append(spine_x)
+
+        # Translate this segment's nodes into the world frame.
+        seg = segments[i]
+        for nid, (lx, ly) in seg["nodes"].items():
+            nodes_dict[nid] = (spine_x + lx, ly)
+        seg_bbox = seg["bbox"]
+        bbox_l = min(bbox_l, spine_x + seg_bbox[0])
+        bbox_t = min(bbox_t, seg_bbox[1])
+        bbox_r = max(bbox_r, spine_x + seg_bbox[2])
+        bbox_b = max(bbox_b, seg_bbox[3])
 
     # Leftward extension: input(0) of the leftmost spine node, when non-spine
     # and eligible, is laid out as its own subtree (the dispatcher handles
-    # mode) and placed so its bbox right edge sits step_x left of the leftmost
-    # spine node, with the subtree's anchor_out vertically aligned to the
-    # spine row. This realises the invariant "main input of a horizontal
-    # node is directly to the left".
+    # mode). A routing Dot is inserted between the leftmost spine node and
+    # its input(0) — unless input(0) is already a Dot — so the wire turn at
+    # the spine boundary stays clean. The Dot sits centered in Y on the
+    # leftmost spine and centered in X on its input.
     if spine_nodes:
         leftmost = spine_nodes[-1]
         leftmost_x = spine_x_per_index[-1]
@@ -707,20 +715,54 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         )
         if zero_eligible:
             zero_subtree = layout(zero, side_ctx)
-            # Target: zero subtree's bbox right edge sits at leftmost_x - step_x.
-            # Vertical align: the wire from zero's output_anchor enters
-            # leftmost.input(0) at the spine row's mid-Y. We align by Y on
-            # the subtree root (zero) — root sits at (anchor_out_x, 0) in its
-            # local frame; we want it at the same Y as the spine row (cur_y).
-            # The spine row's Y for a tile is cur_y..cur_y+spine_node.h, and
-            # we vertically center against the leftmost spine tile.
+            # Decide whether to insert a routing Dot between the spine and
+            # the input(0) subtree. Skip if input(0) is itself a Dot (no
+            # need to add another). Per the user's invariant, the boundary
+            # always wants a Dot for routing.
+            inserted_dot = None
+            if zero.Class() != 'Dot':
+                try:
+                    new_dot = nuke.nodes.Dot()
+                except AttributeError:
+                    new_dot = None
+                if new_dot is not None:
+                    for auto_slot in range(new_dot.inputs()):
+                        new_dot.setInput(auto_slot, None)
+                    new_dot.setInput(0, zero)
+                    leftmost.setInput(0, new_dot)
+                    inserted_dot = new_dot
+
+            # Target Y: zero subtree's root vertically centered on the
+            # leftmost spine tile (so the wire from zero's output enters
+            # leftmost.input(0) horizontally).
             target_zero_root_y = (
                 cur_y + leftmost.screenHeight() // 2 - zero.screenHeight() // 2
             )
+            # Target X: subtree right edge sits step_x left of leftmost.
+            # If a routing Dot was inserted, that becomes the rightmost
+            # tile in this leftward segment, so reserve dot_w + h_gap of
+            # space between the dot and the spine tile.
             target_zero_bbox_right = leftmost_x - step_x
-            # zero_subtree root sits at (0, 0) in local; bbox_right is
-            # zero_subtree.bbox[2].  Translate so bbox right = target.
-            zero_root_x = target_zero_bbox_right - zero_subtree.bbox[2]
+            if inserted_dot is not None:
+                # Place dot first, then push subtree further left.
+                dot_w = inserted_dot.screenWidth()
+                dot_h = inserted_dot.screenHeight()
+                dot_y = (
+                    cur_y + leftmost.screenHeight() // 2 - dot_h // 2
+                )
+                # Place the input subtree first, then the dot at its X
+                # centre, so the dot sits centred-in-X on its input tile.
+                zero_root_x = target_zero_bbox_right - zero_subtree.bbox[2] - dot_w
+                dot_x = zero_root_x + zero.screenWidth() // 2 - dot_w // 2
+                nodes_dict[id(inserted_dot)] = (dot_x, dot_y)
+                bbox_l = min(bbox_l, dot_x)
+                bbox_t = min(bbox_t, dot_y)
+                bbox_r = max(bbox_r, dot_x + dot_w)
+                bbox_b = max(bbox_b, dot_y + dot_h)
+            else:
+                # No routing dot inserted (input(0) was already a Dot).
+                zero_root_x = target_zero_bbox_right - zero_subtree.bbox[2]
+
             translated = _translate(
                 zero_subtree,
                 zero_root_x,
