@@ -357,7 +357,16 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
             inputs[n - 1], node, snap, scheme
         )
         gap_closest = max(snap - 1, int(raw_gap_closest * v_scale))
-        if n > 1 or all_side:
+        # The standard chain spacing (vertical_gap_between) is fairly tight.
+        # Bump to the subtree margin in three cases where the upstream is
+        # logically separated from the consumer (a routing-Dot consumer is
+        # always a separator between upstream and the next consumer below):
+        #   - n > 1: there are sibling staircase bands (use subtree margin).
+        #   - all_side: every input is a side input (likewise).
+        #   - consumer is itself a Dot: it acts as a routing element, so
+        #     the upstream above it should sit at the standard subtree
+        #     spacing above the Dot, not at chain spacing.
+        if n > 1 or all_side or node.Class() == 'Dot':
             gap_closest = max(gap_closest, side_margins_v[n - 1])
         # bottom_y_per_slot is the Y of the bottom of each child SUBTREE BBOX
         # (in the parent frame) — bands stack upward.  child.bbox is in the
