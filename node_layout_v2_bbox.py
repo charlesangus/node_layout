@@ -220,6 +220,26 @@ def _filtered_input_pairs(node, ctx: LayoutContext):
 # Vertical packing — the main recursion.
 # ---------------------------------------------------------------------------
 
+def _block_local_extents(block):
+    """Compute a block's bounding box in its root-local frame.
+
+    The block's root sits at (0, 0). Returns ``(left, top, right, bottom)``
+    where ``left = -left_overhang``, ``right = right_extent``, ``top`` is the
+    Y of the block's topmost edge (typically negative — non-root members
+    sit above the root in Nuke's positive-Y-down DAG), and ``bottom`` is
+    the Y of the block's bottommost edge (>= root.screenHeight()).
+    """
+    root = block.root
+    block_min_y = min(m.ypos() for m in block.members)
+    block_max_y = max(m.ypos() + m.screenHeight() for m in block.members)
+    return (
+        -block.left_overhang,
+        block_min_y - root.ypos(),
+        block.right_extent,
+        block_max_y - root.ypos(),
+    )
+
+
 def layout_vertical(node, ctx: LayoutContext) -> Subtree:
     """Post-order DFS: build a Subtree for ``node``.
 
@@ -241,12 +261,7 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
                 continue
             dx_off, dy_off = block.offsets.get(id(member), (0, 0))
             nodes[id(member)] = (dx_off, dy_off)
-        bbox = (
-            -block.left_overhang,
-            0,
-            block.right_extent,
-            block.block_height,
-        )
+        bbox = _block_local_extents(block)
         return Subtree(
             bbox=bbox,
             anchor_out=(0, 0),
@@ -292,6 +307,23 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
     node_h = node.screenHeight()
     snap = ctx.snap_threshold
 
+    # When the consumer is a freeze block root, side-input X allocation must
+    # start from the block's right edge (not the root tile's), and input
+    # bands must clear the block's upper edge (not the root tile's top), or
+    # children collide with the block's non-root members.
+    if is_block_root:
+        block_left, block_top, block_right, block_bottom = _block_local_extents(block)
+        consumer_right = max(node_w, block_right)
+        consumer_left = min(0, block_left)
+        consumer_top = min(0, block_top)
+    else:
+        block_left = block_right = 0
+        block_top = 0
+        block_bottom = node_h
+        consumer_right = node_w
+        consumer_left = 0
+        consumer_top = 0
+
     # ----- Determine fan-mode parameters -----
     is_fan = fan_active and n >= 3
     mask_count = sum(1 for slot, _ in pairs if node_layout._is_mask_input(node, slot))
@@ -307,21 +339,18 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         )
         gap_to_fan = max(snap - 1, int(raw_gap_b * v_scale))
         gap_to_fan = max(gap_to_fan, side_margins_v[non_mask_start])
-        # Each non-mask child placed so its bottom sits at (-gap_to_fan).
-        # Top-of-child Y = -gap_to_fan - child_height (in parent frame, where
-        # parent top is 0).  In each child's local frame the root is at (0, 0)
-        # and bbox top is bbox[1] (often 0).  We translate each child so that
-        # ITS root sits at the chosen Y; so child_y_for_root = -gap_to_fan - child.root_h.
+        # Each non-mask child placed so its bottom sits at consumer_top - gap.
+        # consumer_top accounts for any block-root upper extent.
         y_positions = [0] * n
         for i in range(non_mask_start, n):
-            y_positions[i] = -gap_to_fan - inputs[i].screenHeight()
+            y_positions[i] = consumer_top - gap_to_fan - inputs[i].screenHeight()
         for i in range(mask_count):
             raw_gap_mask = node_layout.vertical_gap_between(
                 inputs[i], node, snap, scheme
             )
             gap_mask = max(snap - 1, int(raw_gap_mask * v_scale))
             gap_mask = max(gap_mask, side_margins_v[i])
-            y_positions[i] = -gap_mask - inputs[i].screenHeight()
+            y_positions[i] = consumer_top - gap_mask - inputs[i].screenHeight()
     else:
         # Staircase: backward walk so input[n-1] is closest to the consumer.
         raw_gap_closest = node_layout.vertical_gap_between(
@@ -335,8 +364,9 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         # child's local frame with root at (0, 0). In that frame the bbox
         # height is bbox[3] - bbox[1], with the root sitting somewhere inside
         # (typically bbox[1]==0 means root is at the top of its own bbox).
+        # consumer_top accounts for any block-root upper extent.
         bottom_y = [0] * n
-        bottom_y[n - 1] = -gap_closest  # bottom edge of last band sits at -gap above parent top
+        bottom_y[n - 1] = consumer_top - gap_closest
         for i in range(n - 2, -1, -1):
             child_h = child_subtrees[i + 1].bbox[3] - child_subtrees[i + 1].bbox[1]
             bottom_y[i] = bottom_y[i + 1] - child_h - side_margins_v[i + 1]
@@ -349,9 +379,12 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         ]
 
     # ----- X placement -----
+    # consumer_right / consumer_left bound the allocation on each side; for a
+    # plain node they're the tile edges, for a freeze-block root they're the
+    # block's right/left edges so siblings clear the block's full extent.
     if all_side:
         x_positions = []
-        cur_alloc = node_w + side_margins_h[0]
+        cur_alloc = consumer_right + side_margins_h[0]
         for i in range(n):
             child_w_total = child_subtrees[i].bbox[2] - child_subtrees[i].bbox[0]
             child_root_offset_in_alloc = -child_subtrees[i].bbox[0]
@@ -364,7 +397,7 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         ]
     elif n == 2:
         root_x_0 = node_layout._center_x(inputs[0].screenWidth(), 0, node_w)
-        cur_alloc = node_w + side_margins_h[1]
+        cur_alloc = consumer_right + side_margins_h[1]
         child_w_total_1 = child_subtrees[1].bbox[2] - child_subtrees[1].bbox[0]
         child_root_offset_1 = -child_subtrees[1].bbox[0]
         _ = child_w_total_1  # silence — used implicitly via bbox below
@@ -376,15 +409,13 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
             inputs[non_mask_start].screenWidth(), 0, node_w
         )
         x_positions[non_mask_start] = root_x_b
-        # Allocation right edge after B: max(parent right, B's bbox right in parent frame).
-        # B's bbox in parent frame: alloc_left = root_x_b + child.bbox[0];
-        # right = alloc_left + child_w_total.
+        # Allocation right edge after B: max(consumer right, B's bbox right).
         b_alloc_left = root_x_b + child_subtrees[non_mask_start].bbox[0]
         b_alloc_right = b_alloc_left + (
             child_subtrees[non_mask_start].bbox[2]
             - child_subtrees[non_mask_start].bbox[0]
         )
-        cur_alloc = max(node_w, b_alloc_right) + (
+        cur_alloc = max(consumer_right, b_alloc_right) + (
             side_margins_h[non_mask_start + 1] if non_mask_start + 1 < n else 0
         )
         for i in range(non_mask_start + 1, n):
@@ -393,18 +424,18 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
             x_positions[i] = cur_alloc + child_root_offset
             if i + 1 < n:
                 cur_alloc += child_w_total + side_margins_h[i + 1]
-        # Mask(s) placed LEFT of consumer: alloc band ends at -mask_gap_h.
+        # Mask(s) placed LEFT of consumer: alloc band ends at consumer_left - mask_gap_h.
         for i in range(mask_count):
             mask_gap_h = side_margins_h[i]
             child_w_total = child_subtrees[i].bbox[2] - child_subtrees[i].bbox[0]
             child_root_offset = -child_subtrees[i].bbox[0]
-            alloc_left = -mask_gap_h - child_w_total
+            alloc_left = consumer_left - mask_gap_h - child_w_total
             x_positions[i] = alloc_left + child_root_offset
     else:
         # n >= 3 staircase
         root_x_0 = node_layout._center_x(inputs[0].screenWidth(), 0, node_w)
         x_positions = [root_x_0]
-        cur_alloc = node_w + side_margins_h[1]
+        cur_alloc = consumer_right + side_margins_h[1]
         for i in range(1, n):
             child_w_total = child_subtrees[i].bbox[2] - child_subtrees[i].bbox[0]
             child_root_offset = -child_subtrees[i].bbox[0]
@@ -510,9 +541,11 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
             bbox_top = min(bbox_top, dy_off)
             bbox_right = max(bbox_right, dx_off + member.screenWidth())
             bbox_bottom = max(bbox_bottom, dy_off + member.screenHeight())
-        # Reserve at least the block's pre-baked extents.
-        bbox_left = min(bbox_left, -block.left_overhang)
-        bbox_right = max(bbox_right, block.right_extent)
+        # Reserve at least the block's pre-baked extents on all four sides.
+        bbox_left = min(bbox_left, block_left)
+        bbox_top = min(bbox_top, block_top)
+        bbox_right = max(bbox_right, block_right)
+        bbox_bottom = max(bbox_bottom, block_bottom)
 
     return Subtree(
         bbox=(bbox_left, bbox_top, bbox_right, bbox_bottom),
@@ -596,8 +629,9 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
     for i, spine_node in enumerate(spine_nodes):
         spine_x = spine_x_per_index[i]
         slot_count = spine_node.inputs()
-        # Side inputs: slots 1+ on every spine node, plus slot 0 on the
-        # leftmost spine node when its input(0) is NOT in the spine.
+        # Side inputs: slots 1+ on every spine node go ABOVE the spine node.
+        # input(0) of the leftmost spine node — if non-spine — extends the
+        # spine LEFTWARD; it is handled separately after this loop, not here.
         side_slot_pairs = []
         for slot in range(1, slot_count):
             inp = spine_node.input(slot)
@@ -608,58 +642,95 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
             ):
                 continue
             side_slot_pairs.append((slot, inp))
-        # Last spine node: include input[0] as a vertical side input if it's
-        # not part of the spine and is non-None.
-        if i == len(spine_nodes) - 1:
-            zero = spine_node.input(0)
-            zero_eligible = (
-                zero is not None
-                and (spine_set is None or id(zero) not in spine_set)
-                and (
-                    ctx.node_filter is None
-                    or node_layout._passes_node_filter(zero, ctx.node_filter)
-                )
-            )
-            if zero_eligible:
-                side_slot_pairs.insert(0, (0, zero))
 
         if not side_slot_pairs:
             continue
 
-        # Lay out each side input as a vertical subtree, position it above
-        # the spine node tile separated by side_v_gap.
-        # If multiple side inputs, stack them rightward in horizontal bands above.
-        cumulative_x = spine_x
-        for slot, side_root in side_slot_pairs:
+        # Lay out side inputs as vertical subtrees above the spine node.
+        # Stack their bboxes rightward (cur_alloc) so multiple side inputs on
+        # one spine node don't overlap each other. The first band's left edge
+        # sits at the spine node's right edge; each subsequent band starts at
+        # the previous band's right edge plus a horizontal gap. Single side
+        # input case: it sits centered above the spine node tile.
+        h_gap = int(prefs.get("horizontal_subtree_gap") * scheme)
+        target_bbox_bottom = -side_v_gap
+        if len(side_slot_pairs) == 1:
+            slot, side_root = side_slot_pairs[0]
             child_subtree = layout(side_root, side_ctx)
-            if slot == 0 and i == len(spine_nodes) - 1:
-                # Centered above leftmost spine node
-                center_x = spine_x + spine_node.screenWidth() // 2
-                child_root_x = center_x - side_root.screenWidth() // 2
-                target_alloc_left = child_root_x + child_subtree.bbox[0]
-            else:
-                # Side slot: center over spine node, but if multiple, stack rightward.
-                # Simplest: center this slot above spine node tile.
-                center_x = spine_x + spine_node.screenWidth() // 2
-                child_root_x = center_x - side_root.screenWidth() // 2
-                target_alloc_left = child_root_x + child_subtree.bbox[0]
-
-            # Place vertical bbox so its bottom is side_v_gap above the spine row.
-            target_bbox_bottom = -side_v_gap
+            center_x = spine_x + spine_node.screenWidth() // 2
+            child_root_x = center_x - side_root.screenWidth() // 2
             translated = _translate(
                 child_subtree,
-                child_root_x - 0,  # already calculated for root
+                child_root_x,
                 target_bbox_bottom - child_subtree.bbox[3],
             )
-            # Recompute child_root_x precisely from translated.anchor_out
-            # (anchor_out is the root tile's top-left in parent frame)
             nodes_dict.update(translated.nodes)
             bbox_l = min(bbox_l, translated.bbox[0])
             bbox_t = min(bbox_t, translated.bbox[1])
             bbox_r = max(bbox_r, translated.bbox[2])
             bbox_b = max(bbox_b, translated.bbox[3])
-            cumulative_x = max(cumulative_x, translated.bbox[2])
-            _ = target_alloc_left  # not used after refactor
+        else:
+            cur_alloc = spine_x + spine_node.screenWidth()
+            for _slot, side_root in side_slot_pairs:
+                child_subtree = layout(side_root, side_ctx)
+                child_w_total = child_subtree.bbox[2] - child_subtree.bbox[0]
+                child_root_x = cur_alloc - child_subtree.bbox[0]
+                translated = _translate(
+                    child_subtree,
+                    child_root_x,
+                    target_bbox_bottom - child_subtree.bbox[3],
+                )
+                nodes_dict.update(translated.nodes)
+                bbox_l = min(bbox_l, translated.bbox[0])
+                bbox_t = min(bbox_t, translated.bbox[1])
+                bbox_r = max(bbox_r, translated.bbox[2])
+                bbox_b = max(bbox_b, translated.bbox[3])
+                cur_alloc += child_w_total + h_gap
+
+    # Leftward extension: input(0) of the leftmost spine node, when non-spine
+    # and eligible, is laid out as its own subtree (the dispatcher handles
+    # mode) and placed so its bbox right edge sits step_x left of the leftmost
+    # spine node, with the subtree's anchor_out vertically aligned to the
+    # spine row. This realises the invariant "main input of a horizontal
+    # node is directly to the left".
+    if spine_nodes:
+        leftmost = spine_nodes[-1]
+        leftmost_x = spine_x_per_index[-1]
+        zero = leftmost.input(0)
+        zero_eligible = (
+            zero is not None
+            and (spine_set is None or id(zero) not in spine_set)
+            and (
+                ctx.node_filter is None
+                or node_layout._passes_node_filter(zero, ctx.node_filter)
+            )
+        )
+        if zero_eligible:
+            zero_subtree = layout(zero, side_ctx)
+            # Target: zero subtree's bbox right edge sits at leftmost_x - step_x.
+            # Vertical align: the wire from zero's output_anchor enters
+            # leftmost.input(0) at the spine row's mid-Y. We align by Y on
+            # the subtree root (zero) — root sits at (anchor_out_x, 0) in its
+            # local frame; we want it at the same Y as the spine row (cur_y).
+            # The spine row's Y for a tile is cur_y..cur_y+spine_node.h, and
+            # we vertically center against the leftmost spine tile.
+            target_zero_root_y = (
+                cur_y + leftmost.screenHeight() // 2 - zero.screenHeight() // 2
+            )
+            target_zero_bbox_right = leftmost_x - step_x
+            # zero_subtree root sits at (0, 0) in local; bbox_right is
+            # zero_subtree.bbox[2].  Translate so bbox right = target.
+            zero_root_x = target_zero_bbox_right - zero_subtree.bbox[2]
+            translated = _translate(
+                zero_subtree,
+                zero_root_x,
+                target_zero_root_y,
+            )
+            nodes_dict.update(translated.nodes)
+            bbox_l = min(bbox_l, translated.bbox[0])
+            bbox_t = min(bbox_t, translated.bbox[1])
+            bbox_r = max(bbox_r, translated.bbox[2])
+            bbox_b = max(bbox_b, translated.bbox[3])
 
     return Subtree(
         bbox=(bbox_l, bbox_t, bbox_r, bbox_b),
@@ -1164,7 +1235,7 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                 freeze_group_map, _ = node_layout._detect_freeze_groups(
                     list(node_filter)
                 )
-                freeze_blocks, dim_overrides, all_non_root_ids, _ = (
+                freeze_blocks, dim_overrides, all_non_root_ids, all_member_ids = (
                     node_layout._build_freeze_blocks(freeze_group_map)
                 )
 
@@ -1208,17 +1279,57 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                     spine_set.add(id(cursor))
                     cursor = cursor.input(0)
 
+                # Expand the layout scope to include the full upstream of every
+                # spine node, so side inputs (slot >= 1 of each spine node) and
+                # the leftmost spine node's input(0) subtree get laid out by
+                # the recursion. Without this they'd be excluded by
+                # ``node_filter`` and never repositioned. Per-node mode +
+                # scheme + scale fall back to defaults for nodes that weren't
+                # in the original selection.
+                wider_filter = set(node_filter)
+                for sid in spine_set:
+                    spine_node_obj = next(
+                        (n for n in selected if id(n) == sid), None,
+                    )
+                    if spine_node_obj is None:
+                        continue
+                    wider_filter.update(
+                        node_layout.collect_subtree_nodes(spine_node_obj)
+                    )
+                # Drop frozen non-root members from the recursion scope (they
+                # ride along with their block roots).
+                if all_non_root_ids:
+                    wider_filter = {n for n in wider_filter
+                                    if id(n) not in all_non_root_ids}
+
+                # Resolve scheme/scale defaults for the newly-included nodes.
+                for n in wider_filter:
+                    if id(n) in per_node_scheme:
+                        continue
+                    stored = node_layout_state.read_node_state(n)
+                    if scheme_multiplier is not None:
+                        per_node_scheme[id(n)] = scheme_multiplier
+                    else:
+                        per_node_scheme[id(n)] = (
+                            node_layout_state.scheme_name_to_multiplier(
+                                stored["scheme"], prefs
+                            )
+                        )
+                    per_node_h_scale[id(n)] = stored["h_scale"]
+                    per_node_v_scale[id(n)] = stored["v_scale"]
+
                 snap = node_layout.get_dag_snap_threshold()
                 ctx = LayoutContext(
                     snap_threshold=snap,
-                    node_count=len(selected),
-                    node_filter=node_filter,
+                    node_count=len(wider_filter),
+                    node_filter=wider_filter,
                     per_node_scheme=per_node_scheme,
                     per_node_h_scale=per_node_h_scale,
                     per_node_v_scale=per_node_v_scale,
                     dimension_overrides=dim_overrides,
                     spine_set=spine_set,
                     horizontal_root_id=id(root),
+                    all_member_ids=all_member_ids,
                 )
 
                 subtree = layout_horizontal(root, ctx)
