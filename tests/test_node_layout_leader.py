@@ -309,6 +309,37 @@ class TestChainingDispatchTable(unittest.TestCase):
             "_CHAINING_DISPATCH_TABLE must be defined in node_layout_leader.py (D-07)")
 
 
+class TestPreferenceBackedKeyboardLayout(unittest.TestCase):
+    """Keyboard layout remapping must be preference-backed, not locale-detected."""
+
+    def setUp(self):
+        self.source = _load_leader_source()
+
+    def test_uses_keyboard_layout_preference(self):
+        """node_layout_leader must read the keyboard_layout preference."""
+        self.assertIn(
+            '"keyboard_layout"',
+            self.source,
+            "Keyboard remap must read node_layout_prefs keyboard_layout",
+        )
+
+    def test_no_qt_locale_auto_detection(self):
+        """node_layout_leader must not infer keyboard layout from QLocale."""
+        self.assertNotIn(
+            "QLocale",
+            self.source,
+            "Keyboard layout auto-detection via QLocale must be removed",
+        )
+
+    def test_rebuild_layout_exists(self):
+        """rebuild_layout() must apply pref changes without restarting Nuke."""
+        tree = _parse_leader_ast()
+        top_level_function_names = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertIn("rebuild_layout", top_level_function_names)
+
+
 class TestShortcutOverrideConsumption(unittest.TestCase):
     """eventFilter must consume ShortcutOverride events during leader mode.
 

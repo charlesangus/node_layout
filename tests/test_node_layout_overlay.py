@@ -170,6 +170,46 @@ class TestOverlayKeyLayout(unittest.TestCase):
             "node_layout_overlay.py must use QGridLayout for the key grid",
         )
 
+    def test_keyboard_grid_reserves_blank_columns(self):
+        """Empty physical keyboard columns must stay visible instead of collapsing."""
+        self.assertIn(
+            "setColumnMinimumWidth",
+            self.source,
+            "Keyboard overlay must reserve empty columns so blank cells remain visible",
+        )
+        self.assertIn(
+            "_KEYBOARD_GRID_COLUMNS",
+            self.source,
+            "Keyboard overlay must define the physical keyboard grid width",
+        )
+
+    def test_arrange_keys_keep_physical_y_and_h_columns(self):
+        """Y/H actions must sit in their physical keyboard columns with blanks before them."""
+        tree = _parse_overlay_ast()
+        # Find the _KEY_LAYOUT_QWERTY assignment and extract (letter, label, row, col) tuples.
+        key_layout = None
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Assign)
+                and any(
+                    isinstance(t, ast.Name) and t.id == "_KEY_LAYOUT_QWERTY"
+                    for t in node.targets
+                )
+            ):
+                key_layout = node.value
+                break
+        self.assertIsNotNone(key_layout, "_KEY_LAYOUT_QWERTY must be defined in node_layout_overlay.py")
+        entries = {}
+        for elt in key_layout.elts:
+            if isinstance(elt, ast.Tuple) and len(elt.elts) == 4:
+                letter, _label, row, col = elt.elts
+                if isinstance(letter, ast.Constant) and isinstance(row, ast.Constant) and isinstance(col, ast.Constant):
+                    entries[letter.value] = (row.value, col.value)
+        self.assertIn("Y", entries, "Y key must be present in _KEY_LAYOUT_QWERTY")
+        self.assertEqual(entries["Y"], (0, 5), "Arrange Vert (Y) must be at row=0, col=5")
+        self.assertIn("H", entries, "H key must be present in _KEY_LAYOUT_QWERTY")
+        self.assertEqual(entries["H"], (1, 5), "Arrange Horiz (H) must be at row=1, col=5")
+
 
 class TestOverlayColorConstants(unittest.TestCase):
     """Module-level color constants must exist for chaining and single-shot keys — OVRL-02 (D-09/D-10/D-17)."""
@@ -221,6 +261,29 @@ class TestOverlayColorConstants(unittest.TestCase):
         )
         # The two names are distinct by definition; confirm they are not the same token
         self.assertNotEqual("_CHAINING_KEY_COLOR", "_SINGLE_SHOT_KEY_COLOR")
+
+
+class TestPreferenceBackedKeyboardLayout(unittest.TestCase):
+    """Overlay key labels must use leader remapping, not locale auto-detection."""
+
+    def setUp(self):
+        self.source = _load_overlay_source()
+
+    def test_uses_leader_physical_letter_for(self):
+        """Overlay must ask node_layout_leader for preference-backed display letters."""
+        self.assertIn(
+            "physical_letter_for",
+            self.source,
+            "Overlay key labels must use node_layout_leader.physical_letter_for()",
+        )
+
+    def test_no_qt_locale_auto_detection(self):
+        """Overlay must not infer keyboard layout from QLocale."""
+        self.assertNotIn(
+            "QLocale",
+            self.source,
+            "Keyboard layout auto-detection via QLocale must be removed",
+        )
 
 
 class TestOverlayShowCentering(unittest.TestCase):

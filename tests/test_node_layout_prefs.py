@@ -93,15 +93,19 @@ class TestNodeLayoutPrefsDefaults(unittest.TestCase):
         """get('hint_popup_delay_ms') returns 0 when no prefs file exists."""
         self.assertEqual(self.instance.get("hint_popup_delay_ms"), 0)
 
+    def test_default_keyboard_layout(self):
+        """get('keyboard_layout') returns qwerty when no prefs file exists."""
+        self.assertEqual(self.instance.get("keyboard_layout"), "qwerty")
+
 
 class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
-    """DEFAULTS dict must contain all 10 expected keys."""
+    """DEFAULTS dict must contain all expected keys."""
 
     def setUp(self):
         self.prefs_module = _import_prefs_module()
 
-    def test_defaults_contains_all_twelve_keys(self):
-        """DEFAULTS must contain exactly the 12 required preference keys."""
+    def test_defaults_contains_all_thirteen_keys(self):
+        """DEFAULTS must contain exactly the 13 required preference keys."""
         required_keys = {
             "base_subtree_margin",
             "horizontal_subtree_gap",
@@ -115,6 +119,7 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
             "mask_input_ratio",
             "scaling_reference_count",
             "hint_popup_delay_ms",
+            "keyboard_layout",
         }
         actual_keys = set(self.prefs_module.DEFAULTS.keys())
         missing_keys = required_keys - actual_keys
@@ -125,8 +130,8 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
         )
         self.assertEqual(
             len(actual_keys),
-            12,
-            f"DEFAULTS should have exactly 12 keys, got {len(actual_keys)}: {actual_keys}",
+            13,
+            f"DEFAULTS should have exactly 13 keys, got {len(actual_keys)}: {actual_keys}",
         )
 
 
@@ -233,6 +238,21 @@ class TestNewPrefsRoundTrip(unittest.TestCase):
         second_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
         self.assertEqual(second_instance.get("hint_popup_delay_ms"), 500)
 
+    def test_round_trip_keyboard_layout(self):
+        """set('keyboard_layout', 'azerty') -> save() -> new instance -> get() returns azerty."""
+        first_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        first_instance.set("keyboard_layout", "azerty")
+        first_instance.save()
+        second_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        self.assertEqual(second_instance.get("keyboard_layout"), "azerty")
+
+    def test_invalid_keyboard_layout_falls_back_to_qwerty(self):
+        """Unknown keyboard_layout values in JSON are ignored."""
+        with open(self.temp_path, "w") as prefs_file:
+            json.dump({"keyboard_layout": "dvorak"}, prefs_file)
+        instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        self.assertEqual(instance.get("keyboard_layout"), "qwerty")
+
 
 class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
     """Missing keys in a saved file fall back to DEFAULTS values, not KeyError."""
@@ -274,6 +294,7 @@ class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
         self.assertEqual(instance.get("horizontal_mask_gap"), 50)
         self.assertEqual(instance.get("dot_font_reference_size"), 20)
         self.assertEqual(instance.get("hint_popup_delay_ms"), 0)
+        self.assertEqual(instance.get("keyboard_layout"), "qwerty")
 
 
 class TestNodeLayoutPrefsExports(unittest.TestCase):

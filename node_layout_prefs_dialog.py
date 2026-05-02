@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -87,6 +88,12 @@ class NodeLayoutPrefsDialog(QDialog):
         self.hint_popup_delay_ms_edit = QLineEdit()
         form_layout.addRow("Hint popup delay (ms):", self.hint_popup_delay_ms_edit)
 
+        self.keyboard_layout_combobox = QComboBox()
+        self.keyboard_layout_combobox.addItem("QWERTY", "qwerty")
+        self.keyboard_layout_combobox.addItem("AZERTY (FR/BE)", "azerty")
+        self.keyboard_layout_combobox.addItem("QWERTZ (DE/AT/CH/...)", "qwertz")
+        form_layout.addRow("Keyboard layout:", self.keyboard_layout_combobox)
+
         # --- Section: Advanced ---
         form_layout.addRow(QLabel(""))  # vertical breathing room
         form_layout.addRow(_make_section_header("Advanced"))
@@ -127,6 +134,12 @@ class NodeLayoutPrefsDialog(QDialog):
         self.hint_popup_delay_ms_edit.setText(
             str(prefs_instance.get("hint_popup_delay_ms"))
         )
+        keyboard_layout_index = self.keyboard_layout_combobox.findData(
+            prefs_instance.get("keyboard_layout")
+        )
+        if keyboard_layout_index < 0:
+            keyboard_layout_index = 0
+        self.keyboard_layout_combobox.setCurrentIndex(keyboard_layout_index)
 
     def _on_accept(self):
         try:
@@ -173,7 +186,13 @@ class NodeLayoutPrefsDialog(QDialog):
         prefs_instance.set("dot_font_reference_size", dot_font_reference_size_value)
         prefs_instance.set("scaling_reference_count", scaling_reference_count_value)
         prefs_instance.set("hint_popup_delay_ms", hint_popup_delay_ms_value)
+        prefs_instance.set("keyboard_layout", self.keyboard_layout_combobox.currentData())
         prefs_instance.save()
+        try:
+            import node_layout_leader  # noqa: PLC0415
+            node_layout_leader.rebuild_layout()
+        except Exception:  # noqa: BLE001
+            pass
         self.accept()
 
 
