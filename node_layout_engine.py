@@ -1191,6 +1191,12 @@ class BboxEngine:
         roots = node_layout.find_selection_roots(selected)
         roots.sort(key=lambda n: n.xpos())
 
+        # Diamond resolution: insert persistent Dots so shared upstream nodes
+        # don't get visited twice and overwritten by the recursion. Mirrors
+        # the call legacy ``layout_selected`` made before ``compute_dims``.
+        for root in roots:
+            node_layout.insert_dot_nodes(root, node_filter=node_filter)
+
         prefs = node_layout_prefs.prefs_singleton
         per_node_scheme = {}
         per_node_h_scale = {}
@@ -1264,16 +1270,22 @@ class BboxEngine:
         for block in freeze_blocks:
             block.restore_positions()
 
-        # Push surrounding nodes
-        all_after_nodes = list(selected)
+        # Push surrounding nodes. Collect post-layout via the original roots so
+        # routing Dots created by the recursion (absent from ``selected``) land
+        # in the skip-set; otherwise ``push_nodes_to_make_room`` would treat
+        # them as unrelated neighbors and shove them away from their tiles.
+        all_after_dedup = {}
+        for root in roots:
+            for post_node in node_layout.collect_subtree_nodes(root):
+                all_after_dedup[id(post_node)] = post_node
         for block in freeze_blocks:
-            for m in block.members:
-                if m not in all_after_nodes:
-                    all_after_nodes.append(m)
+            for member in block.members:
+                all_after_dedup.setdefault(id(member), member)
+        all_after_nodes = list(all_after_dedup.values())
         bbox_after = node_layout.compute_node_bounding_box(all_after_nodes)
         if bbox_before is not None and bbox_after is not None:
             node_layout.push_nodes_to_make_room(
-                {id(n) for n in all_after_nodes}, bbox_before, bbox_after,
+                set(all_after_dedup.keys()), bbox_before, bbox_after,
                 current_group=current_group,
                 freeze_blocks=freeze_blocks,
             )
@@ -1416,6 +1428,12 @@ class BboxEngine:
                     per_node_h_scale[id(n)] = stored["h_scale"]
                     per_node_v_scale[id(n)] = stored["v_scale"]
 
+                # Diamond resolution: insert persistent Dots so shared upstream
+                # nodes inside the widened scope don't get traversed via two
+                # branches and overwritten. Run against ``wider_filter`` so
+                # traversal stays inside the layout scope.
+                node_layout.insert_dot_nodes(root, node_filter=wider_filter)
+
                 snap = node_layout.get_dag_snap_threshold()
                 ctx = LayoutContext(
                     snap_threshold=snap,
@@ -1466,10 +1484,23 @@ class BboxEngine:
                 for block in freeze_blocks:
                     block.restore_positions()
 
-                bbox_after = node_layout.compute_node_bounding_box(selected)
+                # Collect post-layout footprint by walking upstream from the
+                # chain root: this captures the full widened scope plus any
+                # routing Dots created by the recursion. Building the skip-set
+                # from ``selected`` alone would let ``push_nodes_to_make_room``
+                # shove just-placed upstream nodes and Dots as if they were
+                # unrelated neighbors.
+                bbox_after_dedup = {}
+                for post_node in node_layout.collect_subtree_nodes(root):
+                    bbox_after_dedup[id(post_node)] = post_node
+                for block in freeze_blocks:
+                    for member in block.members:
+                        bbox_after_dedup.setdefault(id(member), member)
+                bbox_after_nodes = list(bbox_after_dedup.values())
+                bbox_after = node_layout.compute_node_bounding_box(bbox_after_nodes)
                 if bbox_before is not None and bbox_after is not None:
                     node_layout.push_nodes_to_make_room(
-                        {id(n) for n in selected}, bbox_before, bbox_after,
+                        set(bbox_after_dedup.keys()), bbox_before, bbox_after,
                         current_group=current_group,
                         freeze_blocks=freeze_blocks,
                     )
