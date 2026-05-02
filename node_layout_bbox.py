@@ -109,6 +109,11 @@ class LayoutContext:
     # placement and state write-back.
     horizontal_seeds: list = field(default_factory=list)
     all_horizontal_ids: set = field(default_factory=set)
+    # Vertical gap between a side routing Dot's top and the bottom of its
+    # upstream subtree's bbox. Constant per layout call: derived from
+    # ``base_subtree_margin`` and the resolved scheme multiplier so every
+    # side Dot in a single run uses the same spacing.
+    side_dot_gap: int = 0
 
     def scheme_for(self, node) -> float:
         return self.per_node_scheme.get(
@@ -134,7 +139,21 @@ class LayoutContext:
         )
 
 _SIDE_DOT_KNOB_NAME = "node_layout_bbox_side_dot"
-_SIDE_DOT_VERTICAL_GAPS: dict[int, int] = {}
+
+
+def _resolve_side_dot_gap(snap_threshold: int, scheme_multiplier=None) -> int:
+    """Return the vertical gap above a side routing Dot for one layout run.
+
+    The gap is a single value per call, derived from prefs and the resolved
+    scheme multiplier. Per-node font/scale variation is intentionally not
+    applied here: side Dots are simple routing elements and benefit from
+    consistent spacing across the run.
+    """
+    prefs = node_layout_prefs.prefs_singleton
+    if scheme_multiplier is None:
+        scheme_multiplier = prefs.get("normal_multiplier")
+    gap = int(prefs.get("base_subtree_margin") * scheme_multiplier)
+    return max(snap_threshold - 1, gap)
 
 
 def _is_layout_routing_dot(node) -> bool:
@@ -178,26 +197,6 @@ def _make_side_dot(upstream):
     _add_invisible_marker(dot, _SIDE_DOT_KNOB_NAME, "BBox Side Dot Marker")
     dot.setInput(0, upstream)
     return dot
-
-
-def _record_side_dot_gap(dot, consumer, slot: int, ctx: LayoutContext):
-    # ``scaling_reference_count`` makes the margin scope-independent:
-    # ``_subtree_margin`` divides ``sqrt(node_count)`` by
-    # ``sqrt(reference_count)``, so passing the reference count itself
-    # cancels the term to 1. Without this, running layout from a subtree
-    # root produces tighter spacing than from the full graph's root.
-    margin_reference_count = node_layout_prefs.prefs_singleton.get(
-        "scaling_reference_count"
-    )
-    gap = int(
-        node_layout._subtree_margin(
-            consumer,
-            slot,
-            margin_reference_count,
-            mode_multiplier=ctx.scheme_for(consumer),
-        ) * ctx.v_scale_for(consumer)
-    )
-    _SIDE_DOT_VERTICAL_GAPS[id(dot)] = max(ctx.snap_threshold - 1, gap)
 
 
 # ---------------------------------------------------------------------------
@@ -255,6 +254,7 @@ def layout(node, ctx: LayoutContext) -> "Subtree":
             all_member_ids=ctx.all_member_ids,
             horizontal_seeds=ctx.horizontal_seeds,
             all_horizontal_ids=ctx.all_horizontal_ids,
+            side_dot_gap=ctx.side_dot_gap,
         )
         ctx.horizontal_seeds.append(node)
         ctx.all_horizontal_ids.update(spine_set)
@@ -440,7 +440,7 @@ def _layout_side_dot(node, ctx: LayoutContext, pairs) -> Subtree:
     slot, upstream = pairs[0]
     _ = slot
     child = layout(upstream, ctx)
-    gap = _SIDE_DOT_VERTICAL_GAPS.get(id(node), ctx.snap_threshold - 1)
+    gap = ctx.side_dot_gap
     dot_w = node.screenWidth()
     dot_h = node.screenHeight()
     child_x = node_layout._center_x(upstream.screenWidth(), 0, dot_w)
@@ -512,8 +512,10 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         int(node_layout._horizontal_margin(node, slot) * h_scale)
         for slot in actual_slots
     ]
-    # See ``_record_side_dot_gap`` — pass the reference count so the
-    # margin is independent of the layout-scope size.
+    # Pass ``scaling_reference_count`` so the sqrt(node_count)/sqrt(ref)
+    # term inside ``_subtree_margin`` cancels to 1, making the margin
+    # independent of the layout-scope size — running layout from a
+    # subtree root produces the same spacing as from the full graph root.
     margin_reference_count = node_layout_prefs.prefs_singleton.get(
         "scaling_reference_count"
     )
@@ -720,8 +722,12 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
     inputs (slots >= 1) are laid out vertically above it.
     """
     prefs = node_layout_prefs.prefs_singleton
-    scheme = ctx.scheme_for(root)
-    step_x = int(prefs.get("horizontal_subtree_gap") * scheme)
+    # H-axis margins are scheme-independent everywhere else in the engine
+    # (see ``node_layout._horizontal_margin``), so the spine step and the
+    # side-input gap also use the raw pref value, scaled only by the
+    # consumer's per-node h_scale.
+    h_scale = ctx.h_scale_for(root)
+    step_x = int(prefs.get("horizontal_subtree_gap") * h_scale)
     side_v_gap = prefs.get("horizontal_side_vertical_gap")
 
     # Build spine (rightmost first): root, root.input(0), input(0).input(0), ...
@@ -751,8 +757,9 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         all_member_ids=ctx.all_member_ids,
         horizontal_seeds=ctx.horizontal_seeds,
         all_horizontal_ids=ctx.all_horizontal_ids,
+        side_dot_gap=ctx.side_dot_gap,
     )
-    h_gap = int(prefs.get("horizontal_subtree_gap") * scheme)
+    h_gap = step_x
     side_layouts: list[list[tuple[int, object, Subtree]]] = []
     local_bboxes: list[tuple[int, int, int, int]] = []
     occupied_intervals: list[tuple[int, int]] = []
@@ -1036,13 +1043,10 @@ def _ensure_side_dots(roots, ctx: LayoutContext):
                             _SIDE_DOT_KNOB_NAME,
                             "BBox Side Dot Marker",
                         )
-                    if inp.knob(_SIDE_DOT_KNOB_NAME) is not None:
-                        _record_side_dot_gap(inp, node, slot, ctx)
                     continue
                 dot = _make_side_dot(inp)
                 if dot is None:
                     continue
-                _record_side_dot_gap(dot, node, slot, ctx)
                 node.setInput(slot, dot)
                 changed = True
 
@@ -1180,6 +1184,7 @@ class BboxEngine(node_layout_engine.LayoutEngine):
             per_node_v_scale=per_node_v_scale,
             dimension_overrides=dimension_overrides,
             all_member_ids=all_member_ids,
+            side_dot_gap=_resolve_side_dot_gap(snap, scheme_multiplier),
         )
 
         # Phase 2: all graph mutation happens up front. After this, the bbox
@@ -1247,55 +1252,6 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                 current_group=current_group,
                 freeze_blocks=freeze_blocks,
             )
-
-    def _find_horizontal_ancestor(self, root, all_member_ids):
-        """BFS upstream looking for a node whose stored mode is 'horizontal'.
-
-        Returns the ancestor node, or None.
-        """
-        if node_layout._hides_inputs(root):
-            return None
-        queue = [root.input(s) for s in range(root.inputs())
-                 if root.input(s) is not None]
-        visited = {id(root)}
-        while queue:
-            cur = queue.pop(0)
-            if id(cur) in visited:
-                continue
-            visited.add(id(cur))
-            if id(cur) in all_member_ids:
-                if not node_layout._hides_inputs(cur):
-                    for s in range(cur.inputs()):
-                        nxt = cur.input(s)
-                        if nxt is not None and id(nxt) not in visited:
-                            queue.append(nxt)
-                continue
-            if node_layout_state.read_node_state(cur).get("mode") == "horizontal":
-                return cur
-            if not node_layout._hides_inputs(cur):
-                for s in range(cur.inputs()):
-                    nxt = cur.input(s)
-                    if nxt is not None and id(nxt) not in visited:
-                        queue.append(nxt)
-        return None
-
-    def _build_spine_set(self, root, all_member_ids):
-        """Walk input(0) collecting horizontal-mode nodes."""
-        spine = set()
-        cursor = root
-        while cursor is not None:
-            if id(cursor) in all_member_ids and id(cursor) != id(root):
-                break
-            state = node_layout_state.read_node_state(cursor)
-            if state.get("mode") != "horizontal":
-                # The root may be the horizontal seed even if its mode hasn't been
-                # written yet — include it.
-                if cursor is root:
-                    spine.add(id(cursor))
-                break
-            spine.add(id(cursor))
-            cursor = cursor.input(0)
-        return spine
 
     # ------------------------------------------------------------------
     # layout_selected — multiple selected roots, each laid out independently
@@ -1372,6 +1328,7 @@ class BboxEngine(node_layout_engine.LayoutEngine):
             dimension_overrides=dimension_overrides,
             all_member_ids=all_member_ids,
             all_horizontal_ids=all_horizontal_ids,
+            side_dot_gap=_resolve_side_dot_gap(snap, scheme_multiplier),
         )
         prepare_layout_graph(roots, ctx, current_group)
         mutated_selected = set()
@@ -1582,6 +1539,7 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                     horizontal_root_id=id(root),
                     side_layout_mode=side_layout_mode,
                     all_member_ids=all_member_ids,
+                    side_dot_gap=_resolve_side_dot_gap(snap, scheme_multiplier),
                 )
 
                 prepare_layout_graph(

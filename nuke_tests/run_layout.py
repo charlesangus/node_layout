@@ -36,7 +36,8 @@ _WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _WORKSPACE not in sys.path:
     sys.path.insert(0, _WORKSPACE)
 
-# NL_ENGINE selects the layout engine (legacy | bbox | shape) for the bake-off.
+# NL_ENGINE selects the layout engine — currently only "bbox" is registered
+# (see node_layout_engine.list_registered_engines() for the live list).
 # Forwarded into NODE_LAYOUT_ENGINE before importing node_layout so the
 # dispatcher in node_layout_engine.py picks it up at module load time.
 _NL_ENGINE = os.environ.get("NL_ENGINE")

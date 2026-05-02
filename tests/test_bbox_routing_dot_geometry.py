@@ -49,10 +49,12 @@ def test_bbox_side_routing_dot_is_consumer_centered_with_subtree_gap():
         set_universe(universe)
 
         snap = node_layout.get_dag_snap_threshold()
-        # The engine uses ``scaling_reference_count`` (see
-        # ``node_layout_bbox._record_side_dot_gap``) to make the margin
-        # independent of the layout scope; compute the expected gap the
-        # same way so the assertion stays in sync with that semantics.
+        # The engine derives the side-dot gap from prefs once per run
+        # (see ``node_layout_bbox._resolve_side_dot_gap``); compute the
+        # expected gap the same way — passing ``scaling_reference_count``
+        # to ``_subtree_margin`` keeps the formulas equivalent for the
+        # default Merge2 slot 1 case used in this test (no mask, default
+        # font scale).
         margin_reference_count = node_layout_prefs.prefs_singleton.get(
             "scaling_reference_count"
         )
@@ -183,10 +185,12 @@ def test_bbox_existing_side_routing_dot_is_consumer_centered_with_subtree_gap():
         set_universe(universe)
 
         snap = node_layout.get_dag_snap_threshold()
-        # The engine uses ``scaling_reference_count`` (see
-        # ``node_layout_bbox._record_side_dot_gap``) to make the margin
-        # independent of the layout scope; compute the expected gap the
-        # same way so the assertion stays in sync with that semantics.
+        # The engine derives the side-dot gap from prefs once per run
+        # (see ``node_layout_bbox._resolve_side_dot_gap``); compute the
+        # expected gap the same way — passing ``scaling_reference_count``
+        # to ``_subtree_margin`` keeps the formulas equivalent for the
+        # default Merge2 slot 1 case used in this test (no mask, default
+        # font scale).
         margin_reference_count = node_layout_prefs.prefs_singleton.get(
             "scaling_reference_count"
         )
