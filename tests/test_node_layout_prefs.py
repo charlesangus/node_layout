@@ -97,6 +97,10 @@ class TestNodeLayoutPrefsDefaults(unittest.TestCase):
         """get('keyboard_layout') returns qwerty when no prefs file exists."""
         self.assertEqual(self.instance.get("keyboard_layout"), "qwerty")
 
+    def test_default_safe_delete_enabled(self):
+        """get('safe_delete_enabled') returns True when no prefs file exists."""
+        self.assertIs(self.instance.get("safe_delete_enabled"), True)
+
 
 class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
     """DEFAULTS dict must contain all expected keys."""
@@ -104,8 +108,8 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
     def setUp(self):
         self.prefs_module = _import_prefs_module()
 
-    def test_defaults_contains_all_thirteen_keys(self):
-        """DEFAULTS must contain exactly the 13 required preference keys."""
+    def test_defaults_contains_all_required_keys(self):
+        """DEFAULTS must contain exactly the required preference keys."""
         required_keys = {
             "base_subtree_margin",
             "horizontal_subtree_gap",
@@ -120,6 +124,7 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
             "scaling_reference_count",
             "hint_popup_delay_ms",
             "keyboard_layout",
+            "safe_delete_enabled",
         }
         actual_keys = set(self.prefs_module.DEFAULTS.keys())
         missing_keys = required_keys - actual_keys
@@ -129,9 +134,9 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
             f"DEFAULTS is missing required keys: {missing_keys}",
         )
         self.assertEqual(
-            len(actual_keys),
-            13,
-            f"DEFAULTS should have exactly 13 keys, got {len(actual_keys)}: {actual_keys}",
+            actual_keys,
+            required_keys,
+            f"DEFAULTS keys do not match expected set: extra={actual_keys - required_keys}",
         )
 
 
@@ -253,6 +258,14 @@ class TestNewPrefsRoundTrip(unittest.TestCase):
         instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
         self.assertEqual(instance.get("keyboard_layout"), "qwerty")
 
+    def test_round_trip_safe_delete_enabled_false(self):
+        """set('safe_delete_enabled', False) round-trips and overrides the True default."""
+        first_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        first_instance.set("safe_delete_enabled", False)
+        first_instance.save()
+        second_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        self.assertIs(second_instance.get("safe_delete_enabled"), False)
+
 
 class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
     """Missing keys in a saved file fall back to DEFAULTS values, not KeyError."""
@@ -295,6 +308,7 @@ class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
         self.assertEqual(instance.get("dot_font_reference_size"), 20)
         self.assertEqual(instance.get("hint_popup_delay_ms"), 0)
         self.assertEqual(instance.get("keyboard_layout"), "qwerty")
+        self.assertIs(instance.get("safe_delete_enabled"), True)
 
 
 class TestNodeLayoutPrefsExports(unittest.TestCase):
