@@ -1030,12 +1030,15 @@ def _ensure_side_dots(roots, ctx: LayoutContext):
             pairs, all_side, fan_active = _filtered_input_pairs(node, ctx)
             is_fan = fan_active and len(pairs) >= 3
             for index, (slot, inp) in enumerate(pairs):
-                if not _needs_side_dot(index, all_side, is_fan):
-                    continue
                 if inp.Class() == "Dot":
+                    # Any existing Dot — regardless of slot or origin — is
+                    # treated as a side routing dot so it routes through
+                    # ``_layout_side_dot`` with the same gap as engine-
+                    # created side dots. Excluded: leftmost-spine boundary
+                    # dots and diamond dots, which have specialised geometry
+                    # handled elsewhere.
                     if (
-                        inp.knob(node_layout._OUTPUT_DOT_KNOB_NAME) is None
-                        and inp.knob(node_layout._LEFTMOST_DOT_KNOB_NAME) is None
+                        inp.knob(node_layout._LEFTMOST_DOT_KNOB_NAME) is None
                         and inp.knob("node_layout_diamond_dot") is None
                     ):
                         _add_invisible_marker(
@@ -1043,6 +1046,11 @@ def _ensure_side_dots(roots, ctx: LayoutContext):
                             _SIDE_DOT_KNOB_NAME,
                             "BBox Side Dot Marker",
                         )
+                    continue
+                # Non-Dot input: only wrap in a new side dot for slots that
+                # need one (slot >= 1 in normal mode, or fan/all_side modes).
+                # Main inputs (slot 0 in normal mode) stay bare.
+                if not _needs_side_dot(index, all_side, is_fan):
                     continue
                 dot = _make_side_dot(inp)
                 if dot is None:

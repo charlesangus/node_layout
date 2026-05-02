@@ -505,3 +505,122 @@ def test_selected_horizontal_place_only_preserves_side_subtree_horizontal_mode()
             os.environ.pop("NODE_LAYOUT_ENGINE", None)
         else:
             os.environ["NODE_LAYOUT_ENGINE"] = saved_engine
+
+
+def test_routing_dot_gap_is_uniform_across_dot_origin_and_upstream_kind():
+    """Any Dot that's the first element of a subtree (regardless of slot,
+    regardless of whether the engine inserted it or the user pre-wired it,
+    regardless of whether the upstream is a vertical chain or a horizontal
+    section) should sit ``ctx.side_dot_gap`` below its upstream subtree.
+    """
+    import itertools
+    saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
+    saved_engine = os.environ.get("NODE_LAYOUT_ENGINE")
+    try:
+        for name in _ISOLATED_MODULES:
+            sys.modules.pop(name, None)
+        install_nuke_stub()
+        os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
+
+        import node_layout
+        import node_layout_bbox
+        import node_layout_state
+
+        snap = node_layout.get_dag_snap_threshold()
+        expected_gap = node_layout_bbox._resolve_side_dot_gap(snap)
+
+        def _attach_marker(dot, knob_name):
+            node_layout_bbox._add_invisible_marker(dot, knob_name, "Marker")
+
+        def _make_pre_wired_dot(universe, upstream, marker_knob=None):
+            dot = universe.add(_Node(
+                node_class="Dot", name=f"PreDot_{id(upstream)}",
+                xpos=0, ypos=0, width=12, height=12, max_inputs=1,
+            ))
+            dot.setInput(0, upstream)
+            if marker_knob is not None:
+                _attach_marker(dot, marker_knob)
+            set_node_state(dot)
+            return dot
+
+        def _vertical_upstream(universe):
+            src = universe.add(_Node(node_class="Read", name="V", xpos=0, ypos=0))
+            set_node_state(src)
+            return src
+
+        def _horizontal_upstream(universe):
+            hl = universe.add(_Node(node_class="Read", name="HL", xpos=-200, ypos=0))
+            hs = universe.add(_Node(node_class="Grade", name="HS", xpos=0, ypos=0, max_inputs=1))
+            hs.setInput(0, hl)
+            for n in (hl, hs):
+                set_node_state(n)
+            for hn in (hs, hl):
+                state = node_layout_state.read_node_state(hn)
+                state["mode"] = "horizontal"
+                node_layout_state.write_node_state(hn, state)
+            return hs
+
+        upstreams = [("vertical", _vertical_upstream), ("horizontal", _horizontal_upstream)]
+        # dot_origin: which knob (if any) the pre-wired dot carries; ``None``
+        # in slot 1 means the engine creates a fresh side dot.
+        dot_origins = [
+            ("user_plain", None),
+            ("legacy_output", node_layout._OUTPUT_DOT_KNOB_NAME),
+        ]
+
+        cases = []
+        for (upstream_label, upstream_factory), slot in itertools.product(upstreams, (0, 1)):
+            for origin_label, marker in dot_origins:
+                cases.append((
+                    upstream_label, slot, origin_label, upstream_factory, marker, False,
+                ))
+            if slot == 1:
+                cases.append((
+                    upstream_label, slot, "engine_created", upstream_factory, None, True,
+                ))
+
+        for upstream_label, slot, origin_label, upstream_factory, marker, engine_creates in cases:
+            universe = Universe()
+            other = universe.add(_Node(
+                node_class="Read", name="Other", xpos=300, ypos=0,
+            ))
+            consumer = universe.add(_Node(
+                node_class="Merge2", name="Cons", xpos=300, ypos=400, max_inputs=2,
+            ))
+            upstream = upstream_factory(universe)
+            set_node_state(other)
+            set_node_state(consumer)
+            if slot == 0:
+                consumer.setInput(0, _make_pre_wired_dot(universe, upstream, marker))
+                consumer.setInput(1, other)
+            else:
+                consumer.setInput(0, other)
+                if engine_creates:
+                    consumer.setInput(1, upstream)
+                else:
+                    consumer.setInput(1, _make_pre_wired_dot(universe, upstream, marker))
+            universe.select(consumer)
+            set_universe(universe)
+
+            node_layout_bbox.BboxEngine().layout_upstream()
+
+            dot = consumer.input(slot)
+            assert dot is not None and dot.Class() == "Dot", (
+                f"{upstream_label}/slot{slot}/{origin_label}: "
+                f"expected dot wired into slot {slot}, found {dot}"
+            )
+            actual_gap = dot.ypos() - (upstream.ypos() + upstream.screenHeight())
+            assert actual_gap == expected_gap, (
+                f"{upstream_label}/slot{slot}/{origin_label}: "
+                f"expected gap={expected_gap}, got {actual_gap}"
+            )
+    finally:
+        for name in _ISOLATED_MODULES:
+            if saved_modules[name] is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = saved_modules[name]
+        if saved_engine is None:
+            os.environ.pop("NODE_LAYOUT_ENGINE", None)
+        else:
+            os.environ["NODE_LAYOUT_ENGINE"] = saved_engine
