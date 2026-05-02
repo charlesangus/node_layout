@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -23,10 +24,11 @@ def _make_section_header(text):
 class NodeLayoutPrefsDialog(QDialog):
     """PySide6 dialog for editing Node Layout spacing preferences.
 
-    The dialog is organized into four sections:
+    The dialog is organized into five sections:
       - Spacing: H-axis gaps and vertical margin values
       - Scheme Multipliers: compact / normal / loose multipliers
       - Leader Key: hint popup delay
+      - Behaviour: toggles for opt-in/opt-out features (e.g. Safe Delete)
       - Advanced: font reference size and scaling reference count
 
     Section headers are bold QLabel rows (no QGroupBox borders).
@@ -94,6 +96,15 @@ class NodeLayoutPrefsDialog(QDialog):
         self.keyboard_layout_combobox.addItem("QWERTZ (DE/AT/CH/...)", "qwertz")
         form_layout.addRow("Keyboard layout:", self.keyboard_layout_combobox)
 
+        # --- Section: Behaviour ---
+        form_layout.addRow(QLabel(""))  # vertical breathing room
+        form_layout.addRow(_make_section_header("Behaviour"))
+
+        self.safe_delete_enabled_checkbox = QCheckBox(
+            "Use Safe Delete (warn only on truly broken dependencies)"
+        )
+        form_layout.addRow("", self.safe_delete_enabled_checkbox)
+
         # --- Section: Advanced ---
         form_layout.addRow(QLabel(""))  # vertical breathing room
         form_layout.addRow(_make_section_header("Advanced"))
@@ -140,6 +151,9 @@ class NodeLayoutPrefsDialog(QDialog):
         if keyboard_layout_index < 0:
             keyboard_layout_index = 0
         self.keyboard_layout_combobox.setCurrentIndex(keyboard_layout_index)
+        self.safe_delete_enabled_checkbox.setChecked(
+            bool(prefs_instance.get("safe_delete_enabled"))
+        )
 
     def _on_accept(self):
         try:
@@ -157,6 +171,8 @@ class NodeLayoutPrefsDialog(QDialog):
             hint_popup_delay_ms_value = int(self.hint_popup_delay_ms_edit.text())
         except ValueError:
             return
+
+        safe_delete_enabled_value = self.safe_delete_enabled_checkbox.isChecked()
 
         if horizontal_subtree_gap_value <= 0:
             return
@@ -187,6 +203,7 @@ class NodeLayoutPrefsDialog(QDialog):
         prefs_instance.set("scaling_reference_count", scaling_reference_count_value)
         prefs_instance.set("hint_popup_delay_ms", hint_popup_delay_ms_value)
         prefs_instance.set("keyboard_layout", self.keyboard_layout_combobox.currentData())
+        prefs_instance.set("safe_delete_enabled", safe_delete_enabled_value)
         prefs_instance.save()
         try:
             import node_layout_leader  # noqa: PLC0415

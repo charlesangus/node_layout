@@ -18,6 +18,7 @@ DEFAULTS = {
     "scaling_reference_count": 150,
     "hint_popup_delay_ms": 0,              # Hint popup delay (ms); 0=immediate
     "keyboard_layout": "qwerty",           # one of qwerty, azerty, qwertz
+    "safe_delete_enabled": True,           # Replace stock node-delete with Safe Delete (#17)
 }
 
 _VALID_KEYBOARD_LAYOUTS = {"qwerty", "azerty", "qwertz"}

@@ -1,5 +1,10 @@
 import nuke
 
+import safe_delete
+
+# Replace Nuke's stock Backspace/Delete behaviour with Safe Delete.
+safe_delete.install()
+
 m = nuke.menu("Nuke")
 edit = m.findItem("Edit")
 layout_menu = edit.addMenu("Node Layout")
