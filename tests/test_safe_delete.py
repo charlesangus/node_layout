@@ -8,7 +8,6 @@ dependency-summary test that exercises `_build_warning_html`.
 
 import ast
 import importlib.util
-import inspect
 import os
 import sys
 import types
@@ -26,11 +25,22 @@ def _load_safe_delete_with_stub_nuke():
     Returns ``(module, stubs, restore)`` where ``stubs`` is a dict of the stub
     modules keyed by name and ``restore()`` undoes the sys.modules edits so
     other test modules see a clean slate.
+
+    If the import itself raises (e.g. SyntaxError in safe_delete.py), the
+    sys.modules edits are reverted before the exception propagates so a single
+    broken import cannot cascade into unrelated tests.
     """
     saved_modules = {
         name: sys.modules.get(name)
         for name in ("nuke", "nukescripts", "safe_delete", "node_layout_prefs")
     }
+
+    def restore():
+        for name, value in saved_modules.items():
+            if value is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = value
 
     nuke_stub = types.ModuleType("nuke")
     nuke_stub.HIDDEN_INPUTS = 1
@@ -61,24 +71,20 @@ def _load_safe_delete_with_stub_nuke():
     sys.modules["nukescripts"] = nukescripts_stub
     sys.modules["node_layout_prefs"] = prefs_stub
 
-    spec = importlib.util.spec_from_file_location("safe_delete", SAFE_DELETE_PATH)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["safe_delete"] = module
-    spec.loader.exec_module(module)
+    try:
+        spec = importlib.util.spec_from_file_location("safe_delete", SAFE_DELETE_PATH)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["safe_delete"] = module
+        spec.loader.exec_module(module)
+    except BaseException:
+        restore()
+        raise
 
     stubs = {
         "nuke": nuke_stub,
         "nukescripts": nukescripts_stub,
         "node_layout_prefs": prefs_stub,
     }
-
-    def restore():
-        for name, value in saved_modules.items():
-            if value is None:
-                sys.modules.pop(name, None)
-            else:
-                sys.modules[name] = value
-
     return module, stubs, restore
 
 
@@ -102,6 +108,55 @@ class TestSafeDeleteStructure(unittest.TestCase):
         with open(SAFE_DELETE_PATH) as source_file:
             source = source_file.read()
         self.assertIn('"Viewer"', source)
+
+
+class TestSafeDeleteLoaderRestoresOnImportFailure(unittest.TestCase):
+    """If safe_delete fails to import, _load_safe_delete_with_stub_nuke must
+    revert sys.modules so adjacent tests do not see leaked stubs."""
+
+    def test_import_failure_restores_sys_modules(self):
+        import tempfile
+
+        sentinel_nuke = types.ModuleType("nuke")
+        sentinel_nukescripts = types.ModuleType("nukescripts")
+        sentinel_prefs = types.ModuleType("node_layout_prefs")
+
+        saved = {
+            "nuke": sys.modules.get("nuke"),
+            "nukescripts": sys.modules.get("nukescripts"),
+            "node_layout_prefs": sys.modules.get("node_layout_prefs"),
+            "safe_delete": sys.modules.get("safe_delete"),
+        }
+        sys.modules["nuke"] = sentinel_nuke
+        sys.modules["nukescripts"] = sentinel_nukescripts
+        sys.modules["node_layout_prefs"] = sentinel_prefs
+        sys.modules.pop("safe_delete", None)
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".py", delete=False, prefix="bad_safe_delete_"
+        ) as bad_file:
+            bad_file.write("def broken(:\n")  # SyntaxError on exec_module
+            bad_path = bad_file.name
+
+        original_path = SAFE_DELETE_PATH
+        module_globals = sys.modules[__name__].__dict__
+        try:
+            module_globals["SAFE_DELETE_PATH"] = bad_path
+            with self.assertRaises(SyntaxError):
+                _load_safe_delete_with_stub_nuke()
+            # The stubs the loader installed must have been rolled back to our
+            # sentinels. The leaked stubs would replace them otherwise.
+            self.assertIs(sys.modules.get("nuke"), sentinel_nuke)
+            self.assertIs(sys.modules.get("nukescripts"), sentinel_nukescripts)
+            self.assertIs(sys.modules.get("node_layout_prefs"), sentinel_prefs)
+        finally:
+            module_globals["SAFE_DELETE_PATH"] = original_path
+            os.unlink(bad_path)
+            for name, value in saved.items():
+                if value is None:
+                    sys.modules.pop(name, None)
+                else:
+                    sys.modules[name] = value
 
 
 class TestSafeDeleteHelpers(unittest.TestCase):
@@ -141,20 +196,32 @@ class TestSafeDeleteHelpers(unittest.TestCase):
             "Blur1": {"Expression": ["Grade2"]},
             "Read1": {"Hidden Input": ["Merge1", "Merge2"]},
         }
-        html = self.module._build_warning_html(external_dependents)
-        self.assertIn("Blur1", html)
-        self.assertIn("Read1", html)
-        self.assertIn("Grade2", html)
-        self.assertIn("Merge1", html)
-        self.assertIn("Merge2", html)
+        rendered_html = self.module._build_warning_html(external_dependents)
+        self.assertIn("Blur1", rendered_html)
+        self.assertIn("Read1", rendered_html)
+        self.assertIn("Grade2", rendered_html)
+        self.assertIn("Merge1", rendered_html)
+        self.assertIn("Merge2", rendered_html)
         # Three dependents -> three table rows for arrows.
-        self.assertEqual(html.count("&#x2192;"), 3)
+        self.assertEqual(rendered_html.count("&#x2192;"), 3)
 
     def test_warning_html_sorts_nodes_naturally(self):
         external_dependents = {f"Read{n}": {"Expression": ["X"]} for n in (10, 1, 2)}
-        html = self.module._build_warning_html(external_dependents)
-        positions = [html.index(f"<b>Read{n}</b>") for n in (1, 2, 10)]
+        rendered_html = self.module._build_warning_html(external_dependents)
+        positions = [rendered_html.index(f"<b>Read{n}</b>") for n in (1, 2, 10)]
         self.assertEqual(positions, sorted(positions))
+
+    def test_warning_html_escapes_html_special_chars(self):
+        """Node names with HTML special chars must be escaped, not break markup."""
+        external_dependents = {
+            "Read<script>": {"Expression": ["Merge&Co"]},
+        }
+        rendered_html = self.module._build_warning_html(external_dependents)
+        # Raw payloads must NOT appear; their escaped forms must.
+        self.assertNotIn("<script>", rendered_html)
+        self.assertNotIn("Merge&Co", rendered_html)
+        self.assertIn("Read&lt;script&gt;", rendered_html)
+        self.assertIn("Merge&amp;Co", rendered_html)
 
 
 class TestSafeDeletePreferenceGate(unittest.TestCase):
@@ -174,13 +241,13 @@ class TestSafeDeletePreferenceGate(unittest.TestCase):
     def setUp(self):
         self.calls = []
 
-        def stock_node_delete(popupOnError=False, evaluateAll=False):  # noqa: N803
-            self.calls.append(("stock", popupOnError, evaluateAll))
+        def stock_node_delete(popupOnError=False):  # noqa: N803
+            self.calls.append(("stock", popupOnError))
 
         self.nukescripts_stub.node_delete = stock_node_delete
 
-        def fake_safe_delete(evaluate_all=False):
-            self.calls.append(("safe", evaluate_all))
+        def fake_safe_delete():
+            self.calls.append(("safe",))
 
         # Reset module state and patch the safe_delete() heavy path with a probe.
         self.module._original_node_delete = None
@@ -206,58 +273,15 @@ class TestSafeDeletePreferenceGate(unittest.TestCase):
 
     def test_enabled_pref_routes_to_safe_delete(self):
         self.prefs_stub.prefs_singleton.set("safe_delete_enabled", True)
-        self.module.node_delete(popupOnError=True, evaluateAll=False)
-        self.assertEqual(self.calls, [("safe", False)])
+        self.module.node_delete(popupOnError=True)
+        self.assertEqual(self.calls, [("safe",)])
 
-    def test_disabled_pref_routes_to_original_node_delete(self):
+    def test_disabled_pref_forwards_only_popup_on_error(self):
+        """nukescripts.nodes.node_delete only takes popupOnError; that is the
+        sole kwarg the disabled branch must forward."""
         self.prefs_stub.prefs_singleton.set("safe_delete_enabled", False)
-        self.module.node_delete(popupOnError=True, evaluateAll=True)
-        self.assertEqual(self.calls, [("stock", True, True)])
-
-    def test_disabled_pref_tolerates_legacy_signature(self):
-        """Older Nuke builds' nukescripts.node_delete accepts only popupOnError.
-        We must NOT pass evaluateAll to such a callable (regression: TypeError)."""
-        legacy_calls = []
-
-        def legacy_stock_node_delete(popupOnError=False):  # noqa: N803
-            legacy_calls.append(popupOnError)
-
-        # Re-install with a legacy-signature stock as the captured original.
-        self.module._original_node_delete = None
-        self.nukescripts_stub.node_delete = legacy_stock_node_delete
-        self.module.install()
-
-        self.prefs_stub.prefs_singleton.set("safe_delete_enabled", False)
-        # Should not raise even though we pass evaluateAll=True.
-        self.module.node_delete(popupOnError=True, evaluateAll=True)
-        self.assertEqual(legacy_calls, [True])
-
-    def test_disabled_pref_tolerates_unintrospectable_callable(self):
-        """If inspect.signature() fails (e.g. C builtin), call with no args."""
-        unintrospectable_calls = []
-
-        class UnintrospectableCallable:
-            def __call__(self_inner, *args, **kwargs):
-                unintrospectable_calls.append((args, kwargs))
-
-        unintrospectable = UnintrospectableCallable()
-        # Patch so signature() raises and exercises the fallback branch.
-        self.module._original_node_delete = unintrospectable
-        original_signature = inspect.signature
-
-        def raising_signature(target):
-            if target is unintrospectable:
-                raise ValueError("no signature available")
-            return original_signature(target)
-
-        self.module.inspect.signature = raising_signature
-        try:
-            self.prefs_stub.prefs_singleton.set("safe_delete_enabled", False)
-            self.module.node_delete(popupOnError=True, evaluateAll=True)
-        finally:
-            self.module.inspect.signature = original_signature
-
-        self.assertEqual(unintrospectable_calls, [((), {})])
+        self.module.node_delete(popupOnError=True)
+        self.assertEqual(self.calls, [("stock", True)])
 
 
 class TestMenuInstallsSafeDelete(unittest.TestCase):

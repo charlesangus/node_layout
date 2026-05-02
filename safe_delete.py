@@ -15,7 +15,7 @@ The original delete callable is captured at install time so the
 ``safe_delete_enabled`` preference can fall back to stock behaviour at runtime.
 """
 
-import inspect
+import html
 import re
 
 import nuke
@@ -62,21 +62,26 @@ def _collect_external_dependents(selected_nodes, evaluate_all):
 
 
 def _build_warning_html(external_dependents):
-    """Render the dependent-link summary used in the confirmation dialog."""
+    """Render the dependent-link summary used in the confirmation dialog.
+
+    Node names can in principle contain HTML special characters (``<``, ``&``)
+    that would break the surrounding markup, so every interpolated string is
+    escaped before formatting.
+    """
     rows_html = ""
     for node_name in sorted(external_dependents.keys(), key=_natural_sort_key):
         rows_html += (
             "<hr><table cellpadding=0 cellspacing=0>"
-            f"<tr><td colspan=4><b>{node_name}</b></td></tr>"
+            f"<tr><td colspan=4><b>{html.escape(node_name)}</b></td></tr>"
         )
         for dep_type_name, dependent_names in external_dependents[node_name].items():
             for dependent_name in dependent_names:
                 rows_html += (
                     "<tr>"
                     "<td width=50>&nbsp;</td>"
-                    f"<td width=90>({dep_type_name})</td>"
+                    f"<td width=90>({html.escape(dep_type_name)})</td>"
                     "<td>&nbsp;&nbsp;<span style='font-size:large'>&#x2192;</span>&nbsp;&nbsp;</td>"
-                    f"<td>{dependent_name}</td>"
+                    f"<td>{html.escape(dependent_name)}</td>"
                     "</tr>"
                 )
         rows_html += "</table>"
@@ -100,19 +105,14 @@ def _confirm_break_dependencies(external_dependents):
     return bool(prompt.showModalDialog())
 
 
-def safe_delete(evaluate_all=False):
-    """Delete the current selection, prompting only on truly broken dependencies.
-
-    ``evaluate_all`` is forwarded to ``nuke.dependentNodes`` -- set True only if
-    expression dependencies should be discovered by evaluating every knob, which
-    is expensive on large scripts.
-    """
+def safe_delete():
+    """Delete the current selection, prompting only on truly broken dependencies."""
     selected_nodes = nuke.selectedNodes()
     if not selected_nodes:
         nuke.nodeDelete()
         return
 
-    external_dependents = _collect_external_dependents(selected_nodes, evaluate_all)
+    external_dependents = _collect_external_dependents(selected_nodes, evaluate_all=False)
 
     if external_dependents and not _confirm_break_dependencies(external_dependents):
         return
@@ -120,41 +120,17 @@ def safe_delete(evaluate_all=False):
     nuke.nodeDelete()
 
 
-def _call_original_node_delete(popup_on_error, evaluate_all):
-    """Forward to the captured stock callable, tolerating signature differences.
-
-    Older Nuke builds expose ``nukescripts.node_delete(popupOnError=False)`` with
-    no ``evaluateAll`` parameter; newer builds add it. Passing an unknown kwarg
-    blows up at runtime, so we introspect and forward only what the target
-    actually declares.
-    """
-    if _original_node_delete is None:
-        nuke.nodeDelete()
-        return
-
-    candidate_kwargs = {"popupOnError": popup_on_error, "evaluateAll": evaluate_all}
-    try:
-        accepted_parameters = inspect.signature(_original_node_delete).parameters
-    except (TypeError, ValueError):
-        # Builtins / C-implemented callables: signature() may fail. Fall back to
-        # the no-arg form, which always matches the keyboard-shortcut path.
-        _original_node_delete()
-        return
-
-    forwarded_kwargs = {
-        name: value
-        for name, value in candidate_kwargs.items()
-        if name in accepted_parameters
-    }
-    _original_node_delete(**forwarded_kwargs)
-
-
 # Compatibility alias matching the signature `nukescripts.node_delete` expects.
-def node_delete(popupOnError=False, evaluateAll=False):  # noqa: N803 -- Nuke API name
+# `nukescripts.nodes.node_delete` only takes `popupOnError`, so that is the only
+# kwarg we accept and the only one we forward to the captured original.
+def node_delete(popupOnError=False):  # noqa: N803 -- Nuke API name
     if not node_layout_prefs.prefs_singleton.get("safe_delete_enabled"):
-        _call_original_node_delete(popupOnError, evaluateAll)
+        if _original_node_delete is None:
+            nuke.nodeDelete()
+        else:
+            _original_node_delete(popupOnError=popupOnError)
         return
-    safe_delete(evaluate_all=evaluateAll)
+    safe_delete()
 
 
 def install():
