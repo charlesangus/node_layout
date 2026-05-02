@@ -579,9 +579,9 @@ class FreezeBlock:
         self.right_extent = block_max_x - root.xpos()
         self.left_overhang = root.xpos() - block_min_x
         self.block_height = block_max_y - block_min_y
-        self.external_height = 0
 
-        # Root-relative offsets for position restoration
+        # Root-relative offsets so non-root members can be folded into the
+        # bbox composition at their stored positions relative to the root.
         self.offsets = {}
         for member in members:
             if id(member) != id(root):
@@ -593,24 +593,6 @@ class FreezeBlock:
     @property
     def non_root_ids(self):
         return self.member_ids - {self.root_id}
-
-    @property
-    def leaf_dims(self):
-        """3-tuple for compute_dims leaf override: (total_w, height, left_overhang)."""
-        return (self.right_extent + self.left_overhang,
-                self.block_height + self.external_height,
-                self.left_overhang)
-
-    def restore_positions(self):
-        """Reposition non-root members relative to root's current (post-layout) position."""
-        root_x = self.root.xpos()
-        root_y = self.root.ypos()
-        for member in self.members:
-            member_id = id(member)
-            if member_id != self.root_id and member_id in self.offsets:
-                delta_x, delta_y = self.offsets[member_id]
-                member.setXpos(root_x + delta_x)
-                member.setYpos(root_y + delta_y)
 
     def get_external_inputs(self, get_inputs_fn):
         """Find inputs from outside this block to any member.

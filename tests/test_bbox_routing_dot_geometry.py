@@ -1,4 +1,3 @@
-import os
 import sys
 
 from tests._compare_stub_nuke import (
@@ -13,7 +12,6 @@ from tests._compare_stub_nuke import (
 _ISOLATED_MODULES = [
     "nuke",
     "node_layout",
-    "node_layout_engine",
     "node_layout_prefs",
     "node_layout_state",
     "node_layout_bbox",
@@ -22,12 +20,10 @@ _ISOLATED_MODULES = [
 
 def test_bbox_side_routing_dot_is_consumer_centered_with_subtree_gap():
     saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
-    saved_engine = os.environ.get("NODE_LAYOUT_ENGINE")
     try:
         for name in _ISOLATED_MODULES:
             sys.modules.pop(name, None)
         install_nuke_stub()
-        os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
 
         import node_layout
         import node_layout_bbox
@@ -93,65 +89,14 @@ def test_bbox_side_routing_dot_is_consumer_centered_with_subtree_gap():
                 sys.modules.pop(name, None)
             else:
                 sys.modules[name] = saved_modules[name]
-        if saved_engine is None:
-            os.environ.pop("NODE_LAYOUT_ENGINE", None)
-        else:
-            os.environ["NODE_LAYOUT_ENGINE"] = saved_engine
-
-
-def test_layout_upstream_uses_bbox_without_engine_env():
-    saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
-    saved_engine = os.environ.get("NODE_LAYOUT_ENGINE")
-    try:
-        for name in _ISOLATED_MODULES:
-            sys.modules.pop(name, None)
-        install_nuke_stub()
-        os.environ.pop("NODE_LAYOUT_ENGINE", None)
-
-        import node_layout
-        import node_layout_bbox
-
-        universe = Universe()
-        primary = universe.add(
-            _Node(node_class="Read", name="Primary", xpos=0, ypos=0)
-        )
-        side = universe.add(_Node(node_class="Read", name="Side", xpos=200, ypos=0))
-        merge = universe.add(
-            _Node(node_class="Merge2", name="Merge", xpos=400, ypos=400, max_inputs=2)
-        )
-        merge.setInput(0, primary)
-        merge.setInput(1, side)
-        for node in (primary, side, merge):
-            set_node_state(node)
-        universe.select(merge)
-        set_universe(universe)
-
-        node_layout.layout_upstream()
-
-        routing_dot = merge.input(1)
-        assert routing_dot is not None
-        assert routing_dot.Class() == "Dot"
-        assert routing_dot.knob(node_layout_bbox._SIDE_DOT_KNOB_NAME) is not None
-    finally:
-        for name in _ISOLATED_MODULES:
-            if saved_modules[name] is None:
-                sys.modules.pop(name, None)
-            else:
-                sys.modules[name] = saved_modules[name]
-        if saved_engine is None:
-            os.environ.pop("NODE_LAYOUT_ENGINE", None)
-        else:
-            os.environ["NODE_LAYOUT_ENGINE"] = saved_engine
 
 
 def test_bbox_existing_side_routing_dot_is_consumer_centered_with_subtree_gap():
     saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
-    saved_engine = os.environ.get("NODE_LAYOUT_ENGINE")
     try:
         for name in _ISOLATED_MODULES:
             sys.modules.pop(name, None)
         install_nuke_stub()
-        os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
 
         import node_layout
         import node_layout_bbox
@@ -225,10 +170,6 @@ def test_bbox_existing_side_routing_dot_is_consumer_centered_with_subtree_gap():
                 sys.modules.pop(name, None)
             else:
                 sys.modules[name] = saved_modules[name]
-        if saved_engine is None:
-            os.environ.pop("NODE_LAYOUT_ENGINE", None)
-        else:
-            os.environ["NODE_LAYOUT_ENGINE"] = saved_engine
 
 
 def test_bbox_side_routing_dot_gap_is_local_to_subtree():
@@ -236,7 +177,6 @@ def test_bbox_side_routing_dot_gap_is_local_to_subtree():
         for name in _ISOLATED_MODULES:
             sys.modules.pop(name, None)
         install_nuke_stub()
-        os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
 
         import node_layout
         import node_layout_bbox
@@ -267,7 +207,6 @@ def test_bbox_side_routing_dot_gap_is_local_to_subtree():
         return routing_dot.ypos() - (side.ypos() + side.screenHeight())
 
     saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
-    saved_engine = os.environ.get("NODE_LAYOUT_ENGINE")
     try:
         subtree_gap = run_scenario(select_downstream_root=False)
         larger_tree_gap = run_scenario(select_downstream_root=True)
@@ -278,20 +217,14 @@ def test_bbox_side_routing_dot_gap_is_local_to_subtree():
                 sys.modules.pop(name, None)
             else:
                 sys.modules[name] = saved_modules[name]
-        if saved_engine is None:
-            os.environ.pop("NODE_LAYOUT_ENGINE", None)
-        else:
-            os.environ["NODE_LAYOUT_ENGINE"] = saved_engine
 
 
 def test_bbox_selected_horizontal_only_creates_leftmost_input0_dot():
     saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
-    saved_engine = os.environ.get("NODE_LAYOUT_ENGINE")
     try:
         for name in _ISOLATED_MODULES:
             sys.modules.pop(name, None)
         install_nuke_stub()
-        os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
 
         import node_layout
 
@@ -330,20 +263,14 @@ def test_bbox_selected_horizontal_only_creates_leftmost_input0_dot():
                 sys.modules.pop(name, None)
             else:
                 sys.modules[name] = saved_modules[name]
-        if saved_engine is None:
-            os.environ.pop("NODE_LAYOUT_ENGINE", None)
-        else:
-            os.environ["NODE_LAYOUT_ENGINE"] = saved_engine
 
 
 def test_bbox_selected_horizontal_spaces_side_subtree_bboxes_on_first_run():
     saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
-    saved_engine = os.environ.get("NODE_LAYOUT_ENGINE")
     try:
         for name in _ISOLATED_MODULES:
             sys.modules.pop(name, None)
         install_nuke_stub()
-        os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
 
         import node_layout
 
@@ -393,20 +320,14 @@ def test_bbox_selected_horizontal_spaces_side_subtree_bboxes_on_first_run():
                 sys.modules.pop(name, None)
             else:
                 sys.modules[name] = saved_modules[name]
-        if saved_engine is None:
-            os.environ.pop("NODE_LAYOUT_ENGINE", None)
-        else:
-            os.environ["NODE_LAYOUT_ENGINE"] = saved_engine
 
 
 def test_bbox_layout_upstream_replay_does_not_add_horizontal_spine_side_dots():
     saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
-    saved_engine = os.environ.get("NODE_LAYOUT_ENGINE")
     try:
         for name in _ISOLATED_MODULES:
             sys.modules.pop(name, None)
         install_nuke_stub()
-        os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
 
         import node_layout
         import node_layout_bbox
@@ -448,20 +369,14 @@ def test_bbox_layout_upstream_replay_does_not_add_horizontal_spine_side_dots():
                 sys.modules.pop(name, None)
             else:
                 sys.modules[name] = saved_modules[name]
-        if saved_engine is None:
-            os.environ.pop("NODE_LAYOUT_ENGINE", None)
-        else:
-            os.environ["NODE_LAYOUT_ENGINE"] = saved_engine
 
 
 def test_selected_horizontal_place_only_preserves_side_subtree_horizontal_mode():
     saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
-    saved_engine = os.environ.get("NODE_LAYOUT_ENGINE")
     try:
         for name in _ISOLATED_MODULES:
             sys.modules.pop(name, None)
         install_nuke_stub()
-        os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
 
         import node_layout
         import node_layout_state
@@ -501,10 +416,6 @@ def test_selected_horizontal_place_only_preserves_side_subtree_horizontal_mode()
                 sys.modules.pop(name, None)
             else:
                 sys.modules[name] = saved_modules[name]
-        if saved_engine is None:
-            os.environ.pop("NODE_LAYOUT_ENGINE", None)
-        else:
-            os.environ["NODE_LAYOUT_ENGINE"] = saved_engine
 
 
 def test_routing_dot_gap_is_uniform_across_dot_origin_and_upstream_kind():
@@ -515,12 +426,10 @@ def test_routing_dot_gap_is_uniform_across_dot_origin_and_upstream_kind():
     """
     import itertools
     saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
-    saved_engine = os.environ.get("NODE_LAYOUT_ENGINE")
     try:
         for name in _ISOLATED_MODULES:
             sys.modules.pop(name, None)
         install_nuke_stub()
-        os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
 
         import node_layout
         import node_layout_bbox
@@ -620,7 +529,3 @@ def test_routing_dot_gap_is_uniform_across_dot_origin_and_upstream_kind():
                 sys.modules.pop(name, None)
             else:
                 sys.modules[name] = saved_modules[name]
-        if saved_engine is None:
-            os.environ.pop("NODE_LAYOUT_ENGINE", None)
-        else:
-            os.environ["NODE_LAYOUT_ENGINE"] = saved_engine

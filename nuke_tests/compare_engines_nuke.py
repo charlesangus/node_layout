@@ -1,18 +1,17 @@
-"""Headless-Nuke harness: run fixtures through supported layout engines and
-emit position diffs + visual snapshots.
+"""Headless-Nuke harness: run fixtures through the bbox layout engine and
+emit position snapshots + visual outputs.
 
 Usage::
 
     python3 nuke_tests/compare_engines_nuke.py
-        # spawns `nuke -t run_layout.py` once per (fixture, supported engine)
-        # writes nuke_tests/output/compare_<fixture>_<engine>.json
-        # writes nuke_tests/output/compare_<fixture>_<engine>.png  (via dag_viz)
+        # spawns `nuke -t run_layout.py` once per fixture
+        # writes nuke_tests/output/compare_<fixture>_bbox.json
+        # writes nuke_tests/output/compare_<fixture>_bbox.png  (via dag_viz)
         # writes nuke_tests/output/compare_summary.json
 
-Each fixture in ``nuke_tests/fixtures/`` is run against every engine name
-supported by the current checkout. The bbox-only branch intentionally reports
-only ``bbox`` so deleted legacy/shape engines cannot produce misleading
-same-engine comparisons.
+The harness is a vestige of the original engine bake-off. After the bbox
+engine became the sole implementation, the iteration was reduced to a
+single engine name so the call sites and output filenames remain stable.
 """
 from __future__ import annotations
 
@@ -29,15 +28,13 @@ _WORKSPACE = _HERE.parent
 if str(_WORKSPACE) not in sys.path:
     sys.path.insert(0, str(_WORKSPACE))
 
-import node_layout_engine  # noqa: E402
-
 _FIXTURES_DIR = _HERE / "fixtures"
 _OUTPUT_DIR = _HERE / "output"
 _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 _RUN_LAYOUT = _HERE / "run_layout.py"
 
 
-ENGINES = node_layout_engine.list_registered_engines()
+ENGINES = ["bbox"]
 
 
 # Per-fixture run config. Pulled out as a table so subagents can extend
@@ -85,7 +82,6 @@ def _run_fixture(
     env["NL_INPUT"] = str(fixture_path)
     env["NL_POSITIONS_JSON"] = str(out_json)
     env["NL_OUTPUT"] = str(out_nk)
-    env["NL_ENGINE"] = engine
     env["NL_COMMAND"] = entry.get("command", "layout_upstream")
     if "root" in entry:
         env["NL_ROOT_NODE"] = entry["root"]
@@ -122,28 +118,6 @@ def _run_fixture(
         return {"fixture": fixture_path.name, "engine": engine, "ok": False, "error": str(e)}
 
 
-def _diff(legacy_positions: dict, other_positions: dict) -> dict:
-    """Compute per-node Δx/Δy and overall max-Δ between two engines."""
-    common = set(legacy_positions) & set(other_positions)
-    deltas = {
-        name: {
-            "dx": other_positions[name]["xpos"] - legacy_positions[name]["xpos"],
-            "dy": other_positions[name]["ypos"] - legacy_positions[name]["ypos"],
-        }
-        for name in common
-    }
-    max_d = max(
-        (max(abs(d["dx"]), abs(d["dy"])) for d in deltas.values()),
-        default=0,
-    )
-    only_in_legacy = sorted(set(legacy_positions) - common)
-    only_in_other = sorted(set(other_positions) - common)
-    return {
-        "deltas": deltas,
-        "max_delta": max_d,
-        "only_in_legacy": only_in_legacy,
-        "only_in_other": only_in_other,
-    }
 
 
 def main() -> int:
@@ -174,27 +148,13 @@ def main() -> int:
             print("OK" if r["ok"] else f"ERR ({r.get('error')})")
             results.append(r)
 
-    # Pair up a baseline engine vs each other supported engine per fixture.
-    by_fixture: dict[str, dict[str, dict]] = {}
-    for r in results:
-        by_fixture.setdefault(r["fixture"], {})[r["engine"]] = r
-
+    # Summary: one entry per fixture/engine combination.
     summary: dict[str, Any] = {}
-    for fixture, per_engine in by_fixture.items():
-        baseline_name = "legacy" if "legacy" in per_engine else ENGINES[0]
-        baseline = per_engine.get(baseline_name)
-        if not (baseline and baseline.get("ok")):
-            summary[fixture] = {"baseline": baseline_name, "baseline_ok": False}
-            continue
-        entry: dict[str, Any] = {
-            "baseline": baseline_name,
-            "baseline_ok": True,
+    for r in results:
+        summary.setdefault(r["fixture"], {})[r["engine"]] = {
+            "ok": r.get("ok", False),
+            "error": r.get("error"),
         }
-        for engine, r in per_engine.items():
-            if engine == baseline_name or not r.get("ok"):
-                continue
-            entry[engine] = _diff(baseline["positions"], r["positions"])
-        summary[fixture] = entry
 
     summary_path = _OUTPUT_DIR / "compare_summary.json"
     with open(summary_path, "w") as fh:

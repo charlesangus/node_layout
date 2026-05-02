@@ -953,50 +953,6 @@ class TestFreezeGapClosure(unittest.TestCase):
 class TestFreezeBlockClass(unittest.TestCase):
     """Tests for the FreezeBlock dataclass that encapsulates freeze state."""
 
-    def test_leaf_dims_returns_correct_tuple(self):
-        """leaf_dims property returns (total_w, block_height, left_overhang)."""
-        root = _make_state_stub_node(freeze_group="group-aaa")
-        root.setXpos(100)
-        root.setYpos(200)
-
-        member = _make_state_stub_node(freeze_group="group-aaa")
-        member.setXpos(50)
-        member.setYpos(150)
-        _wire(member, root)
-
-        block = _nl.FreezeBlock(root=root, members=[root, member], uuid="group-aaa")
-
-        # root at x=100, member at x=50 -> left_overhang = 100 - 50 = 50
-        # root right edge = 100 + 80 = 180, member right edge = 50 + 80 = 130
-        # right_extent = max(180, 130) - 100 = 80
-        # total_w = right_extent + left_overhang = 80 + 50 = 130
-        # block_height = max(200+28, 150+28) - min(200, 150) = 228 - 150 = 78
-        total_w, height, left_ovh = block.leaf_dims
-        self.assertEqual(total_w, 130)
-        self.assertEqual(height, 78)
-        self.assertEqual(left_ovh, 50)
-
-    def test_restore_positions_moves_members_relative_to_root(self):
-        """restore_positions repositions non-root members relative to root's new position."""
-        root = _make_state_stub_node(freeze_group="group-aaa")
-        root.setXpos(100)
-        root.setYpos(300)
-
-        member = _make_state_stub_node(freeze_group="group-aaa")
-        member.setXpos(100)
-        member.setYpos(200)
-        _wire(member, root)
-
-        block = _nl.FreezeBlock(root=root, members=[root, member], uuid="group-aaa")
-
-        # Simulate root moving
-        root.setXpos(300)
-        root.setYpos(500)
-        block.restore_positions()
-
-        self.assertEqual(member.xpos(), 300)
-        self.assertEqual(member.ypos(), 400)
-
     def test_get_external_inputs_finds_outside_connections(self):
         """get_external_inputs returns inputs from outside the block."""
         root = _make_state_stub_node(freeze_group="group-aaa")

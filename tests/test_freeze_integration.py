@@ -486,11 +486,12 @@ class TestFreezeHorizontalSpineLeftMember(unittest.TestCase):
 
     When FreezeRoot is a spine node and FrozenMember (its input[0]) is also a
     selected/spine node, the advance formula must NOT treat FrozenMember as a
-    normal spine node — its final position is determined by restore_positions(),
-    not the formula.  Without the fix, FurtherUpstream (upstream of FrozenMember)
-    is placed relative to FrozenMember's pre-restore (too-far-left) position,
-    leaving a gap of (step_x + screenWidth) extra pixels to the right of
-    FurtherUpstream after restore.
+    normal spine node — its final position is folded into the freeze block's
+    rigid geometry by ``_fold_freeze_block_geometry``, not by the formula.
+    Without the fix, FurtherUpstream (upstream of FrozenMember) is placed
+    relative to FrozenMember's pre-fold (too-far-left) position, leaving a
+    gap of (step_x + screenWidth) extra pixels to the right of
+    FurtherUpstream after the block is folded back in.
 
     The fixture: DownstreamA -> FreezeRoot -> FrozenMember -> FurtherUpstream
     FrozenMember is 200px to the LEFT of FreezeRoot (left_overhang = 200).
