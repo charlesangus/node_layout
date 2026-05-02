@@ -13,7 +13,6 @@ Verifications:
 - If prefs_singleton.get("loose_gap_multiplier") is overridden to 8.0,
   vertical_gap_between() returns 8 * snap_threshold for non-color-matched nodes
 - After removing SUBTREE_MARGIN: 'SUBTREE_MARGIN' not in src (verified by reading source)
-- compute_dims() and place_subtree() signatures accept node_count as a parameter
   (verified by AST inspection of function signatures)
 """
 import ast
@@ -310,26 +309,6 @@ class TestPrefsIntegration(unittest.TestCase):
             "MASK_INPUT_MARGIN still referenced in node_layout.py — missed replacement site",
         )
 
-    # --- Function signature verification ---
-
-    def test_compute_dims_accepts_node_count(self):
-        """compute_dims() signature must include node_count as a parameter."""
-        arg_names = _get_arg_names("compute_dims")
-        self.assertIn(
-            "node_count",
-            arg_names,
-            f"compute_dims() missing node_count parameter; got: {arg_names}",
-        )
-
-    def test_place_subtree_accepts_node_count(self):
-        """place_subtree() signature must include node_count as a parameter."""
-        arg_names = _get_arg_names("place_subtree")
-        self.assertIn(
-            "node_count",
-            arg_names,
-            f"place_subtree() missing node_count parameter; got: {arg_names}",
-        )
-
     def test_subtree_margin_accepts_node_count(self):
         """_subtree_margin() signature must include node_count as a parameter."""
         arg_names = _get_arg_names("_subtree_margin")
@@ -365,17 +344,6 @@ class TestSchemeMultiplierPipeline(unittest.TestCase):
             "scheme_multiplier",
             arg_names,
             f"vertical_gap_between() missing scheme_multiplier parameter; got: {arg_names}",
-        )
-
-    # --- AST: compute_dims signature ---
-
-    def test_compute_dims_has_scheme_multiplier_param(self):
-        """compute_dims() signature must include scheme_multiplier parameter."""
-        arg_names = _get_arg_names("compute_dims")
-        self.assertIn(
-            "scheme_multiplier",
-            arg_names,
-            f"compute_dims() missing scheme_multiplier parameter; got: {arg_names}",
         )
 
     # --- Behavioral: compact gap is scaled by scheme_multiplier ---
@@ -568,8 +536,6 @@ class TestHorizontalOnlyScheme(unittest.TestCase):
     These tests verify the behavioral contract using _subtree_margin() calls directly:
     - Horizontal margin (mode_multiplier=normal_multiplier): unaffected by compact scheme
     - Vertical margin (mode_multiplier=compact_multiplier): smaller than normal
-    - horizontal_clearance in layout_selected source must not reference resolved_scheme_multiplier
-    - side_margins_h and side_margins_v must appear in both compute_dims and place_subtree
     """
 
     def setUp(self):
@@ -624,85 +590,6 @@ class TestHorizontalOnlyScheme(unittest.TestCase):
             normal_margin,
             f"Loose vertical margin ({loose_margin}) must be greater than normal ({normal_margin})",
         )
-
-    def test_side_margins_h_and_v_appear_in_compute_dims(self):
-        """side_margins_h and side_margins_v must appear in compute_dims source."""
-        with open(NODE_LAYOUT_PATH) as source_file:
-            source = source_file.read()
-        tree = ast.parse(source)
-        for ast_node in ast.walk(tree):
-            if isinstance(ast_node, ast.FunctionDef) and ast_node.name == "compute_dims":
-                func_source = ast.get_source_segment(source, ast_node)
-                self.assertIn(
-                    "side_margins_h",
-                    func_source,
-                    "side_margins_h not found in compute_dims",
-                )
-                self.assertIn(
-                    "side_margins_v",
-                    func_source,
-                    "side_margins_v not found in compute_dims",
-                )
-                return
-        self.fail("compute_dims not found in source")
-
-    def test_side_margins_h_and_v_appear_in_place_subtree(self):
-        """side_margins_h and side_margins_v must appear in place_subtree source."""
-        with open(NODE_LAYOUT_PATH) as source_file:
-            source = source_file.read()
-        tree = ast.parse(source)
-        for ast_node in ast.walk(tree):
-            if isinstance(ast_node, ast.FunctionDef) and ast_node.name == "place_subtree":
-                func_source = ast.get_source_segment(source, ast_node)
-                self.assertIn(
-                    "side_margins_h",
-                    func_source,
-                    "side_margins_h not found in place_subtree",
-                )
-                self.assertIn(
-                    "side_margins_v",
-                    func_source,
-                    "side_margins_v not found in place_subtree",
-                )
-                return
-        self.fail("place_subtree not found in source")
-
-    def test_horizontal_clearance_does_not_use_resolved_scheme_multiplier(self):
-        """horizontal_clearance in layout_selected must not reference resolved_scheme_multiplier
-        or base_subtree_margin — it must be a direct get('horizontal_subtree_gap') call."""
-        with open(NODE_LAYOUT_PATH) as source_file:
-            source = source_file.read()
-        tree = ast.parse(source)
-        for ast_node in ast.walk(tree):
-            if isinstance(ast_node, ast.FunctionDef) and ast_node.name == "layout_selected":
-                func_source = ast.get_source_segment(source, ast_node)
-                # Find the horizontal_clearance assignment block
-                clearance_idx = func_source.find("horizontal_clearance")
-                self.assertGreater(
-                    clearance_idx,
-                    -1,
-                    "horizontal_clearance not found in layout_selected",
-                )
-                # Extract a window around the assignment (the new form is a single line)
-                clearance_block_end = func_source.find("\n", clearance_idx + 200)
-                if clearance_block_end == -1:
-                    clearance_block_end = len(func_source)
-                clearance_block = func_source[clearance_idx:clearance_block_end]
-                self.assertNotIn(
-                    "resolved_scheme_multiplier",
-                    clearance_block,
-                    "horizontal_clearance block must not reference resolved_scheme_multiplier; "
-                    f"block: {clearance_block!r}",
-                )
-                self.assertNotIn(
-                    "base_subtree_margin",
-                    clearance_block,
-                    "horizontal_clearance block must not reference base_subtree_margin "
-                    "(new contract: direct horizontal_subtree_gap read, no sqrt formula); "
-                    f"block: {clearance_block!r}",
-                )
-                return
-        self.fail("layout_selected not found in source")
 
 
 if __name__ == "__main__":

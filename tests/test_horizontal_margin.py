@@ -1,11 +1,8 @@
-"""Tests for _horizontal_margin() in node_layout.py (06-02 Task 1 TDD).
+"""Tests for _horizontal_margin() in node_layout.py.
 
-These tests verify the H-axis decoupling:
+These tests verify:
 - _horizontal_margin() is defined and reads horizontal_subtree_gap / horizontal_mask_gap
-- compute_dims() uses _horizontal_margin for side_margins_h
-- place_subtree() uses _horizontal_margin for side_margins_h
-- layout_selected() uses horizontal_subtree_gap directly for horizontal_clearance (no sqrt formula)
-- Behavioral: _horizontal_margin returns 150 for non-mask, 50 for mask (defaults)
+- Behavioral: _horizontal_margin returns the configured gap for non-mask vs mask slots
 """
 import ast
 import importlib.util
@@ -201,75 +198,6 @@ class TestHorizontalMarginAST(unittest.TestCase):
             func_source,
             "_horizontal_margin does not call _is_mask_input",
         )
-
-    def test_compute_dims_uses_horizontal_margin_for_side_margins_h(self):
-        """compute_dims body must contain both 'side_margins_h' and '_horizontal_margin'."""
-        func_node = self.funcs["compute_dims"]
-        func_source = ast.get_source_segment(self.source, func_node)
-        self.assertIn(
-            "_horizontal_margin",
-            func_source,
-            "compute_dims does not use _horizontal_margin",
-        )
-        self.assertIn(
-            "side_margins_h",
-            func_source,
-            "compute_dims missing side_margins_h",
-        )
-
-    def test_place_subtree_uses_horizontal_margin_for_side_margins_h(self):
-        """place_subtree body must contain both 'side_margins_h' and '_horizontal_margin'."""
-        func_node = self.funcs["place_subtree"]
-        func_source = ast.get_source_segment(self.source, func_node)
-        self.assertIn(
-            "_horizontal_margin",
-            func_source,
-            "place_subtree does not use _horizontal_margin",
-        )
-        self.assertIn(
-            "side_margins_h",
-            func_source,
-            "place_subtree missing side_margins_h",
-        )
-
-    def test_layout_selected_horizontal_clearance_uses_horizontal_subtree_gap(self):
-        """layout_selected horizontal_clearance must reference horizontal_subtree_gap."""
-        func_node = self.funcs["layout_selected"]
-        func_source = ast.get_source_segment(self.source, func_node)
-        clearance_idx = func_source.find("horizontal_clearance")
-        self.assertGreater(
-            clearance_idx,
-            -1,
-            "horizontal_clearance not found in layout_selected",
-        )
-        # Extract window around the assignment (covers multi-line expressions)
-        clearance_end = func_source.find("\n", clearance_idx + 100)
-        if clearance_end == -1:
-            clearance_end = len(func_source)
-        clearance_block = func_source[clearance_idx:clearance_end]
-        self.assertIn(
-            "horizontal_subtree_gap",
-            clearance_block,
-            f"horizontal_clearance block must use horizontal_subtree_gap;"
-            f" block: {clearance_block!r}",
-        )
-
-    def test_layout_selected_horizontal_clearance_no_base_subtree_margin(self):
-        """layout_selected horizontal_clearance must NOT reference base_subtree_margin."""
-        func_node = self.funcs["layout_selected"]
-        func_source = ast.get_source_segment(self.source, func_node)
-        clearance_idx = func_source.find("horizontal_clearance")
-        self.assertGreater(clearance_idx, -1, "horizontal_clearance not found in layout_selected")
-        # Extract a broad window (the old formula was 5 lines)
-        clearance_end_idx = clearance_idx + 300
-        clearance_block = func_source[clearance_idx:min(clearance_end_idx, len(func_source))]
-        self.assertNotIn(
-            "base_subtree_margin",
-            clearance_block,
-            f"horizontal_clearance block must NOT reference base_subtree_margin;"
-            f" block: {clearance_block!r}",
-        )
-
 
 # ---------------------------------------------------------------------------
 # Behavioral Tests

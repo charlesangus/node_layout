@@ -36,13 +36,6 @@ _WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _WORKSPACE not in sys.path:
     sys.path.insert(0, _WORKSPACE)
 
-# NL_ENGINE selects the layout engine (legacy | bbox | shape) for the bake-off.
-# Forwarded into NODE_LAYOUT_ENGINE before importing node_layout so the
-# dispatcher in node_layout_engine.py picks it up at module load time.
-_NL_ENGINE = os.environ.get("NL_ENGINE")
-if _NL_ENGINE:
-    os.environ["NODE_LAYOUT_ENGINE"] = _NL_ENGINE
-
 import node_layout  # noqa: E402, I001
 import node_layout_state  # noqa: E402
 import nuke  # noqa: E402 (must come after sys.path setup; provided by Nuke runtime)

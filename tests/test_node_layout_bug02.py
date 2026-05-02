@@ -38,15 +38,6 @@ class TestNodeFilterObjectMembership(unittest.TestCase):
             "node_filter must not use id() integers — use node objects directly",
         )
 
-    def test_node_filter_built_as_set_of_objects(self):
-        """layout_selected() must build node_filter = set(selected_nodes)."""
-        source = _load_source()
-        self.assertIn(
-            "node_filter = set(selected_nodes)",
-            source,
-            "node_filter must be built as set(selected_nodes) in layout_selected()",
-        )
-
     def test_passes_node_filter_uses_object_membership(self):
         """_passes_node_filter() must use 'node in node_filter', not 'id(node) in node_filter'."""
         source = _load_source()
@@ -125,19 +116,6 @@ class TestNodeFilterObjectMembership(unittest.TestCase):
             "node not in node_filter",
             collect_source,
             "collect_subtree_nodes() must use 'node not in node_filter'",
-        )
-
-    def test_final_selected_ids_built_via_collect_subtree_nodes(self):
-        """final_selected_ids must be built from collect_subtree_nodes (no filter) so
-        newly created routing Dots are included in the push_nodes_to_make_room skip-set
-        (fix for issue #10)."""
-        source = _load_source()
-        self.assertIn(
-            "collect_subtree_nodes(layout_root)",
-            source,
-            "layout_selected() must use collect_subtree_nodes(layout_root) with no "
-            "filter to build final_selected_ids, ensuring new routing Dots are skipped "
-            "by push_nodes_to_make_room",
         )
 
     def test_file_parses_without_syntax_errors(self):

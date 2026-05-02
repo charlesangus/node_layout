@@ -87,7 +87,6 @@ def main():
         block = FreezeBlock(root=block_root, members=members, uuid=uuid)
         print(f"  Group {uuid[:8]}: root={block_root.name()}")
         print(f"    left_overhang={block.left_overhang}, right_extent={block.right_extent}")
-        print(f"    leaf_dims={block.leaf_dims}")
         for m in members:
             input_names = ", ".join(
                 m.input(s).name() for s in range(m.inputs()) if m.input(s)
