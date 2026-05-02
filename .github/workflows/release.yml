@@ -41,9 +41,9 @@ jobs:
         run: |
           mkdir node_layout
           cp node_layout.py node_layout_state.py node_layout_util.py \
-             node_layout_prefs.py node_layout_prefs_dialog.py \
+             node_layout_bbox.py node_layout_prefs.py node_layout_prefs_dialog.py \
              node_layout_leader.py node_layout_overlay.py \
-             menu.py make_room.py README.md LICENSE node_layout/
+             menu.py make_room.py safe_delete.py README.md LICENSE node_layout/
           touch node_layout/${{ github.ref_name }}
           zip -r node_layout-${{ github.ref_name }}.zip node_layout/
 
