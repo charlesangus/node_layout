@@ -1,0 +1,62 @@
+#! /usr/local/Nuke16.0v6/libnuke-16.0.6.so -nx
+version 16.0 v6
+Root {
+ inputs 0
+ name ""
+ colorManagement Nuke
+ workingSpaceLUT linear
+}
+# Narrow side subtree for m2 (downstream merge)
+CheckerBoard2 {
+ inputs 0
+ name NarrowSide
+ xpos 300
+ ypos -400
+}
+# Wide side subtree for m1 (upstream merge): WideA + WideB -> WideMerge
+CheckerBoard2 {
+ inputs 0
+ name WideB
+ xpos 600
+ ypos -800
+}
+CheckerBoard2 {
+ inputs 0
+ name WideA
+ xpos 400
+ ypos -800
+}
+Merge2 {
+ inputs 2
+ name WideMerge
+ xpos 400
+ ypos -600
+}
+# Source for the main spine
+CheckerBoard2 {
+ inputs 0
+ name Source
+ xpos 100
+ ypos -900
+}
+# Stack: [NarrowSide, WideMerge, Source]
+# m1: input0=Source, input1=WideMerge
+Merge2 {
+ inputs 2
+ name m1
+ xpos 100
+ ypos -500
+}
+# Stack: [NarrowSide, m1]
+# m2: input0=m1, input1=NarrowSide
+Merge2 {
+ inputs 2
+ name m2
+ xpos 100
+ ypos -200
+}
+Write {
+ name Write1
+ xpos 100
+ ypos 0
+}

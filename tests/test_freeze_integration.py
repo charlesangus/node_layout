@@ -7,10 +7,9 @@ correctness.  A PNG is also generated so you can visually inspect the result.
 Each test targets a known bug from the Phase 16 UAT failure report:
 
   Scenario A (test_freeze_upstream_basic)
-    Bug B — non-frozen nodes upstream of a freeze block are unreachable by
-    place_subtree (path blocked by freeze_excluded_ids) and are never
-    repositioned.  Source must end up directly above FrozenGrade1 after
-    layout_upstream(Write1).
+    Bug B — non-frozen nodes upstream of a freeze block were not reached by
+    layout traversal and were never repositioned. Source must end up directly
+    above FrozenGrade1 after layout_upstream(Write1).
 
   Scenario B (test_freeze_selected_type_mismatch)
     Bug A — ``node_filter -= freeze_excluded_ids`` is a no-op in
@@ -427,12 +426,9 @@ class TestFreezeVerticalBboxOverlap(unittest.TestCase):
       input[1] = FreezeRoot (freeze block root with a non-frozen direct input AND a
                  frozen non-root member placed 300px to the LEFT of FreezeRoot)
 
-    FreezeRoot's left_overhang is 300.  Without the fix, compute_dims returns
-    root_x_offset=0 so FreezeRoot is placed at alloc1 = Merge1.xpos + node_w + gap.
-    FrozenGrade is then restored at alloc1 - 300, which lands INSIDE Merge1's column
-    (to the left of Merge1.xpos + node_w).  With the fix, root_x_offset=300 so
-    FreezeRoot is placed at alloc1 + 300 and FrozenGrade lands at alloc1, cleanly
-    to the right of Merge1.
+    FreezeRoot's left_overhang is 300. Without the fix, the freeze root can be
+    placed too far left, and FrozenGrade is restored inside Merge1's column. With
+    the fix, the whole freeze block lands cleanly to the right of Merge1.
     """
 
     NODE_WIDTH = 80
@@ -490,11 +486,12 @@ class TestFreezeHorizontalSpineLeftMember(unittest.TestCase):
 
     When FreezeRoot is a spine node and FrozenMember (its input[0]) is also a
     selected/spine node, the advance formula must NOT treat FrozenMember as a
-    normal spine node — its final position is determined by restore_positions(),
-    not the formula.  Without the fix, FurtherUpstream (upstream of FrozenMember)
-    is placed relative to FrozenMember's pre-restore (too-far-left) position,
-    leaving a gap of (step_x + screenWidth) extra pixels to the right of
-    FurtherUpstream after restore.
+    normal spine node — its final position is folded into the freeze block's
+    rigid geometry by ``_fold_freeze_block_geometry``, not by the formula.
+    Without the fix, FurtherUpstream (upstream of FrozenMember) is placed
+    relative to FrozenMember's pre-fold (too-far-left) position, leaving a
+    gap of (step_x + screenWidth) extra pixels to the right of
+    FurtherUpstream after the block is folded back in.
 
     The fixture: DownstreamA -> FreezeRoot -> FrozenMember -> FurtherUpstream
     FrozenMember is 200px to the LEFT of FreezeRoot (left_overhang = 200).

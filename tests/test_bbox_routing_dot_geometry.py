@@ -1,0 +1,531 @@
+import sys
+
+from tests._compare_stub_nuke import (
+    Universe,
+    _Node,
+    find_overlapping_node_pairs,
+    install_nuke_stub,
+    set_node_state,
+    set_universe,
+)
+
+_ISOLATED_MODULES = [
+    "nuke",
+    "node_layout",
+    "node_layout_prefs",
+    "node_layout_state",
+    "node_layout_bbox",
+]
+
+
+def test_bbox_side_routing_dot_is_consumer_centered_with_subtree_gap():
+    saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
+    try:
+        for name in _ISOLATED_MODULES:
+            sys.modules.pop(name, None)
+        install_nuke_stub()
+
+        import node_layout
+        import node_layout_bbox
+        import node_layout_prefs
+
+        universe = Universe()
+        primary = universe.add(
+            _Node(node_class="Read", name="Primary", xpos=0, ypos=0)
+        )
+        side = universe.add(_Node(node_class="Read", name="Side", xpos=200, ypos=0))
+        merge = universe.add(
+            _Node(node_class="Merge2", name="Merge", xpos=400, ypos=400, max_inputs=2)
+        )
+        merge.setInput(0, primary)
+        merge.setInput(1, side)
+        for node in (primary, side, merge):
+            set_node_state(node)
+        universe.select(merge)
+        set_universe(universe)
+
+        snap = node_layout.get_dag_snap_threshold()
+        # The engine derives the side-dot gap from prefs once per run
+        # (see ``node_layout_bbox._resolve_side_dot_gap``); compute the
+        # expected gap the same way — passing ``scaling_reference_count``
+        # to ``_subtree_margin`` keeps the formulas equivalent for the
+        # default Merge2 slot 1 case used in this test (no mask, default
+        # font scale).
+        margin_reference_count = node_layout_prefs.prefs_singleton.get(
+            "scaling_reference_count"
+        )
+        expected_gap = max(
+            snap - 1,
+            int(
+                node_layout._subtree_margin(
+                    merge,
+                    1,
+                    margin_reference_count,
+                    mode_multiplier=node_layout_prefs.prefs_singleton.get(
+                        "normal_multiplier"
+                    ),
+                )
+            ),
+        )
+
+        node_layout.layout_upstream()
+
+        routing_dot = merge.input(1)
+        assert routing_dot is not None
+        assert routing_dot.Class() == "Dot"
+        assert routing_dot.knob(node_layout_bbox._SIDE_DOT_KNOB_NAME) is not None
+        assert routing_dot.input(0) is side
+
+        expected_dot_y = merge.ypos() + (
+            merge.screenHeight() - routing_dot.screenHeight()
+        ) // 2
+        assert routing_dot.ypos() == expected_dot_y
+
+        actual_gap = routing_dot.ypos() - (side.ypos() + side.screenHeight())
+        assert actual_gap == expected_gap
+    finally:
+        for name in _ISOLATED_MODULES:
+            if saved_modules[name] is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = saved_modules[name]
+
+
+def test_bbox_existing_side_routing_dot_is_consumer_centered_with_subtree_gap():
+    saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
+    try:
+        for name in _ISOLATED_MODULES:
+            sys.modules.pop(name, None)
+        install_nuke_stub()
+
+        import node_layout
+        import node_layout_bbox
+        import node_layout_prefs
+
+        universe = Universe()
+        primary = universe.add(
+            _Node(node_class="Read", name="Primary", xpos=0, ypos=0)
+        )
+        side = universe.add(_Node(node_class="Read", name="Side", xpos=200, ypos=0))
+        routing_dot = universe.add(
+            _Node(
+                node_class="Dot",
+                name="ExistingDot",
+                width=12,
+                height=12,
+                xpos=300,
+                ypos=200,
+                max_inputs=1,
+            )
+        )
+        merge = universe.add(
+            _Node(node_class="Merge2", name="Merge", xpos=400, ypos=400, max_inputs=2)
+        )
+        routing_dot.setInput(0, side)
+        merge.setInput(0, primary)
+        merge.setInput(1, routing_dot)
+        for node in (primary, side, routing_dot, merge):
+            set_node_state(node)
+        universe.select(merge)
+        set_universe(universe)
+
+        snap = node_layout.get_dag_snap_threshold()
+        # The engine derives the side-dot gap from prefs once per run
+        # (see ``node_layout_bbox._resolve_side_dot_gap``); compute the
+        # expected gap the same way — passing ``scaling_reference_count``
+        # to ``_subtree_margin`` keeps the formulas equivalent for the
+        # default Merge2 slot 1 case used in this test (no mask, default
+        # font scale).
+        margin_reference_count = node_layout_prefs.prefs_singleton.get(
+            "scaling_reference_count"
+        )
+        expected_gap = max(
+            snap - 1,
+            int(
+                node_layout._subtree_margin(
+                    merge,
+                    1,
+                    margin_reference_count,
+                    mode_multiplier=node_layout_prefs.prefs_singleton.get(
+                        "normal_multiplier"
+                    ),
+                )
+            ),
+        )
+
+        node_layout.layout_upstream()
+
+        assert merge.input(1) is routing_dot
+        assert routing_dot.knob(node_layout_bbox._SIDE_DOT_KNOB_NAME) is not None
+        expected_dot_y = merge.ypos() + (
+            merge.screenHeight() - routing_dot.screenHeight()
+        ) // 2
+        assert routing_dot.ypos() == expected_dot_y
+
+        actual_gap = routing_dot.ypos() - (side.ypos() + side.screenHeight())
+        assert actual_gap == expected_gap
+    finally:
+        for name in _ISOLATED_MODULES:
+            if saved_modules[name] is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = saved_modules[name]
+
+
+def test_bbox_side_routing_dot_gap_is_local_to_subtree():
+    def run_scenario(select_downstream_root):
+        for name in _ISOLATED_MODULES:
+            sys.modules.pop(name, None)
+        install_nuke_stub()
+
+        import node_layout
+        import node_layout_bbox
+
+        universe = Universe()
+        primary = universe.add(
+            _Node(node_class="Read", name="Primary", xpos=0, ypos=0)
+        )
+        side = universe.add(_Node(node_class="Read", name="Side", xpos=200, ypos=0))
+        merge = universe.add(
+            _Node(node_class="Merge2", name="Merge", xpos=400, ypos=400, max_inputs=2)
+        )
+        write = universe.add(
+            _Node(node_class="Write", name="Write", xpos=400, ypos=500, max_inputs=1)
+        )
+        merge.setInput(0, primary)
+        merge.setInput(1, side)
+        write.setInput(0, merge)
+        for node in (primary, side, merge, write):
+            set_node_state(node)
+        universe.select(write if select_downstream_root else merge)
+        set_universe(universe)
+
+        node_layout.layout_upstream()
+        routing_dot = merge.input(1)
+        assert routing_dot.Class() == "Dot"
+        assert routing_dot.knob(node_layout_bbox._SIDE_DOT_KNOB_NAME) is not None
+        return routing_dot.ypos() - (side.ypos() + side.screenHeight())
+
+    saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
+    try:
+        subtree_gap = run_scenario(select_downstream_root=False)
+        larger_tree_gap = run_scenario(select_downstream_root=True)
+        assert larger_tree_gap == subtree_gap
+    finally:
+        for name in _ISOLATED_MODULES:
+            if saved_modules[name] is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = saved_modules[name]
+
+
+def test_bbox_selected_horizontal_only_creates_leftmost_input0_dot():
+    saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
+    try:
+        for name in _ISOLATED_MODULES:
+            sys.modules.pop(name, None)
+        install_nuke_stub()
+
+        import node_layout
+
+        universe = Universe()
+        left = universe.add(_Node(node_class="Read", name="Left", xpos=0, ypos=0))
+        side = universe.add(_Node(node_class="Read", name="Side", xpos=100, ypos=0))
+        spine_left = universe.add(
+            _Node(node_class="Grade", name="SpineLeft", xpos=200, ypos=0, max_inputs=1)
+        )
+        spine_root = universe.add(
+            _Node(node_class="Merge2", name="SpineRoot", xpos=300, ypos=0, max_inputs=2)
+        )
+        spine_left.setInput(0, left)
+        spine_root.setInput(0, spine_left)
+        spine_root.setInput(1, side)
+        for node in (left, side, spine_left, spine_root):
+            set_node_state(node)
+        universe.select(spine_left, spine_root)
+        set_universe(universe)
+
+        node_layout.layout_selected_horizontal()
+
+        leftmost_dot = spine_left.input(0)
+        assert leftmost_dot is not left
+        assert leftmost_dot.Class() == "Dot"
+        assert leftmost_dot.knob(node_layout._LEFTMOST_DOT_KNOB_NAME) is not None
+        assert leftmost_dot.input(0) is left
+        assert spine_root.input(0) is spine_left
+        assert spine_root.input(1) is side
+
+        dots = [node for node in universe.nodes if node.Class() == "Dot"]
+        assert dots == [leftmost_dot]
+    finally:
+        for name in _ISOLATED_MODULES:
+            if saved_modules[name] is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = saved_modules[name]
+
+
+def test_bbox_selected_horizontal_spaces_side_subtree_bboxes_on_first_run():
+    saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
+    try:
+        for name in _ISOLATED_MODULES:
+            sys.modules.pop(name, None)
+        install_nuke_stub()
+
+        import node_layout
+
+        universe = Universe()
+        left = universe.add(
+            _Node(node_class="Read", name="Left", width=80, xpos=0, ypos=0)
+        )
+        side_left = universe.add(
+            _Node(node_class="Read", name="SideLeft", width=500, xpos=0, ypos=0)
+        )
+        side_root = universe.add(
+            _Node(node_class="Read", name="SideRoot", width=500, xpos=0, ypos=0)
+        )
+        spine_left = universe.add(
+            _Node(
+                node_class="Merge2",
+                name="SpineLeft",
+                xpos=200,
+                ypos=0,
+                max_inputs=2,
+            )
+        )
+        spine_root = universe.add(
+            _Node(
+                node_class="Merge2",
+                name="SpineRoot",
+                xpos=300,
+                ypos=0,
+                max_inputs=2,
+            )
+        )
+        spine_left.setInput(0, left)
+        spine_left.setInput(1, side_left)
+        spine_root.setInput(0, spine_left)
+        spine_root.setInput(1, side_root)
+        for node in (left, side_left, side_root, spine_left, spine_root):
+            set_node_state(node)
+        universe.select(spine_left, spine_root)
+        set_universe(universe)
+
+        node_layout.layout_selected_horizontal()
+
+        assert find_overlapping_node_pairs(universe) == []
+    finally:
+        for name in _ISOLATED_MODULES:
+            if saved_modules[name] is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = saved_modules[name]
+
+
+def test_bbox_layout_upstream_replay_does_not_add_horizontal_spine_side_dots():
+    saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
+    try:
+        for name in _ISOLATED_MODULES:
+            sys.modules.pop(name, None)
+        install_nuke_stub()
+
+        import node_layout
+        import node_layout_bbox
+
+        universe = Universe()
+        left = universe.add(_Node(node_class="Read", name="Left", xpos=0, ypos=0))
+        side = universe.add(_Node(node_class="Read", name="Side", xpos=100, ypos=0))
+        spine_left = universe.add(
+            _Node(node_class="Grade", name="SpineLeft", xpos=200, ypos=0, max_inputs=1)
+        )
+        spine_root = universe.add(
+            _Node(node_class="Merge2", name="SpineRoot", xpos=300, ypos=0, max_inputs=2)
+        )
+        spine_left.setInput(0, left)
+        spine_root.setInput(0, spine_left)
+        spine_root.setInput(1, side)
+        for node in (left, side, spine_left, spine_root):
+            set_node_state(node)
+        universe.select(spine_left, spine_root)
+        set_universe(universe)
+
+        node_layout.layout_selected_horizontal()
+        universe.select(spine_root)
+        node_layout.layout_upstream()
+
+        assert spine_root.input(0) is spine_left
+        assert spine_root.input(1) is side
+        leftmost_dot = spine_left.input(0)
+        assert leftmost_dot.Class() == "Dot"
+        assert leftmost_dot.knob(node_layout._LEFTMOST_DOT_KNOB_NAME) is not None
+        assert leftmost_dot.input(0) is left
+        assert leftmost_dot.knob(node_layout_bbox._SIDE_DOT_KNOB_NAME) is None
+
+        dots = [node for node in universe.nodes if node.Class() == "Dot"]
+        assert dots == [leftmost_dot]
+    finally:
+        for name in _ISOLATED_MODULES:
+            if saved_modules[name] is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = saved_modules[name]
+
+
+def test_selected_horizontal_place_only_preserves_side_subtree_horizontal_mode():
+    saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
+    try:
+        for name in _ISOLATED_MODULES:
+            sys.modules.pop(name, None)
+        install_nuke_stub()
+
+        import node_layout
+        import node_layout_state
+
+        universe = Universe()
+        left = universe.add(_Node(node_class="Read", name="Left", xpos=0, ypos=0))
+        spine_left = universe.add(
+            _Node(node_class="Grade", name="SpineLeft", xpos=200, ypos=0, max_inputs=1)
+        )
+        spine_root = universe.add(
+            _Node(node_class="Merge2", name="SpineRoot", xpos=300, ypos=0, max_inputs=2)
+        )
+        side_leaf = universe.add(
+            _Node(node_class="Read", name="SideLeaf", xpos=500, ypos=-100)
+        )
+        side_root = universe.add(
+            _Node(node_class="Grade", name="SideRoot", xpos=600, ypos=0, max_inputs=1)
+        )
+        spine_left.setInput(0, left)
+        spine_root.setInput(0, spine_left)
+        spine_root.setInput(1, side_root)
+        side_root.setInput(0, side_leaf)
+        for node in (left, spine_left, spine_root):
+            set_node_state(node)
+        for node in (side_leaf, side_root):
+            set_node_state(node, mode="horizontal")
+        universe.select(spine_left, spine_root)
+        set_universe(universe)
+
+        node_layout.layout_selected_horizontal_place_only()
+
+        assert node_layout_state.read_node_state(side_root)["mode"] == "horizontal"
+        assert node_layout_state.read_node_state(side_leaf)["mode"] == "horizontal"
+    finally:
+        for name in _ISOLATED_MODULES:
+            if saved_modules[name] is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = saved_modules[name]
+
+
+def test_routing_dot_gap_is_uniform_across_dot_origin_and_upstream_kind():
+    """Any Dot that's the first element of a subtree (regardless of slot,
+    regardless of whether the engine inserted it or the user pre-wired it,
+    regardless of whether the upstream is a vertical chain or a horizontal
+    section) should sit ``ctx.side_dot_gap`` below its upstream subtree.
+    """
+    import itertools
+    saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
+    try:
+        for name in _ISOLATED_MODULES:
+            sys.modules.pop(name, None)
+        install_nuke_stub()
+
+        import node_layout
+        import node_layout_bbox
+        import node_layout_state
+
+        snap = node_layout.get_dag_snap_threshold()
+        expected_gap = node_layout_bbox._resolve_side_dot_gap(snap)
+
+        def _attach_marker(dot, knob_name):
+            node_layout_bbox._add_invisible_marker(dot, knob_name, "Marker")
+
+        def _make_pre_wired_dot(universe, upstream, marker_knob=None):
+            dot = universe.add(_Node(
+                node_class="Dot", name=f"PreDot_{id(upstream)}",
+                xpos=0, ypos=0, width=12, height=12, max_inputs=1,
+            ))
+            dot.setInput(0, upstream)
+            if marker_knob is not None:
+                _attach_marker(dot, marker_knob)
+            set_node_state(dot)
+            return dot
+
+        def _vertical_upstream(universe):
+            src = universe.add(_Node(node_class="Read", name="V", xpos=0, ypos=0))
+            set_node_state(src)
+            return src
+
+        def _horizontal_upstream(universe):
+            hl = universe.add(_Node(node_class="Read", name="HL", xpos=-200, ypos=0))
+            hs = universe.add(_Node(node_class="Grade", name="HS", xpos=0, ypos=0, max_inputs=1))
+            hs.setInput(0, hl)
+            for n in (hl, hs):
+                set_node_state(n)
+            for hn in (hs, hl):
+                state = node_layout_state.read_node_state(hn)
+                state["mode"] = "horizontal"
+                node_layout_state.write_node_state(hn, state)
+            return hs
+
+        upstreams = [("vertical", _vertical_upstream), ("horizontal", _horizontal_upstream)]
+        # dot_origin: which knob (if any) the pre-wired dot carries; ``None``
+        # in slot 1 means the engine creates a fresh side dot.
+        dot_origins = [
+            ("user_plain", None),
+            ("legacy_output", node_layout._OUTPUT_DOT_KNOB_NAME),
+        ]
+
+        cases = []
+        for (upstream_label, upstream_factory), slot in itertools.product(upstreams, (0, 1)):
+            for origin_label, marker in dot_origins:
+                cases.append((
+                    upstream_label, slot, origin_label, upstream_factory, marker, False,
+                ))
+            if slot == 1:
+                cases.append((
+                    upstream_label, slot, "engine_created", upstream_factory, None, True,
+                ))
+
+        for upstream_label, slot, origin_label, upstream_factory, marker, engine_creates in cases:
+            universe = Universe()
+            other = universe.add(_Node(
+                node_class="Read", name="Other", xpos=300, ypos=0,
+            ))
+            consumer = universe.add(_Node(
+                node_class="Merge2", name="Cons", xpos=300, ypos=400, max_inputs=2,
+            ))
+            upstream = upstream_factory(universe)
+            set_node_state(other)
+            set_node_state(consumer)
+            if slot == 0:
+                consumer.setInput(0, _make_pre_wired_dot(universe, upstream, marker))
+                consumer.setInput(1, other)
+            else:
+                consumer.setInput(0, other)
+                if engine_creates:
+                    consumer.setInput(1, upstream)
+                else:
+                    consumer.setInput(1, _make_pre_wired_dot(universe, upstream, marker))
+            universe.select(consumer)
+            set_universe(universe)
+
+            node_layout_bbox.BboxEngine().layout_upstream()
+
+            dot = consumer.input(slot)
+            assert dot is not None and dot.Class() == "Dot", (
+                f"{upstream_label}/slot{slot}/{origin_label}: "
+                f"expected dot wired into slot {slot}, found {dot}"
+            )
+            actual_gap = dot.ypos() - (upstream.ypos() + upstream.screenHeight())
+            assert actual_gap == expected_gap, (
+                f"{upstream_label}/slot{slot}/{origin_label}: "
+                f"expected gap={expected_gap}, got {actual_gap}"
+            )
+    finally:
+        for name in _ISOLATED_MODULES:
+            if saved_modules[name] is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = saved_modules[name]
