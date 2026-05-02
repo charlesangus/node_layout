@@ -6,7 +6,7 @@ contract. It does NOT delegate placement to ``node_layout.compute_dims`` or
 ``Subtree`` objects (bounding box + nodes-dict) and merges them into the
 parent frame.
 
-What is reused from the legacy module (orthogonal helpers):
+What is reused from the shared node_layout module (orthogonal helpers):
 
 * ``insert_dot_nodes``                 — diamond resolution (preserves DAG topology)
 * ``_detect_freeze_groups``            — freeze UUID -> member list
@@ -46,7 +46,7 @@ import node_layout_state
 class Subtree:
     """Result of ``layout(node)``.
 
-    ``nodes`` maps ``id(node) -> (xpos, ypos)`` in the SUBTREE-LOCAL frame
+    ``nodes`` maps live node objects to ``(xpos, ypos)`` in the SUBTREE-LOCAL frame
     where the root (``node``) sits at ``(root_x, root_y)``. When a parent
     pulls a child into its own frame it adds a translation ``(dx, dy)`` to
     every entry in ``nodes`` and to the bbox/anchors.
@@ -60,14 +60,14 @@ class Subtree:
     """
     bbox: tuple[int, int, int, int]
     anchor_out: tuple[int, int]
-    nodes: dict[int, tuple[int, int]]
+    nodes: dict[object, tuple[int, int]]
     root_node: object  # the actual Nuke node object at anchor_out
     anchor_in_per_slot: dict[int, tuple[int, int]] = field(default_factory=dict)
 
 
 def _translate(subtree: Subtree, dx: int, dy: int) -> Subtree:
     """Return a new Subtree shifted by (dx, dy)."""
-    new_nodes = {nid: (x + dx, y + dy) for nid, (x, y) in subtree.nodes.items()}
+    new_nodes = {node: (x + dx, y + dy) for node, (x, y) in subtree.nodes.items()}
     new_bbox = (
         subtree.bbox[0] + dx,
         subtree.bbox[1] + dy,
@@ -102,12 +102,14 @@ class LayoutContext:
     dimension_overrides: dict  # id(root) -> FreezeBlock
     spine_set: Optional[set] = None  # for horizontal mode
     horizontal_root_id: Optional[int] = None
+    side_layout_mode: str = "recursive"
     all_member_ids: set = field(default_factory=set)
     # Populated by the dispatcher: every node that ended up in a horizontal
     # spine across the whole recursion. Used post-layout for output-dot
     # placement and state write-back.
     horizontal_seeds: list = field(default_factory=list)
     all_horizontal_ids: set = field(default_factory=set)
+    local_node_counts: dict[int, int] = field(default_factory=dict)
 
     def scheme_for(self, node) -> float:
         return self.per_node_scheme.get(
@@ -124,7 +126,97 @@ class LayoutContext:
     def passes_filter(self, node) -> bool:
         if self.node_filter is None:
             return True
-        return node_layout._passes_node_filter(node, self.node_filter)
+        if node_layout._passes_node_filter(node, self.node_filter):
+            return True
+        return (
+            _is_layout_routing_dot(node)
+            and node.input(0) is not None
+            and self.passes_filter(node.input(0))
+        )
+
+    def node_count_for(self, node) -> int:
+        """Count the node's own upstream layout scope for local margin scaling."""
+        key = id(node)
+        if key in self.local_node_counts:
+            return self.local_node_counts[key]
+
+        seen = set()
+        count = 0
+
+        def _walk(cursor):
+            nonlocal count
+            if cursor is None or id(cursor) in seen or not self.passes_filter(cursor):
+                return
+            seen.add(id(cursor))
+            if not _is_layout_routing_dot(cursor):
+                count += 1
+            if node_layout._hides_inputs(cursor):
+                return
+            for slot in range(cursor.inputs()):
+                _walk(cursor.input(slot))
+
+        _walk(node)
+        self.local_node_counts[key] = max(1, count)
+        return self.local_node_counts[key]
+
+
+_SIDE_DOT_KNOB_NAME = "node_layout_bbox_side_dot"
+_SIDE_DOT_VERTICAL_GAPS: dict[int, int] = {}
+
+
+def _is_layout_routing_dot(node) -> bool:
+    if node is None or node.Class() != "Dot":
+        return False
+    return (
+        node.knob(_SIDE_DOT_KNOB_NAME) is not None
+        or node.knob(node_layout._OUTPUT_DOT_KNOB_NAME) is not None
+        or node.knob(node_layout._LEFTMOST_DOT_KNOB_NAME) is not None
+        or node.knob("node_layout_diamond_dot") is not None
+    )
+
+
+def _deselect_all():
+    for selected in nuke.selectedNodes():
+        with contextlib.suppress(KeyError, AttributeError):
+            selected["selected"].setValue(False)
+
+
+def _add_invisible_marker(dot, knob_name: str, label: str):
+    if dot.knob(knob_name) is not None:
+        return
+    with contextlib.suppress(Exception):
+        tab = nuke.Tab_Knob("node_layout_tab", "Node Layout")
+        tab.setFlag(nuke.INVISIBLE)
+        dot.addKnob(tab)
+    marker = nuke.Int_Knob(knob_name, label)
+    marker.setFlag(nuke.INVISIBLE)
+    dot.addKnob(marker)
+    dot[knob_name].setValue(1)
+
+
+def _make_side_dot(upstream):
+    _deselect_all()
+    try:
+        dot = nuke.nodes.Dot()
+    except AttributeError:
+        return None
+    for auto_slot in range(dot.inputs()):
+        dot.setInput(auto_slot, None)
+    _add_invisible_marker(dot, _SIDE_DOT_KNOB_NAME, "BBox Side Dot Marker")
+    dot.setInput(0, upstream)
+    return dot
+
+
+def _record_side_dot_gap(dot, consumer, slot: int, ctx: LayoutContext):
+    gap = int(
+        node_layout._subtree_margin(
+            consumer,
+            slot,
+            ctx.node_count_for(consumer),
+            mode_multiplier=ctx.scheme_for(consumer),
+        ) * ctx.v_scale_for(consumer)
+    )
+    _SIDE_DOT_VERTICAL_GAPS[id(dot)] = max(ctx.snap_threshold - 1, gap)
 
 
 # ---------------------------------------------------------------------------
@@ -178,9 +270,11 @@ def layout(node, ctx: LayoutContext) -> "Subtree":
             dimension_overrides=ctx.dimension_overrides,
             spine_set=spine_set,
             horizontal_root_id=id(node),
+            side_layout_mode=ctx.side_layout_mode,
             all_member_ids=ctx.all_member_ids,
             horizontal_seeds=ctx.horizontal_seeds,
             all_horizontal_ids=ctx.all_horizontal_ids,
+            local_node_counts=ctx.local_node_counts,
         )
         ctx.horizontal_seeds.append(node)
         ctx.all_horizontal_ids.update(spine_set)
@@ -206,9 +300,14 @@ def _filtered_input_pairs(node, ctx: LayoutContext):
     if ctx.node_filter is not None:
         raw_pairs = [
             (slot, inp) for slot, inp in raw_pairs
-            if node_layout._passes_node_filter(inp, ctx.node_filter)
+            if ctx.passes_filter(inp)
         ]
-    all_side = node_layout._primary_slot_externally_occupied(node, ctx.node_filter)
+    primary_input = node.input(0) if node.inputs() else None
+    all_side = (
+        ctx.node_filter is not None
+        and primary_input is not None
+        and not ctx.passes_filter(primary_input)
+    )
     fan_active = node_layout._is_fan_active(raw_pairs, node)
     pairs = node_layout._reorder_inputs_mask_last(
         raw_pairs, node, all_side, fan_active=fan_active
@@ -240,6 +339,143 @@ def _block_local_extents(block):
     )
 
 
+def _merge_translated(
+    target_nodes: dict[object, tuple[int, int]],
+    bbox: tuple[int, int, int, int],
+    subtree: Subtree,
+    dx: int,
+    dy: int,
+) -> tuple[int, int, int, int]:
+    translated = _translate(subtree, dx, dy)
+    target_nodes.update(translated.nodes)
+    return (
+        min(bbox[0], translated.bbox[0]),
+        min(bbox[1], translated.bbox[1]),
+        max(bbox[2], translated.bbox[2]),
+        max(bbox[3], translated.bbox[3]),
+    )
+
+
+def _fold_freeze_block_geometry(
+    block,
+    ctx: LayoutContext,
+    nodes_dict: dict[object, tuple[int, int]],
+    bbox: tuple[int, int, int, int],
+) -> tuple[int, int, int, int]:
+    """Add a freeze block's rigid members and non-root external inputs.
+
+    The returned bbox describes the whole block-local layout, so callers do not
+    need a post-placement ``restore_positions`` or external-input pass.
+    """
+    bbox_left, bbox_top, bbox_right, bbox_bottom = bbox
+    for member in block.members:
+        if id(member) == block.root_id:
+            member_x, member_y = 0, 0
+        else:
+            member_x, member_y = block.offsets.get(id(member), (0, 0))
+        nodes_dict[member] = (member_x, member_y)
+        bbox_left = min(bbox_left, member_x)
+        bbox_top = min(bbox_top, member_y)
+        bbox_right = max(bbox_right, member_x + member.screenWidth())
+        bbox_bottom = max(bbox_bottom, member_y + member.screenHeight())
+
+    for entry_node, connecting_member in block.get_external_inputs(node_layout.get_inputs):
+        if id(connecting_member) == block.root_id:
+            continue
+        if not ctx.passes_filter(entry_node):
+            continue
+        entry_subtree = layout(entry_node, ctx)
+        member_x, member_y = block.offsets.get(id(connecting_member), (0, 0))
+        raw_gap = node_layout.vertical_gap_between(
+            entry_node, connecting_member, ctx.snap_threshold,
+            scheme_multiplier=ctx.scheme_for(entry_node),
+        )
+        gap = max(ctx.snap_threshold - 1, raw_gap)
+        entry_x = node_layout._center_x(
+            entry_node.screenWidth(),
+            member_x,
+            connecting_member.screenWidth(),
+        )
+        entry_y = member_y - gap - entry_subtree.bbox[3]
+        bbox_left, bbox_top, bbox_right, bbox_bottom = _merge_translated(
+            nodes_dict,
+            (bbox_left, bbox_top, bbox_right, bbox_bottom),
+            entry_subtree,
+            entry_x,
+            entry_y,
+        )
+
+    block_left, block_top, block_right, block_bottom = _block_local_extents(block)
+    return (
+        min(bbox_left, block_left),
+        min(bbox_top, block_top),
+        max(bbox_right, block_right),
+        max(bbox_bottom, block_bottom),
+    )
+
+
+def _snapshot_existing_subtree(root, ctx: LayoutContext) -> Subtree:
+    """Return a rigid snapshot of current positions, root-local."""
+    found = {}
+
+    def _walk(node):
+        if node is None or id(node) in found or not ctx.passes_filter(node):
+            return
+        found[id(node)] = node
+        block = ctx.dimension_overrides.get(id(node))
+        if block is not None and id(node) == block.root_id:
+            for member in block.members:
+                found[id(member)] = member
+        if node_layout._hides_inputs(node):
+            return
+        for slot in range(node.inputs()):
+            _walk(node.input(slot))
+
+    _walk(root)
+    nodes = list(found.values()) or [root]
+    root_x = root.xpos()
+    root_y = root.ypos()
+    local_nodes = {n: (n.xpos() - root_x, n.ypos() - root_y) for n in nodes}
+    bbox = (
+        min(x for x, _ in local_nodes.values()),
+        min(y for _, y in local_nodes.values()),
+        max(x + n.screenWidth() for n, (x, _) in local_nodes.items()),
+        max(y + n.screenHeight() for n, (_, y) in local_nodes.items()),
+    )
+    return Subtree(
+        bbox=bbox,
+        anchor_out=(0, 0),
+        nodes=local_nodes,
+        root_node=root,
+    )
+
+
+def _layout_side_dot(node, ctx: LayoutContext, pairs) -> Subtree:
+    """Layout a pre-created routing Dot and its upstream subtree.
+
+    Side Dots are centered on their downstream consumer by the parent packer.
+    In the Dot-local frame, the upstream subtree's bbox bottom sits exactly one
+    recorded subtree gap above the Dot top.
+    """
+    slot, upstream = pairs[0]
+    _ = slot
+    child = layout(upstream, ctx)
+    gap = _SIDE_DOT_VERTICAL_GAPS.get(id(node), ctx.snap_threshold - 1)
+    dot_w = node.screenWidth()
+    dot_h = node.screenHeight()
+    child_x = node_layout._center_x(upstream.screenWidth(), 0, dot_w)
+    child_y = -gap - child.bbox[3]
+    nodes_dict: dict[object, tuple[int, int]] = {node: (0, 0)}
+    bbox = _merge_translated(nodes_dict, (0, 0, dot_w, dot_h), child, child_x, child_y)
+    return Subtree(
+        bbox=bbox,
+        anchor_out=(0, 0),
+        nodes=nodes_dict,
+        root_node=node,
+        anchor_in_per_slot={0: (child_x, child_y)},
+    )
+
+
 def layout_vertical(node, ctx: LayoutContext) -> Subtree:
     """Post-order DFS: build a Subtree for ``node``.
 
@@ -252,16 +488,17 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
 
     pairs, all_side, fan_active = _filtered_input_pairs(node, ctx)
 
+    if node.knob(_SIDE_DOT_KNOB_NAME) is not None and len(pairs) == 1:
+        return _layout_side_dot(node, ctx, pairs)
+
     if is_block_root and not pairs:
         # Block root with no in-filter external inputs: opaque rigid leaf.
-        # Members keep their stored relative offsets; root sits at (0, 0).
-        nodes = {id(block.root): (0, 0)}
-        for member in block.members:
-            if id(member) == block.root_id:
-                continue
-            dx_off, dy_off = block.offsets.get(id(member), (0, 0))
-            nodes[id(member)] = (dx_off, dy_off)
-        bbox = _block_local_extents(block)
+        # Members keep their stored relative offsets; non-root external input
+        # subtrees are included in this local geometry.
+        nodes = {block.root: (0, 0)}
+        bbox = _fold_freeze_block_geometry(
+            block, ctx, nodes, _block_local_extents(block)
+        )
         return Subtree(
             bbox=bbox,
             anchor_out=(0, 0),
@@ -276,7 +513,7 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         return Subtree(
             bbox=(0, 0, w, h),
             anchor_out=(0, 0),
-            nodes={id(node): (0, 0)},
+            nodes={node: (0, 0)},
             root_node=node,
         )
 
@@ -297,7 +534,9 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
     ]
     side_margins_v = [
         int(
-            node_layout._subtree_margin(node, slot, ctx.node_count, mode_multiplier=scheme)
+            node_layout._subtree_margin(
+                node, slot, ctx.node_count_for(node), mode_multiplier=scheme
+            )
             * v_scale
         )
         for slot in actual_slots
@@ -378,6 +617,12 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
             bottom_y[i] - child_subtrees[i].bbox[3] for i in range(n)
         ]
 
+    for i, inp in enumerate(inputs):
+        if inp.knob(node_layout._OUTPUT_DOT_KNOB_NAME) is not None:
+            y_positions[i] = (node_h - inp.screenHeight()) // 2
+        elif inp.knob(_SIDE_DOT_KNOB_NAME) is not None:
+            y_positions[i] = (node_h - inp.screenHeight()) // 2
+
     # ----- X placement -----
     # consumer_right / consumer_left bound the allocation on each side; for a
     # plain node they're the tile edges, for a freeze-block root they're the
@@ -443,44 +688,9 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
             if i + 1 < n:
                 cur_alloc += child_w_total + side_margins_h[i + 1]
 
-    # ----- Insert routing Dots for side inputs (non-primary). -----
-    # Reuse the same logic as legacy: deselect-everything-then-create avoids
-    # auto-connection.  After insertion, replace inputs[i] with the dot but
-    # keep the dot's upstream subtree at (x_positions[i], y_positions[i]).
-    new_dots: dict[int, object] = {}  # i -> dot node (for those replaced)
-
-    def _is_side_index(i: int) -> bool:
-        if all_side:
-            return True
-        if is_fan:
-            return True  # fan: dots for all
-        return i > 0
-
-    for selected in nuke.selectedNodes():
-        with contextlib.suppress(KeyError, AttributeError):
-            selected['selected'].setValue(False)
-
-    for i in range(n):
-        if not _is_side_index(i):
-            continue
-        if inputs[i].Class() == 'Dot':
-            continue
-        try:
-            dot = nuke.nodes.Dot()
-        except AttributeError:
-            # Stub-mode fallback (no nuke.nodes).
-            dot = None
-        if dot is None:
-            continue
-        for auto_slot in range(dot.inputs()):
-            dot.setInput(auto_slot, None)
-        dot.setInput(0, inputs[i])
-        node.setInput(actual_slots[i], dot)
-        new_dots[i] = dot
-
     # ----- Merge children + place dots into this node's frame. -----
     # Translate each child by (x_positions[i], y_positions[i]) and merge.
-    nodes_dict: dict[int, tuple[int, int]] = {id(node): (0, 0)}
+    nodes_dict: dict[object, tuple[int, int]] = {node: (0, 0)}
     bbox_left, bbox_top, bbox_right, bbox_bottom = 0, 0, node_w, node_h
     anchor_in_per_slot: dict[int, tuple[int, int]] = {}
 
@@ -493,59 +703,13 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         bbox_bottom = max(bbox_bottom, translated.bbox[3])
         anchor_in_per_slot[actual_slots[i]] = translated.anchor_out
 
-        # If a routing dot was inserted at slot i, position it now.
-        # Dot sits between the consumer (this node) and the child root.
-        if i in new_dots:
-            dot = new_dots[i]
-            dot_w = dot.screenWidth()
-            dot_h = dot.screenHeight()
-            child_root_x_in_parent = translated.anchor_out[0]
-            actual_upstream_w = inputs[i].screenWidth()
-            dot_center_x = child_root_x_in_parent + actual_upstream_w // 2
-            if is_fan:
-                dot_y = -(snap - 1) - dot_h
-            elif i == n - 1:
-                # Bottom-most dot: vertically centered next to root tile
-                dot_y = (node_h - dot_h) // 2
-            else:
-                # Staggered: just above bottom-row, using subtree margin
-                dot_y = (
-                    y_positions[i] + actual_upstream_w * 0  # placeholder
-                )
-                dot_y = (
-                    translated.bbox[3]
-                    + int(
-                        node_layout._subtree_margin(
-                            node, actual_slots[n - 1], ctx.node_count,
-                            mode_multiplier=scheme,
-                        ) * v_scale
-                    )
-                )
-            dot_x = dot_center_x - dot_w // 2
-            nodes_dict[id(dot)] = (dot_x, dot_y)
-            bbox_left = min(bbox_left, dot_x)
-            bbox_top = min(bbox_top, dot_y)
-            bbox_right = max(bbox_right, dot_x + dot_w)
-            bbox_bottom = max(bbox_bottom, dot_y + dot_h)
-
     # If this node is a freeze block root with external inputs, fold the rigid
     # block geometry into the result: add non-root members at their stored
     # offsets and widen the bbox to include the full block extent.
     if is_block_root:
-        for member in block.members:
-            if id(member) == block.root_id:
-                continue
-            dx_off, dy_off = block.offsets.get(id(member), (0, 0))
-            nodes_dict[id(member)] = (dx_off, dy_off)
-            bbox_left = min(bbox_left, dx_off)
-            bbox_top = min(bbox_top, dy_off)
-            bbox_right = max(bbox_right, dx_off + member.screenWidth())
-            bbox_bottom = max(bbox_bottom, dy_off + member.screenHeight())
-        # Reserve at least the block's pre-baked extents on all four sides.
-        bbox_left = min(bbox_left, block_left)
-        bbox_top = min(bbox_top, block_top)
-        bbox_right = max(bbox_right, block_right)
-        bbox_bottom = max(bbox_bottom, block_bottom)
+        bbox_left, bbox_top, bbox_right, bbox_bottom = _fold_freeze_block_geometry(
+            block, ctx, nodes_dict, (bbox_left, bbox_top, bbox_right, bbox_bottom)
+        )
 
     return Subtree(
         bbox=(bbox_left, bbox_top, bbox_right, bbox_bottom),
@@ -585,32 +749,9 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         spine_nodes.append(cursor)
         cursor = cursor.input(0)
 
-    # Place root at (0, 0). Each prior spine node sits to the left.
-    nodes_dict: dict[int, tuple[int, int]] = {}
-    bbox_l, bbox_t, bbox_r, bbox_b = 0, 0, 0, 0
-    cur_y = 0
-
-    # Walk spine left to right (index 0 = rightmost root).
-    # We place the root first, then each upstream spine node steps left.
-    spine_x_per_index: list[int] = []
-    for i, spine_node in enumerate(spine_nodes):
-        if i == 0:
-            spine_x = 0
-        else:
-            prev_left_edge = spine_x_per_index[i - 1]
-            spine_x = prev_left_edge - step_x - spine_node.screenWidth()
-        spine_x_per_index.append(spine_x)
-        nodes_dict[id(spine_node)] = (spine_x, cur_y)
-        # Update bbox for spine node tile
-        bbox_l = min(bbox_l, spine_x)
-        bbox_t = min(bbox_t, cur_y)
-        bbox_r = max(bbox_r, spine_x + spine_node.screenWidth())
-        bbox_b = max(bbox_b, cur_y + spine_node.screenHeight())
-
-    # Now lay out side inputs (slot >= 1) of each spine node vertically.
-    # We build a vertical Subtree for each side input via layout_vertical,
-    # then translate so its root sits centered above the spine node tile.
-    # Use a recursive context with horizontal_root_id=None and spine_set=None.
+    # Side inputs affect the horizontal footprint of each spine node. Compute
+    # them before placing the spine so adjacent spine sections are spaced by
+    # their whole occupied bboxes, not just the spine tiles.
     side_ctx = LayoutContext(
         snap_threshold=ctx.snap_threshold,
         node_count=ctx.node_count,
@@ -621,29 +762,102 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         dimension_overrides=ctx.dimension_overrides,
         spine_set=None,
         horizontal_root_id=None,
+        side_layout_mode=ctx.side_layout_mode,
         all_member_ids=ctx.all_member_ids,
         horizontal_seeds=ctx.horizontal_seeds,
         all_horizontal_ids=ctx.all_horizontal_ids,
+        local_node_counts=ctx.local_node_counts,
     )
+    h_gap = int(prefs.get("horizontal_subtree_gap") * scheme)
+    side_layouts: list[list[tuple[int, object, Subtree]]] = []
+    local_bboxes: list[tuple[int, int, int, int]] = []
+    occupied_intervals: list[tuple[int, int]] = []
+    for spine_node in spine_nodes:
+        block = ctx.dimension_overrides.get(id(spine_node))
+        if block is not None and id(spine_node) == block.root_id:
+            local_bbox = _block_local_extents(block)
+        else:
+            local_bbox = (0, 0, spine_node.screenWidth(), spine_node.screenHeight())
+        local_bboxes.append(local_bbox)
+        occ_l, occ_r = local_bbox[0], local_bbox[2]
 
+        side_entries: list[tuple[int, object, Subtree]] = []
+        for slot in range(1, spine_node.inputs()):
+            inp = spine_node.input(slot)
+            if inp is None or not ctx.passes_filter(inp):
+                continue
+            child_subtree = (
+                _snapshot_existing_subtree(inp, side_ctx)
+                if ctx.side_layout_mode == "place_only"
+                else layout(inp, side_ctx)
+            )
+            side_entries.append((slot, inp, child_subtree))
+
+        if len(side_entries) == 1:
+            _slot, side_root, child_subtree = side_entries[0]
+            child_root_x = (
+                spine_node.screenWidth() // 2 - side_root.screenWidth() // 2
+            )
+            occ_l = min(occ_l, child_root_x + child_subtree.bbox[0])
+            occ_r = max(occ_r, child_root_x + child_subtree.bbox[2])
+        elif len(side_entries) > 1:
+            cur_alloc = spine_node.screenWidth()
+            for _slot, _side_root, child_subtree in side_entries:
+                child_w_total = child_subtree.bbox[2] - child_subtree.bbox[0]
+                child_root_x = cur_alloc - child_subtree.bbox[0]
+                occ_l = min(occ_l, child_root_x + child_subtree.bbox[0])
+                occ_r = max(occ_r, child_root_x + child_subtree.bbox[2])
+                cur_alloc += child_w_total + h_gap
+
+        side_layouts.append(side_entries)
+        occupied_intervals.append((occ_l, occ_r))
+
+    # Place root at (0, 0). Each prior spine node sits to the left.
+    nodes_dict: dict[object, tuple[int, int]] = {}
+    bbox_l, bbox_t, bbox_r, bbox_b = 0, 0, 0, 0
+    cur_y = 0
+
+    # Walk spine left to right (index 0 = rightmost root).
+    # We place the root first, then each upstream spine node steps left.
+    spine_x_per_index: list[int] = []
+    spine_left_edges: list[int] = []
+    for i, spine_node in enumerate(spine_nodes):
+        block = ctx.dimension_overrides.get(id(spine_node))
+        local_bbox = local_bboxes[i]
+        occ_l, occ_r = occupied_intervals[i]
+
+        if i == 0:
+            spine_x = 0
+        else:
+            target_right_edge = spine_left_edges[i - 1] - step_x
+            spine_x = target_right_edge - occ_r
+        spine_x_per_index.append(spine_x)
+        spine_left_edges.append(spine_x + occ_l)
+        if block is not None and id(spine_node) == block.root_id:
+            block_nodes: dict[object, tuple[int, int]] = {spine_node: (0, 0)}
+            block_bbox = _fold_freeze_block_geometry(
+                block, ctx, block_nodes, _block_local_extents(block)
+            )
+            for member, (mx, my) in block_nodes.items():
+                nodes_dict[member] = (spine_x + mx, cur_y + my)
+            bbox_l = min(bbox_l, spine_x + block_bbox[0])
+            bbox_t = min(bbox_t, cur_y + block_bbox[1])
+            bbox_r = max(bbox_r, spine_x + block_bbox[2])
+            bbox_b = max(bbox_b, cur_y + block_bbox[3])
+        else:
+            nodes_dict[spine_node] = (spine_x, cur_y)
+            bbox_l = min(bbox_l, spine_x)
+            bbox_t = min(bbox_t, cur_y)
+            bbox_r = max(bbox_r, spine_x + spine_node.screenWidth())
+            bbox_b = max(bbox_b, cur_y + spine_node.screenHeight())
+
+    # Now lay out side inputs (slot >= 1) of each spine node vertically.
+    # We build a vertical Subtree for each side input via layout_vertical,
+    # then translate so its root sits centered above the spine node tile.
     for i, spine_node in enumerate(spine_nodes):
         spine_x = spine_x_per_index[i]
-        slot_count = spine_node.inputs()
-        # Side inputs: slots 1+ on every spine node go ABOVE the spine node.
-        # input(0) of the leftmost spine node — if non-spine — extends the
-        # spine LEFTWARD; it is handled separately after this loop, not here.
-        side_slot_pairs = []
-        for slot in range(1, slot_count):
-            inp = spine_node.input(slot)
-            if inp is None:
-                continue
-            if ctx.node_filter is not None and not node_layout._passes_node_filter(
-                inp, ctx.node_filter
-            ):
-                continue
-            side_slot_pairs.append((slot, inp))
-
-        if not side_slot_pairs:
+        side_entries = side_layouts[i]
+        if not side_entries:
             continue
 
         # Lay out side inputs as vertical subtrees above the spine node.
@@ -652,11 +866,9 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         # sits at the spine node's right edge; each subsequent band starts at
         # the previous band's right edge plus a horizontal gap. Single side
         # input case: it sits centered above the spine node tile.
-        h_gap = int(prefs.get("horizontal_subtree_gap") * scheme)
         target_bbox_bottom = -side_v_gap
-        if len(side_slot_pairs) == 1:
-            slot, side_root = side_slot_pairs[0]
-            child_subtree = layout(side_root, side_ctx)
+        if len(side_entries) == 1:
+            _slot, side_root, child_subtree = side_entries[0]
             center_x = spine_x + spine_node.screenWidth() // 2
             child_root_x = center_x - side_root.screenWidth() // 2
             translated = _translate(
@@ -671,8 +883,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
             bbox_b = max(bbox_b, translated.bbox[3])
         else:
             cur_alloc = spine_x + spine_node.screenWidth()
-            for _slot, side_root in side_slot_pairs:
-                child_subtree = layout(side_root, side_ctx)
+            for _slot, _side_root, child_subtree in side_entries:
                 child_w_total = child_subtree.bbox[2] - child_subtree.bbox[0]
                 child_root_x = cur_alloc - child_subtree.bbox[0]
                 translated = _translate(
@@ -700,13 +911,14 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         zero_eligible = (
             zero is not None
             and (spine_set is None or id(zero) not in spine_set)
-            and (
-                ctx.node_filter is None
-                or node_layout._passes_node_filter(zero, ctx.node_filter)
-            )
+            and ctx.passes_filter(zero)
         )
         if zero_eligible:
-            zero_subtree = layout(zero, side_ctx)
+            zero_subtree = (
+                _snapshot_existing_subtree(zero, side_ctx)
+                if ctx.side_layout_mode == "place_only"
+                else layout(zero, side_ctx)
+            )
             # Target: zero subtree's bbox right edge sits at leftmost_x - step_x.
             # Vertical align: the wire from zero's output_anchor enters
             # leftmost.input(0) at the spine row's mid-Y. We align by Y on
@@ -748,12 +960,14 @@ def apply_subtree(subtree: Subtree, anchor_x: int, anchor_y: int):
     """Translate ``subtree`` so its anchor_out lands at (anchor_x, anchor_y),
     then call ``setXYpos`` on every node in the dict.
 
-    Looks up each id() in the live Nuke graph by scanning subtree.nodes plus
-    any per-node objects we cached during recursion.  Since we only stored
-    ``id(node)`` keys we need a side-channel to resolve those ids back to
-    objects — handled by ``_id_to_node_map`` populated during the recursion.
+    ``Subtree`` stores live node objects, so applying geometry is a direct
+    translation/write-back with no id lookup pass.
     """
-    raise NotImplementedError("Use apply_with_lookup() — apply_subtree needs id-map.")
+    dx = anchor_x - subtree.anchor_out[0]
+    dy = anchor_y - subtree.anchor_out[1]
+    for node_obj, (lx, ly) in subtree.nodes.items():
+        node_obj.setXpos(lx + dx)
+        node_obj.setYpos(ly + dy)
 
 
 def apply_with_lookup(
@@ -762,10 +976,7 @@ def apply_with_lookup(
     """Place every node in ``subtree`` so the root sits at (anchor_x, anchor_y)."""
     dx = anchor_x - subtree.anchor_out[0]
     dy = anchor_y - subtree.anchor_out[1]
-    for node_id, (lx, ly) in subtree.nodes.items():
-        node_obj = id_to_node.get(node_id)
-        if node_obj is None:
-            continue
+    for node_obj, (lx, ly) in subtree.nodes.items():
         node_obj.setXpos(lx + dx)
         node_obj.setYpos(ly + dy)
 
@@ -773,24 +984,178 @@ def apply_with_lookup(
 def collect_id_to_node(subtree: Subtree, extra_nodes=()) -> dict[int, object]:
     """Build id->node map. Walks ``root_node`` plus any extras provided.
 
-    The recursion stores id() keys in ``subtree.nodes`` but we also keep
-    references to actual node objects via ``root_node`` on each Subtree. To
-    resolve all ids we walk the whole upstream of ``subtree.root_node``
-    using the same get_inputs traversal.
+    Kept for compatibility with older tests/helpers. The bbox engine now stores
+    live node objects directly in ``subtree.nodes``.
     """
-    id_map: dict[int, object] = {}
+    id_map: dict[int, object] = {id(node): node for node in subtree.nodes}
+    for extra in extra_nodes:
+        id_map[id(extra)] = extra
+    return id_map
+
+
+# ---------------------------------------------------------------------------
+# Mutation phase — all topology changes happen before bbox layout starts.
+# ---------------------------------------------------------------------------
+
+def _walk_mutable_graph(roots, ctx: LayoutContext) -> list:
+    found = {}
 
     def _walk(node):
-        if node is None or id(node) in id_map:
+        if node is None or id(node) in found or not ctx.passes_filter(node):
             return
-        id_map[id(node)] = node
-        for inp in node_layout.get_inputs(node):
-            _walk(inp)
+        found[id(node)] = node
+        if node_layout._hides_inputs(node):
+            return
+        for slot in range(node.inputs()):
+            _walk(node.input(slot))
 
-    _walk(subtree.root_node)
-    for extra in extra_nodes:
-        _walk(extra)
-    return id_map
+    for root in roots:
+        _walk(root)
+    return list(found.values())
+
+
+def _needs_side_dot(index: int, all_side: bool, is_fan: bool) -> bool:
+    return all_side or is_fan or index > 0
+
+
+def _ensure_side_dots(roots, ctx: LayoutContext):
+    changed = True
+    while changed:
+        changed = False
+        for node in _walk_mutable_graph(roots, ctx):
+            if node.Class() == "Dot" or node_layout._hides_inputs(node):
+                continue
+            if node_layout_state.read_node_state(node).get("mode") == "horizontal":
+                continue
+            pairs, all_side, fan_active = _filtered_input_pairs(node, ctx)
+            is_fan = fan_active and len(pairs) >= 3
+            for index, (slot, inp) in enumerate(pairs):
+                if not _needs_side_dot(index, all_side, is_fan):
+                    continue
+                if inp.Class() == "Dot":
+                    if (
+                        inp.knob(node_layout._OUTPUT_DOT_KNOB_NAME) is None
+                        and inp.knob(node_layout._LEFTMOST_DOT_KNOB_NAME) is None
+                        and inp.knob("node_layout_diamond_dot") is None
+                    ):
+                        _add_invisible_marker(
+                            inp,
+                            _SIDE_DOT_KNOB_NAME,
+                            "BBox Side Dot Marker",
+                        )
+                    if inp.knob(_SIDE_DOT_KNOB_NAME) is not None:
+                        _record_side_dot_gap(inp, node, slot, ctx)
+                    continue
+                dot = _make_side_dot(inp)
+                if dot is None:
+                    continue
+                _record_side_dot_gap(dot, node, slot, ctx)
+                node.setInput(slot, dot)
+                changed = True
+
+
+def _consumer_in_filter(root, ctx: LayoutContext, current_group) -> bool:
+    all_nodes = current_group.nodes() if current_group is not None else nuke.allNodes()
+    for node in all_nodes:
+        if node.knob(node_layout._OUTPUT_DOT_KNOB_NAME) is not None:
+            continue
+        if not ctx.passes_filter(node):
+            continue
+        for slot in range(node.inputs()):
+            inp = node.input(slot)
+            if inp is not None and id(inp) == id(root):
+                return True
+            if (
+                inp is not None
+                and inp.knob(node_layout._OUTPUT_DOT_KNOB_NAME) is not None
+                and inp.input(0) is not None
+                and id(inp.input(0)) == id(root)
+            ):
+                return True
+    return False
+
+
+def _has_horizontal_consumer_in_filter(root, ctx: LayoutContext, current_group) -> bool:
+    all_nodes = current_group.nodes() if current_group is not None else nuke.allNodes()
+    for node in all_nodes:
+        if not ctx.passes_filter(node):
+            continue
+        if node_layout_state.read_node_state(node).get("mode") != "horizontal":
+            continue
+        primary = node.input(0) if node.inputs() else None
+        if primary is None:
+            continue
+        if id(primary) == id(root):
+            return True
+        if (
+            primary.knob(node_layout._OUTPUT_DOT_KNOB_NAME) is not None
+            and primary.input(0) is not None
+            and id(primary.input(0)) == id(root)
+        ):
+            return True
+    return False
+
+
+def _ensure_leftmost_routing_dot_for_spine(root, ctx: LayoutContext, current_group):
+    spine = ctx.spine_set if ctx.spine_set is not None else _spine_set_from(
+        root, ctx.all_member_ids
+    )
+    cursor = root
+    leftmost = None
+    while cursor is not None and id(cursor) in spine:
+        leftmost = cursor
+        cursor = cursor.input(0)
+    if (
+        leftmost is None
+        or cursor is None
+        or not ctx.passes_filter(cursor)
+        or cursor.Class() == "Dot"
+    ):
+        return
+    if current_group is not None:
+        node_layout._find_or_create_leftmost_dot(leftmost, current_group)
+    else:
+        dot = _make_side_dot(cursor)
+        if dot is not None:
+            _add_invisible_marker(
+                dot,
+                node_layout._LEFTMOST_DOT_KNOB_NAME,
+                "Leftmost Dot Marker",
+            )
+            leftmost.setInput(0, dot)
+
+
+def _ensure_horizontal_routing_dots(roots, ctx: LayoutContext, current_group):
+    for node in list(_walk_mutable_graph(roots, ctx)):
+        if node_layout_state.read_node_state(node).get("mode") != "horizontal":
+            continue
+        if (
+            not _has_horizontal_consumer_in_filter(node, ctx, current_group)
+            and _consumer_in_filter(node, ctx, current_group)
+        ):
+            node_layout._place_output_dot_for_horizontal_root(
+                node,
+                current_group,
+                ctx.snap_threshold,
+                ctx.scheme_for(node),
+            )
+        _ensure_leftmost_routing_dot_for_spine(node, ctx, current_group)
+
+
+def _ensure_selected_horizontal_leftmost_dot(roots, ctx: LayoutContext, current_group):
+    for root in roots:
+        _ensure_leftmost_routing_dot_for_spine(root, ctx, current_group)
+
+
+def prepare_layout_graph(roots, ctx: LayoutContext, current_group, routing_mode="full"):
+    """Mutate graph topology before pure bbox composition begins."""
+    for root in roots:
+        node_layout.insert_dot_nodes(root, ctx.node_filter)
+    if routing_mode == "selected_horizontal":
+        _ensure_selected_horizontal_leftmost_dot(roots, ctx, current_group)
+        return
+    _ensure_horizontal_routing_dots(roots, ctx, current_group)
+    _ensure_side_dots(roots, ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -833,19 +1198,21 @@ class BboxEngine(node_layout_engine.LayoutEngine):
         original_nodes = node_layout.collect_subtree_nodes(root)
         bbox_before = node_layout.compute_node_bounding_box(original_nodes)
 
-        # Phase 1: persistent diamond Dots.
-        node_layout.insert_dot_nodes(root)
+        snap = node_layout.get_dag_snap_threshold()
+        original_selected = root
 
-        # Refresh upstream walk after dot insertion.
-        upstream_after_dots = node_layout.collect_subtree_nodes(root)
-        node_count = len(upstream_after_dots)
+        if all_non_root_ids:
+            vertical_filter = {n for n in all_upstream
+                               if id(n) not in all_non_root_ids}
+        else:
+            vertical_filter = None
 
-        # Phase 2: per-node scheme/scale resolution.
+        # Phase 1: per-node scheme/scale resolution for the pre-mutation graph.
         prefs = node_layout_prefs.prefs_singleton
         per_node_scheme = {}
         per_node_h_scale = {}
         per_node_v_scale = {}
-        for n in upstream_after_dots:
+        for n in all_upstream:
             stored = node_layout_state.read_node_state(n)
             if scheme_multiplier is not None:
                 per_node_scheme[id(n)] = scheme_multiplier
@@ -856,22 +1223,9 @@ class BboxEngine(node_layout_engine.LayoutEngine):
             per_node_h_scale[id(n)] = stored["h_scale"]
             per_node_v_scale[id(n)] = stored["v_scale"]
 
-        snap = node_layout.get_dag_snap_threshold()
-
-        # Phase 3: build LayoutContext. Mode detection now happens per-node
-        # inside the dispatcher (``layout``); the top level always anchors on
-        # the originally selected node and lets the recursion compose vertical
-        # and horizontal subtrees as needed.
-        original_selected = root
-        if all_non_root_ids:
-            vertical_filter = {n for n in upstream_after_dots
-                               if id(n) not in all_non_root_ids}
-        else:
-            vertical_filter = None
-
         ctx = LayoutContext(
             snap_threshold=snap,
-            node_count=node_count,
+            node_count=len(all_upstream),
             node_filter=vertical_filter,
             per_node_scheme=per_node_scheme,
             per_node_h_scale=per_node_h_scale,
@@ -880,115 +1234,45 @@ class BboxEngine(node_layout_engine.LayoutEngine):
             all_member_ids=all_member_ids,
         )
 
+        # Phase 2: all graph mutation happens up front. After this, the bbox
+        # recursion only reads topology and returns final geometry.
+        prepare_layout_graph([root], ctx, current_group)
+        upstream_after_mutation = node_layout.collect_subtree_nodes(root)
+        ctx.node_count = len(upstream_after_mutation)
+        if all_non_root_ids:
+            ctx.node_filter = {n for n in upstream_after_mutation
+                               if id(n) not in all_non_root_ids}
+        for n in upstream_after_mutation:
+            if id(n) in per_node_scheme:
+                continue
+            stored = node_layout_state.read_node_state(n)
+            per_node_scheme[id(n)] = (
+                scheme_multiplier if scheme_multiplier is not None
+                else node_layout_state.scheme_name_to_multiplier(stored["scheme"], prefs)
+            )
+            per_node_h_scale[id(n)] = stored["h_scale"]
+            per_node_v_scale[id(n)] = stored["v_scale"]
+
         # Phase 4: run recursion. The dispatcher picks vertical vs horizontal
         # based on each node's stored mode, so a vertical consumer with a
         # horizontal input subtree composes correctly.
         subtree = layout(root, ctx)
 
         # Phase 5: apply. Anchor: original_selected stays where it is.
-        id_to_node = collect_id_to_node(
-            subtree,
-            extra_nodes=[m for b in freeze_blocks for m in b.members],
-        )
-        if id(root) in subtree.nodes:
-            local_x, local_y = subtree.nodes[id(root)]
+        if root in subtree.nodes:
+            local_x, local_y = subtree.nodes[root]
             dx = root.xpos() - local_x
             dy = root.ypos() - local_y
         else:
             dx = root.xpos() - subtree.anchor_out[0]
             dy = root.ypos() - subtree.anchor_out[1]
 
-        for node_id, (lx, ly) in subtree.nodes.items():
-            obj = id_to_node.get(node_id)
-            if obj is None:
-                continue
+        for obj, (lx, ly) in subtree.nodes.items():
             obj.setXpos(lx + dx)
             obj.setYpos(ly + dy)
 
-        # Phase 5b: place/reposition routing Dots for every horizontal subtree
-        # the dispatcher entered. The helper finds each spine root's downstream
-        # consumer in the live DAG and inserts/repositions a Dot between them.
-        for seed in ctx.horizontal_seeds:
-            node_layout._place_output_dot_for_horizontal_root(
-                seed, current_group, snap, prefs.get("normal_multiplier"),
-            )
-
-        # (Former "Phase 6c" deleted — the recursion now handles the consumer's
-        # mixed vertical+horizontal inputs natively. A vertical consumer with
-        # one horizontal input subtree and one vertical input subtree composes
-        # both via the dispatcher; nothing to do here.)
-
-        # Phase 7: restore freeze block member positions (their offsets are
-        # baked into nodes_dict, but if any block root was a leaf, we already
-        # placed them as a unit — this is a safety net for blocks the
-        # recursion didn't touch via nodes_dict).
-        for block in freeze_blocks:
-            if id(block.root) not in subtree.nodes:
-                continue
-            block.restore_positions()
-
-        # Phase 7b: lay out non-frozen subtrees that feed into freeze blocks
-        # from outside.  Each external input to a NON-root member is laid out
-        # vertically and placed above its connecting block member (which is
-        # already at its final pos after restore_positions).  External inputs
-        # to the BLOCK ROOT are handled in-recursion (the root is processed
-        # as a normal node with its in-filter inputs as side inputs).
-        for block in freeze_blocks:
-            external_inputs = block.get_external_inputs(node_layout.get_inputs)
-            for entry_node, connecting_member in external_inputs:
-                if id(connecting_member) == block.root_id:
-                    continue
-                upstream_subtree_nodes = node_layout.collect_subtree_nodes(entry_node)
-                upstream_filter = set(upstream_subtree_nodes)
-                upstream_ctx = LayoutContext(
-                    snap_threshold=snap,
-                    node_count=len(upstream_subtree_nodes),
-                    node_filter=upstream_filter,
-                    per_node_scheme=per_node_scheme,
-                    per_node_h_scale=per_node_h_scale,
-                    per_node_v_scale=per_node_v_scale,
-                    dimension_overrides=dimension_overrides,
-                    all_member_ids=all_member_ids,
-                )
-                entry_subtree = layout(entry_node, upstream_ctx)
-                # Place entry centered above connecting_member.
-                entry_h = entry_subtree.bbox[3] - entry_subtree.bbox[1]
-                raw_gap = node_layout.vertical_gap_between(
-                    entry_node, connecting_member, snap,
-                    scheme_multiplier=per_node_scheme.get(
-                        id(entry_node), prefs.get("normal_multiplier")
-                    ),
-                )
-                gap = max(snap - 1, raw_gap)
-                entry_x = node_layout._center_x(
-                    entry_node.screenWidth(),
-                    connecting_member.xpos(),
-                    connecting_member.screenWidth(),
-                )
-                # The bottom of entry's bbox should sit `gap` above connecting member's top.
-                bbox_bottom_target = connecting_member.ypos() - gap
-                # entry_subtree root sits at (0,0) in its local frame.
-                # We want the root placed at (entry_x, ?) such that
-                # bbox_bottom in world = bbox_bottom_target.
-                # entry_subtree.nodes[id(entry_node)] = (0, 0) in local frame;
-                # bbox bottom in local = entry_subtree.bbox[3].
-                # World root y = (bbox_bottom_target - entry_subtree.bbox[3])
-                root_y = bbox_bottom_target - entry_subtree.bbox[3]
-                upstream_id_map = collect_id_to_node(entry_subtree)
-                # Translate so entry_node lands at (entry_x, root_y).
-                local_root_x, local_root_y = entry_subtree.nodes[id(entry_node)]
-                ux = entry_x - local_root_x
-                uy = root_y - local_root_y
-                _ = entry_h
-                for nid, (lx, ly) in entry_subtree.nodes.items():
-                    obj = upstream_id_map.get(nid)
-                    if obj is None:
-                        continue
-                    obj.setXpos(lx + ux)
-                    obj.setYpos(ly + uy)
-
         # Phase 8: state write-back.
-        final_nodes = node_layout.collect_subtree_nodes(original_selected)
+        final_nodes = list(subtree.nodes.keys())
         for n in final_nodes:
             stored = node_layout_state.read_node_state(n)
             n_scheme = per_node_scheme.get(id(n), prefs.get("normal_multiplier"))
@@ -1128,50 +1412,54 @@ class BboxEngine(node_layout_engine.LayoutEngine):
         node_count = len(selected)
 
         # Accumulators for horizontal seeds discovered across all roots; used
-        # for output-dot placement and mode write-back after the loop.
-        all_horizontal_seeds: list = []
+        # for mode write-back after the loop.
         all_horizontal_ids: set = set()
-
+        ctx = LayoutContext(
+            snap_threshold=snap,
+            node_count=node_count,
+            node_filter=node_filter,
+            per_node_scheme=per_node_scheme,
+            per_node_h_scale=per_node_h_scale,
+            per_node_v_scale=per_node_v_scale,
+            dimension_overrides=dimension_overrides,
+            all_member_ids=all_member_ids,
+            all_horizontal_ids=all_horizontal_ids,
+        )
+        prepare_layout_graph(roots, ctx, current_group)
+        mutated_selected = set()
         for root in roots:
-            ctx = LayoutContext(
-                snap_threshold=snap,
-                node_count=node_count,
-                node_filter=node_filter,
-                per_node_scheme=per_node_scheme,
-                per_node_h_scale=per_node_h_scale,
-                per_node_v_scale=per_node_v_scale,
-                dimension_overrides=dimension_overrides,
-                all_member_ids=all_member_ids,
-                horizontal_seeds=all_horizontal_seeds,
-                all_horizontal_ids=all_horizontal_ids,
+            mutated_selected.update(node_layout.collect_subtree_nodes(root, ctx.node_filter))
+        node_count = len(mutated_selected) or node_count
+        ctx.node_count = node_count
+        for n in mutated_selected:
+            if id(n) in per_node_scheme:
+                continue
+            stored = node_layout_state.read_node_state(n)
+            per_node_scheme[id(n)] = (
+                scheme_multiplier if scheme_multiplier is not None
+                else node_layout_state.scheme_name_to_multiplier(stored["scheme"], prefs)
             )
+            per_node_h_scale[id(n)] = stored["h_scale"]
+            per_node_v_scale[id(n)] = stored["v_scale"]
+
+        placed_nodes = set()
+        for root in roots:
             subtree = layout(root, ctx)
-            id_to_node = collect_id_to_node(
-                subtree,
-                extra_nodes=[m for b in freeze_blocks for m in b.members],
-            )
+            placed_nodes.update(subtree.nodes.keys())
             anchor_x = root.xpos()
             anchor_y = root.ypos()
             local_root_x, local_root_y = subtree.nodes.get(
-                id(root), subtree.anchor_out
+                root, subtree.anchor_out
             )
             dx = anchor_x - local_root_x
             dy = anchor_y - local_root_y
-            for node_id, (lx, ly) in subtree.nodes.items():
-                obj = id_to_node.get(node_id)
-                if obj is None:
-                    continue
+            for obj, (lx, ly) in subtree.nodes.items():
                 obj.setXpos(lx + dx)
                 obj.setYpos(ly + dy)
 
-        # Place/reposition routing Dots for each horizontal subtree.
-        for seed in all_horizontal_seeds:
-            node_layout._place_output_dot_for_horizontal_root(
-                seed, current_group, snap, prefs.get("normal_multiplier"),
-            )
-
         # State write-back
-        for n in selected:
+        all_after_nodes = set(selected) | mutated_selected | placed_nodes
+        for n in all_after_nodes:
             stored = node_layout_state.read_node_state(n)
             n_scheme = per_node_scheme.get(id(n), prefs.get("normal_multiplier"))
             stored["scheme"] = node_layout_state.multiplier_to_scheme_name(
@@ -1182,17 +1470,12 @@ class BboxEngine(node_layout_engine.LayoutEngine):
             )
             node_layout_state.write_node_state(n, stored)
 
-        # Restore freeze members
-        for block in freeze_blocks:
-            block.restore_positions()
-
         # Push surrounding nodes
-        all_after_nodes = list(selected)
         for block in freeze_blocks:
             for m in block.members:
                 if m not in all_after_nodes:
-                    all_after_nodes.append(m)
-        bbox_after = node_layout.compute_node_bounding_box(all_after_nodes)
+                    all_after_nodes.add(m)
+        bbox_after = node_layout.compute_node_bounding_box(list(all_after_nodes))
         if bbox_before is not None and bbox_after is not None:
             node_layout.push_nodes_to_make_room(
                 {id(n) for n in all_after_nodes}, bbox_before, bbox_after,
@@ -1349,30 +1632,43 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                     dimension_overrides=dim_overrides,
                     spine_set=spine_set,
                     horizontal_root_id=id(root),
+                    side_layout_mode=side_layout_mode,
                     all_member_ids=all_member_ids,
                 )
 
-                subtree = layout_horizontal(root, ctx)
-                id_to_node = collect_id_to_node(
-                    subtree,
-                    extra_nodes=[m for b in freeze_blocks for m in b.members],
+                prepare_layout_graph(
+                    [root], ctx, current_group,
+                    routing_mode="selected_horizontal",
                 )
+                mutated_nodes = set(_walk_mutable_graph([root], ctx))
+                for n in mutated_nodes:
+                    if id(n) in per_node_scheme:
+                        continue
+                    stored = node_layout_state.read_node_state(n)
+                    per_node_scheme[id(n)] = (
+                        scheme_multiplier if scheme_multiplier is not None
+                        else node_layout_state.scheme_name_to_multiplier(
+                            stored["scheme"], prefs
+                        )
+                    )
+                    per_node_h_scale[id(n)] = stored["h_scale"]
+                    per_node_v_scale[id(n)] = stored["v_scale"]
+
+                subtree = layout_horizontal(root, ctx)
                 anchor_x = root.xpos()
                 anchor_y = root.ypos()
                 local_root_x, local_root_y = subtree.nodes.get(
-                    id(root), subtree.anchor_out
+                    root, subtree.anchor_out
                 )
                 dx = anchor_x - local_root_x
                 dy = anchor_y - local_root_y
-                for node_id, (lx, ly) in subtree.nodes.items():
-                    obj = id_to_node.get(node_id)
-                    if obj is None:
-                        continue
+                for obj, (lx, ly) in subtree.nodes.items():
                     obj.setXpos(lx + dx)
                     obj.setYpos(ly + dy)
 
                 # State write-back
-                for n in selected:
+                all_after_nodes = set(selected) | set(subtree.nodes.keys())
+                for n in all_after_nodes:
                     stored = node_layout_state.read_node_state(n)
                     n_scheme = per_node_scheme.get(
                         id(n), prefs.get("normal_multiplier")
@@ -1385,18 +1681,14 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                     )
                     node_layout_state.write_node_state(n, stored)
 
-                for block in freeze_blocks:
-                    block.restore_positions()
-
-                bbox_after = node_layout.compute_node_bounding_box(selected)
+                bbox_after = node_layout.compute_node_bounding_box(list(all_after_nodes))
                 if bbox_before is not None and bbox_after is not None:
                     node_layout.push_nodes_to_make_room(
-                        {id(n) for n in selected}, bbox_before, bbox_after,
+                        {id(n) for n in all_after_nodes}, bbox_before, bbox_after,
                         current_group=current_group,
                         freeze_blocks=freeze_blocks,
                     )
 
-                _ = side_layout_mode  # currently both modes share this path
         except Exception:
             nuke.Undo.cancel()
             raise
