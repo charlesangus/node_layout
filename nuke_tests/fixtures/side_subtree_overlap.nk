@@ -1,0 +1,116 @@
+#! /usr/local/Nuke16.0v6/libnuke-16.0.6.so -nx
+version 16.0 v6
+Root {
+ inputs 0
+ name ""
+ colorManagement Nuke
+ workingSpaceLUT linear
+}
+# Chain 3 (will become side input of Merge3): CB3 -> Grade3 -> Blur3 -> Transform3
+CheckerBoard2 {
+ inputs 0
+ name CheckerBoard3
+ xpos 900
+ ypos -500
+}
+Grade {
+ name Grade3
+ xpos 900
+ ypos -400
+}
+Blur {
+ name Blur3
+ xpos 900
+ ypos -350
+}
+Transform {
+ center {1024 778}
+ name Transform3
+ xpos 900
+ ypos -300
+}
+# Chain 2 (will become side input of Merge2): CB2 -> Grade2 -> Blur2 -> Transform2
+CheckerBoard2 {
+ inputs 0
+ name CheckerBoard2
+ xpos 700
+ ypos -500
+}
+Grade {
+ name Grade2
+ xpos 700
+ ypos -400
+}
+Blur {
+ name Blur2
+ xpos 700
+ ypos -350
+}
+Transform {
+ center {1024 778}
+ name Transform2
+ xpos 700
+ ypos -300
+}
+# Chain 1 (will become side input of Merge1): CB1 -> Grade1 -> Blur1 -> Transform1
+CheckerBoard2 {
+ inputs 0
+ name CheckerBoard1
+ xpos 500
+ ypos -500
+}
+Grade {
+ name Grade1
+ xpos 500
+ ypos -400
+}
+Blur {
+ name Blur1
+ xpos 500
+ ypos -350
+}
+Transform {
+ center {1024 778}
+ name Transform1
+ xpos 500
+ ypos -300
+}
+# Spine root source (will become input[0] of Merge1 through the spine)
+CheckerBoard2 {
+ inputs 0
+ name SpineSource
+ xpos 200
+ ypos -200
+}
+# Stack state: [Transform3, Transform2, Transform1, SpineSource]
+# (each chain used 1 input so only the final node stays on stack after chain)
+# Wait - actually each Grade/Blur/Transform has inputs 1, so they consume the previous.
+# Stack after all chains: [Transform3, Transform2, Transform1, SpineSource]
+# Merge1 inputs 2: pop SpineSource (input0=A), pop Transform1 (input1=B)
+Merge2 {
+ inputs 2
+ name Merge1
+ xpos 200
+ ypos 0
+}
+# Stack: [Transform3, Transform2, Merge1]
+# Merge2 inputs 2: pop Merge1 (input0), pop Transform2 (input1)
+Merge2 {
+ inputs 2
+ name Merge2
+ xpos 400
+ ypos 0
+}
+# Stack: [Transform3, Merge2]
+# Merge3 inputs 2: pop Merge2 (input0), pop Transform3 (input1)
+Merge2 {
+ inputs 2
+ name Merge3
+ xpos 600
+ ypos 0
+}
+Write {
+ name Write1
+ xpos 600
+ ypos 100
+}

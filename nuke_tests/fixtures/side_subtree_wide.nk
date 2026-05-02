@@ -1,0 +1,88 @@
+#! /usr/local/Nuke16.0v6/libnuke-16.0.6.so -nx
+version 16.0 v6
+Root {
+ inputs 0
+ name ""
+ colorManagement Nuke
+ workingSpaceLUT linear
+}
+# === Wide side subtree for Merge3 (farthest right on spine) ===
+# This subtree has its own Merge with a side input, making it wide.
+# SideSource3b feeds into SideMerge3 slot1
+# SideSource3a feeds into SideMerge3 slot0
+CheckerBoard2 {
+ inputs 0
+ name SideSource3b
+ xpos 1100
+ ypos -500
+}
+CheckerBoard2 {
+ inputs 0
+ name SideSource3a
+ xpos 900
+ ypos -500
+}
+Merge2 {
+ inputs 2
+ name SideMerge3
+ xpos 900
+ ypos -300
+}
+# === Simple narrow side subtree for Merge2 ===
+CheckerBoard2 {
+ inputs 0
+ name Side2Source
+ xpos 700
+ ypos -500
+}
+Grade {
+ name Side2Grade
+ xpos 700
+ ypos -400
+}
+# === Simple narrow side subtree for Merge1 ===
+CheckerBoard2 {
+ inputs 0
+ name Side1Source
+ xpos 500
+ ypos -500
+}
+Grade {
+ name Side1Grade
+ xpos 500
+ ypos -400
+}
+# Upstream source for the spine
+CheckerBoard2 {
+ inputs 0
+ name SpineSource
+ xpos 100
+ ypos -200
+}
+# Stack: [SideMerge3, Side2Grade, Side1Grade, SpineSource]
+# Merge1 inputs 2: pop SpineSource (A=input0), pop Side1Grade (B=input1)
+Merge2 {
+ inputs 2
+ name Merge1
+ xpos 200
+ ypos 0
+}
+# Merge2 inputs 2: pop Merge1 (A), pop Side2Grade (B)
+Merge2 {
+ inputs 2
+ name Merge2
+ xpos 400
+ ypos 0
+}
+# Merge3 inputs 2: pop Merge2 (A), pop SideMerge3 (B)
+Merge2 {
+ inputs 2
+ name Merge3
+ xpos 600
+ ypos 0
+}
+Write {
+ name Write1
+ xpos 600
+ ypos 100
+}
