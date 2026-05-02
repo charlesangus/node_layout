@@ -2,8 +2,8 @@ import os
 import sys
 
 from tests._compare_stub_nuke import (
-    _Node,
     Universe,
+    _Node,
     find_overlapping_node_pairs,
     install_nuke_stub,
     set_node_state,
@@ -30,8 +30,8 @@ def test_bbox_side_routing_dot_is_consumer_centered_with_subtree_gap():
         os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
 
         import node_layout
-        import node_layout_prefs
         import node_layout_bbox
+        import node_layout_prefs
 
         universe = Universe()
         primary = universe.add(
@@ -145,8 +145,8 @@ def test_bbox_existing_side_routing_dot_is_consumer_centered_with_subtree_gap():
         os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
 
         import node_layout
-        import node_layout_prefs
         import node_layout_bbox
+        import node_layout_prefs
 
         universe = Universe()
         primary = universe.add(
@@ -424,6 +424,59 @@ def test_bbox_layout_upstream_replay_does_not_add_horizontal_spine_side_dots():
 
         dots = [node for node in universe.nodes if node.Class() == "Dot"]
         assert dots == [leftmost_dot]
+    finally:
+        for name in _ISOLATED_MODULES:
+            if saved_modules[name] is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = saved_modules[name]
+        if saved_engine is None:
+            os.environ.pop("NODE_LAYOUT_ENGINE", None)
+        else:
+            os.environ["NODE_LAYOUT_ENGINE"] = saved_engine
+
+
+def test_selected_horizontal_place_only_preserves_side_subtree_horizontal_mode():
+    saved_modules = {name: sys.modules.get(name) for name in _ISOLATED_MODULES}
+    saved_engine = os.environ.get("NODE_LAYOUT_ENGINE")
+    try:
+        for name in _ISOLATED_MODULES:
+            sys.modules.pop(name, None)
+        install_nuke_stub()
+        os.environ["NODE_LAYOUT_ENGINE"] = "bbox"
+
+        import node_layout
+        import node_layout_state
+
+        universe = Universe()
+        left = universe.add(_Node(node_class="Read", name="Left", xpos=0, ypos=0))
+        spine_left = universe.add(
+            _Node(node_class="Grade", name="SpineLeft", xpos=200, ypos=0, max_inputs=1)
+        )
+        spine_root = universe.add(
+            _Node(node_class="Merge2", name="SpineRoot", xpos=300, ypos=0, max_inputs=2)
+        )
+        side_leaf = universe.add(
+            _Node(node_class="Read", name="SideLeaf", xpos=500, ypos=-100)
+        )
+        side_root = universe.add(
+            _Node(node_class="Grade", name="SideRoot", xpos=600, ypos=0, max_inputs=1)
+        )
+        spine_left.setInput(0, left)
+        spine_root.setInput(0, spine_left)
+        spine_root.setInput(1, side_root)
+        side_root.setInput(0, side_leaf)
+        for node in (left, spine_left, spine_root):
+            set_node_state(node)
+        for node in (side_leaf, side_root):
+            set_node_state(node, mode="horizontal")
+        universe.select(spine_left, spine_root)
+        set_universe(universe)
+
+        node_layout.layout_selected_horizontal_place_only()
+
+        assert node_layout_state.read_node_state(side_root)["mode"] == "horizontal"
+        assert node_layout_state.read_node_state(side_leaf)["mode"] == "horizontal"
     finally:
         for name in _ISOLATED_MODULES:
             if saved_modules[name] is None:

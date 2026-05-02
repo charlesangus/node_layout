@@ -1,23 +1,18 @@
-"""Headless-Nuke A/B/C harness: run every fixture through every available
-engine and emit position diffs + visual snapshots.
+"""Headless-Nuke harness: run fixtures through supported layout engines and
+emit position diffs + visual snapshots.
 
 Usage::
 
     python3 nuke_tests/compare_engines_nuke.py
-        # spawns `nuke -t run_layout.py` once per (fixture, engine)
+        # spawns `nuke -t run_layout.py` once per (fixture, supported engine)
         # writes nuke_tests/output/compare_<fixture>_<engine>.json
         # writes nuke_tests/output/compare_<fixture>_<engine>.png  (via dag_viz)
         # writes nuke_tests/output/compare_summary.json
 
 Each fixture in ``nuke_tests/fixtures/`` is run against every engine name
-that is registered in the current checkout (legacy is always available;
-bbox/shape only if their modules exist on this branch). Output positions
-are diffed against legacy.
-
-Subagents implementing bbox/shape do not need to modify this file: they
-only need to ensure their engine module registers via
-``node_layout_engine.register("bbox" | "shape")`` at import time, and
-that ``run_layout.py`` is happy to import their module.
+supported by the current checkout. The bbox-only branch intentionally reports
+only ``bbox`` so deleted legacy/shape engines cannot produce misleading
+same-engine comparisons.
 """
 from __future__ import annotations
 
@@ -31,13 +26,18 @@ from typing import Any
 
 _HERE = pathlib.Path(__file__).resolve().parent
 _WORKSPACE = _HERE.parent
+if str(_WORKSPACE) not in sys.path:
+    sys.path.insert(0, str(_WORKSPACE))
+
+import node_layout_engine  # noqa: E402
+
 _FIXTURES_DIR = _HERE / "fixtures"
 _OUTPUT_DIR = _HERE / "output"
 _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 _RUN_LAYOUT = _HERE / "run_layout.py"
 
 
-ENGINES = ["legacy", "bbox", "shape"]
+ENGINES = node_layout_engine.list_registered_engines()
 
 
 # Per-fixture run config. Pulled out as a table so subagents can extend
@@ -174,22 +174,26 @@ def main() -> int:
             print("OK" if r["ok"] else f"ERR ({r.get('error')})")
             results.append(r)
 
-    # Pair up legacy vs each other engine per fixture.
+    # Pair up a baseline engine vs each other supported engine per fixture.
     by_fixture: dict[str, dict[str, dict]] = {}
     for r in results:
         by_fixture.setdefault(r["fixture"], {})[r["engine"]] = r
 
     summary: dict[str, Any] = {}
     for fixture, per_engine in by_fixture.items():
-        legacy = per_engine.get("legacy")
-        if not (legacy and legacy.get("ok")):
-            summary[fixture] = {"legacy_ok": False}
+        baseline_name = "legacy" if "legacy" in per_engine else ENGINES[0]
+        baseline = per_engine.get(baseline_name)
+        if not (baseline and baseline.get("ok")):
+            summary[fixture] = {"baseline": baseline_name, "baseline_ok": False}
             continue
-        entry: dict[str, Any] = {"legacy_ok": True}
+        entry: dict[str, Any] = {
+            "baseline": baseline_name,
+            "baseline_ok": True,
+        }
         for engine, r in per_engine.items():
-            if engine == "legacy" or not r.get("ok"):
+            if engine == baseline_name or not r.get("ok"):
                 continue
-            entry[engine] = _diff(legacy["positions"], r["positions"])
+            entry[engine] = _diff(baseline["positions"], r["positions"])
         summary[fixture] = entry
 
     summary_path = _OUTPUT_DIR / "compare_summary.json"

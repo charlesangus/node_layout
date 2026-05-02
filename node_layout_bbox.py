@@ -551,14 +551,13 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
     # bands must clear the block's upper edge (not the root tile's top), or
     # children collide with the block's non-root members.
     if is_block_root:
-        block_left, block_top, block_right, block_bottom = _block_local_extents(block)
+        block_left, block_top, block_right, _block_bottom = _block_local_extents(block)
         consumer_right = max(node_w, block_right)
         consumer_left = min(0, block_left)
         consumer_top = min(0, block_top)
     else:
         block_left = block_right = 0
         block_top = 0
-        block_bottom = node_h
         consumer_right = node_w
         consumer_left = 0
         consumer_top = 0
@@ -618,9 +617,10 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         ]
 
     for i, inp in enumerate(inputs):
-        if inp.knob(node_layout._OUTPUT_DOT_KNOB_NAME) is not None:
-            y_positions[i] = (node_h - inp.screenHeight()) // 2
-        elif inp.knob(_SIDE_DOT_KNOB_NAME) is not None:
+        if (
+            inp.knob(node_layout._OUTPUT_DOT_KNOB_NAME) is not None
+            or inp.knob(_SIDE_DOT_KNOB_NAME) is not None
+        ):
             y_positions[i] = (node_h - inp.screenHeight()) // 2
 
     # ----- X placement -----
@@ -1199,7 +1199,6 @@ class BboxEngine(node_layout_engine.LayoutEngine):
         bbox_before = node_layout.compute_node_bounding_box(original_nodes)
 
         snap = node_layout.get_dag_snap_threshold()
-        original_selected = root
 
         if all_non_root_ids:
             vertical_filter = {n for n in all_upstream
@@ -1668,6 +1667,7 @@ class BboxEngine(node_layout_engine.LayoutEngine):
 
                 # State write-back
                 all_after_nodes = set(selected) | set(subtree.nodes.keys())
+                selected_ids = {id(n) for n in selected}
                 for n in all_after_nodes:
                     stored = node_layout_state.read_node_state(n)
                     n_scheme = per_node_scheme.get(
@@ -1676,9 +1676,10 @@ class BboxEngine(node_layout_engine.LayoutEngine):
                     stored["scheme"] = node_layout_state.multiplier_to_scheme_name(
                         n_scheme, prefs
                     )
-                    stored["mode"] = (
-                        "horizontal" if id(n) in spine_set else "vertical"
-                    )
+                    if id(n) in spine_set:
+                        stored["mode"] = "horizontal"
+                    elif id(n) in selected_ids:
+                        stored["mode"] = "vertical"
                     node_layout_state.write_node_state(n, stored)
 
                 bbox_after = node_layout.compute_node_bounding_box(list(all_after_nodes))
