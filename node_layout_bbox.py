@@ -1210,283 +1210,76 @@ def _setup_freeze(scope_nodes, current_group):
 
 
 class BboxEngine:
+    """Thin compatibility shim over ``layout_orchestrator``.
 
-    # ------------------------------------------------------------------
-    # layout_upstream — selected node anchors, all upstream gets recomposed.
-    # ------------------------------------------------------------------
+    Public commands now build a ``LayoutRequest`` and call
+    ``layout_orchestrator.run_layout``. The four methods below preserve the
+    pre-refactor surface so existing tests and ``node_layout`` entry points
+    keep working without churn.
+    """
+
     def layout_upstream(self, scheme_multiplier=None):
-        node_layout._clear_color_cache()
+        from layout_contracts import LayoutRequest  # noqa: PLC0415
+        from layout_orchestrator import run_layout  # noqa: PLC0415
+
         current_group = nuke.lastHitGroup()
         root = nuke.selectedNode()
-
-        with _undo_block("Layout Upstream (bbox)"), current_group:
-            self._run_upstream(root, scheme_multiplier, current_group)
-
-    def _run_upstream(self, root, scheme_multiplier, current_group):
-        all_upstream = node_layout.collect_subtree_nodes(root)
-        bbox_before = node_layout.compute_node_bounding_box(all_upstream)
-
-        _, freeze_blocks, dimension_overrides, all_non_root_ids, all_member_ids = (
-            _setup_freeze(all_upstream, current_group)
+        request = LayoutRequest(
+            command="layout_upstream",
+            scheme_multiplier=scheme_multiplier,
+            undo_label="Layout Upstream (bbox)",
+            scope_kind="upstream",
         )
+        return run_layout(request, [root], current_group)
 
-        snap = node_layout.get_dag_snap_threshold()
-        prefs = node_layout_prefs.prefs_singleton
-
-        node_filter = (
-            {n for n in all_upstream if id(n) not in all_non_root_ids}
-            if all_non_root_ids else None
-        )
-
-        per_node_scheme: dict = {}
-        per_node_h_scale: dict = {}
-        per_node_v_scale: dict = {}
-        _resolve_per_node_state(
-            all_upstream, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        ctx = LayoutContext(
-            snap_threshold=snap,
-            node_count=len(all_upstream),
-            node_filter=node_filter,
-            per_node_scheme=per_node_scheme,
-            per_node_h_scale=per_node_h_scale,
-            per_node_v_scale=per_node_v_scale,
-            dimension_overrides=dimension_overrides,
-            all_member_ids=all_member_ids,
-            side_dot_gap=_resolve_side_dot_gap(snap, scheme_multiplier),
-        )
-
-        prepare_layout_graph([root], ctx, current_group)
-        upstream_after_mutation = node_layout.collect_subtree_nodes(root)
-        ctx.node_count = len(upstream_after_mutation)
-        if all_non_root_ids:
-            ctx.node_filter = {
-                n for n in upstream_after_mutation
-                if id(n) not in all_non_root_ids
-            }
-        _resolve_per_node_state(
-            upstream_after_mutation, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        subtree = layout(root, ctx)
-        _apply_subtree_anchored_at(subtree, root)
-
-        final_nodes = list(subtree.nodes.keys())
-        mode_assignments = subtree.mode_assignments
-        _write_state(
-            final_nodes, per_node_scheme, prefs,
-            mode_for_node=lambda n: mode_assignments.get(id(n), "vertical"),
-        )
-
-        _push_after(final_nodes, bbox_before, current_group, freeze_blocks)
-
-    # ------------------------------------------------------------------
-    # layout_selected — multiple selected roots, each laid out independently
-    # within the selection.  Simplification: run vertical recursion per root
-    # using the selected set as node_filter.
-    # ------------------------------------------------------------------
     def layout_selected(self, scheme_multiplier=None):
-        node_layout._clear_color_cache()
+        from layout_contracts import LayoutRequest  # noqa: PLC0415
+        from layout_orchestrator import run_layout  # noqa: PLC0415
+
         current_group = nuke.lastHitGroup()
         selected = nuke.selectedNodes()
         if len(selected) < 2:
-            return
-
-        with _undo_block("Layout Selected (bbox)"), current_group:
-            self._run_selected(selected, scheme_multiplier, current_group)
-
-    def _run_selected(self, selected, scheme_multiplier, current_group):
-        expanded, freeze_blocks, dimension_overrides, all_non_root_ids, all_member_ids = (
-            _setup_freeze(selected, current_group)
+            return None
+        request = LayoutRequest(
+            command="layout_selected",
+            scheme_multiplier=scheme_multiplier,
+            undo_label="Layout Selected (bbox)",
+            scope_kind="selected",
         )
-        bbox_before = node_layout.compute_node_bounding_box(expanded)
+        return run_layout(request, selected, current_group)
 
-        node_filter = set(expanded)
-        selected = list(node_filter)
-        if all_non_root_ids:
-            node_filter = {n for n in node_filter if id(n) not in all_non_root_ids}
-            selected = [n for n in selected if id(n) not in all_non_root_ids]
-
-        roots = node_layout.find_selection_roots(selected)
-        roots.sort(key=lambda n: n.xpos())
-
-        prefs = node_layout_prefs.prefs_singleton
-        per_node_scheme: dict = {}
-        per_node_h_scale: dict = {}
-        per_node_v_scale: dict = {}
-        _resolve_per_node_state(
-            selected, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        snap = node_layout.get_dag_snap_threshold()
-        ctx = LayoutContext(
-            snap_threshold=snap,
-            node_count=len(selected),
-            node_filter=node_filter,
-            per_node_scheme=per_node_scheme,
-            per_node_h_scale=per_node_h_scale,
-            per_node_v_scale=per_node_v_scale,
-            dimension_overrides=dimension_overrides,
-            all_member_ids=all_member_ids,
-            side_dot_gap=_resolve_side_dot_gap(snap, scheme_multiplier),
-        )
-        prepare_layout_graph(roots, ctx, current_group)
-        mutated_selected: set = set()
-        for root in roots:
-            mutated_selected.update(
-                node_layout.collect_subtree_nodes(root, ctx.node_filter)
-            )
-        ctx.node_count = len(mutated_selected) or len(selected)
-        _resolve_per_node_state(
-            mutated_selected, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        all_mode_assignments: dict = {}
-        placed_nodes: set = set()
-        for root in roots:
-            subtree = layout(root, ctx)
-            placed_nodes.update(subtree.nodes.keys())
-            all_mode_assignments.update(subtree.mode_assignments)
-            _apply_subtree_anchored_at(subtree, root)
-
-        all_after_nodes = set(selected) | mutated_selected | placed_nodes
-        _write_state(
-            all_after_nodes, per_node_scheme, prefs,
-            mode_for_node=lambda n: all_mode_assignments.get(id(n), "vertical"),
-        )
-
-        _push_after(all_after_nodes, bbox_before, current_group, freeze_blocks)
-
-    # ------------------------------------------------------------------
-    # layout_selected_horizontal — selection laid out as horizontal chain.
-    # ------------------------------------------------------------------
     def layout_selected_horizontal(self, scheme_multiplier=None):
-        self._run_selected_horizontal(
-            scheme_multiplier, side_layout_mode="recursive",
-            undo_label="Layout Selected Horizontal (bbox)",
-        )
+        from layout_contracts import LayoutRequest  # noqa: PLC0415
+        from layout_orchestrator import run_layout  # noqa: PLC0415
 
-    def layout_selected_horizontal_place_only(self, scheme_multiplier=None):
-        self._run_selected_horizontal(
-            scheme_multiplier, side_layout_mode="place_only",
-            undo_label="Layout Selected Horizontal Place-Only (bbox)",
-        )
-
-    def _run_selected_horizontal(self, scheme_multiplier, side_layout_mode, undo_label):
-        node_layout._clear_color_cache()
         current_group = nuke.lastHitGroup()
         selected = nuke.selectedNodes()
         if not selected:
-            return
-
-        with _undo_block(undo_label), current_group:
-            self._run_selected_horizontal_impl(
-                selected, scheme_multiplier, side_layout_mode, current_group,
-            )
-
-    def _run_selected_horizontal_impl(
-        self, selected, scheme_multiplier, side_layout_mode, current_group,
-    ):
-        # Pass 1: detect freeze groups in the selection so we can identify
-        # non-root members and pick a chain root that isn't one of them.
-        expanded, _, _, sel_non_root_ids, _ = _setup_freeze(selected, current_group)
-        bbox_before = node_layout.compute_node_bounding_box(expanded)
-
-        node_filter = set(expanded)
-        selected = list(node_filter)
-        if sel_non_root_ids:
-            node_filter = {n for n in node_filter if id(n) not in sel_non_root_ids}
-            selected = [n for n in selected if id(n) not in sel_non_root_ids]
-
-        roots = node_layout.find_selection_roots(selected)
-        if not roots:
-            return
-        roots.sort(key=lambda n: -n.xpos())  # rightmost wins as chain root
-        root = roots[0]
-
-        # Build the spine: walk input(0) through the selection.
-        spine_set: set = set()
-        cursor = root
-        while cursor is not None and cursor in node_filter:
-            spine_set.add(id(cursor))
-            cursor = cursor.input(0)
-
-        # Expand scope to the spine's full upstream so side inputs and the
-        # leftmost spine node's input(0) get laid out by the recursion.
-        wider_scope = set(node_filter)
-        for sid in spine_set:
-            spine_node_obj = next((n for n in selected if id(n) == sid), None)
-            if spine_node_obj is not None:
-                wider_scope.update(node_layout.collect_subtree_nodes(spine_node_obj))
-
-        # Pass 2: re-detect freeze groups against the wider scope. Blocks
-        # living entirely upstream of the spine were invisible to pass 1
-        # but must be folded as opaque leaves so the recursion preserves
-        # rigid offsets. ``_setup_freeze`` also expands partial blocks.
-        wider_filter, freeze_blocks, dim_overrides, all_non_root_ids, all_member_ids = (
-            _setup_freeze(wider_scope, current_group)
-        )
-        wider_filter = set(wider_filter)
-        if all_non_root_ids:
-            wider_filter = {
-                n for n in wider_filter if id(n) not in all_non_root_ids
-            }
-            selected = [n for n in selected if id(n) not in all_non_root_ids]
-
-        prefs = node_layout_prefs.prefs_singleton
-        per_node_scheme: dict = {}
-        per_node_h_scale: dict = {}
-        per_node_v_scale: dict = {}
-        _resolve_per_node_state(
-            wider_filter, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        snap = node_layout.get_dag_snap_threshold()
-        ctx = LayoutContext(
-            snap_threshold=snap,
-            node_count=len(wider_filter),
-            node_filter=wider_filter,
-            per_node_scheme=per_node_scheme,
-            per_node_h_scale=per_node_h_scale,
-            per_node_v_scale=per_node_v_scale,
-            dimension_overrides=dim_overrides,
-            spine_set=spine_set,
-            horizontal_root_id=id(root),
-            side_layout_mode=side_layout_mode,
-            all_member_ids=all_member_ids,
-            side_dot_gap=_resolve_side_dot_gap(snap, scheme_multiplier),
-        )
-
-        prepare_layout_graph(
-            [root], ctx, current_group, routing_mode="selected_horizontal",
-        )
-        mutated_nodes = set(_walk_mutable_graph([root], ctx))
-        _resolve_per_node_state(
-            mutated_nodes, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        subtree = layout_horizontal(root, ctx)
-        _apply_subtree_anchored_at(subtree, root)
-
-        all_after_nodes = set(selected) | set(subtree.nodes.keys())
-        selected_ids = {id(n) for n in selected}
-
-        def _mode_for(node):
-            if id(node) in spine_set:
-                return "horizontal"
-            if id(node) in selected_ids:
-                return "vertical"
             return None
-
-        _write_state(
-            all_after_nodes, per_node_scheme, prefs, mode_for_node=_mode_for,
+        request = LayoutRequest(
+            command="layout_selected_horizontal",
+            scheme_multiplier=scheme_multiplier,
+            undo_label="Layout Selected Horizontal (bbox)",
+            scope_kind="selected_horizontal",
+            routing_mode="selected_horizontal",
+            selected_horizontal_side_mode="recursive",
         )
+        return run_layout(request, selected, current_group)
 
-        _push_after(all_after_nodes, bbox_before, current_group, freeze_blocks)
+    def layout_selected_horizontal_place_only(self, scheme_multiplier=None):
+        from layout_contracts import LayoutRequest  # noqa: PLC0415
+        from layout_orchestrator import run_layout  # noqa: PLC0415
+
+        current_group = nuke.lastHitGroup()
+        selected = nuke.selectedNodes()
+        if not selected:
+            return None
+        request = LayoutRequest(
+            command="layout_selected_horizontal_place_only",
+            scheme_multiplier=scheme_multiplier,
+            undo_label="Layout Selected Horizontal Place-Only (bbox)",
+            scope_kind="selected_horizontal",
+            routing_mode="selected_horizontal",
+            selected_horizontal_side_mode="place_only",
+        )
+        return run_layout(request, selected, current_group)
