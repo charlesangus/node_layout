@@ -579,6 +579,56 @@ class TestPopupAutoCloseDisarmsLeader(unittest.TestCase):
             "node_layout_overlay must import node_layout_leader for hideEvent _disarm() call (issue #6)",
         )
 
+    def test_hide_event_checks_chaining_guard(self):
+        """hideEvent must gate _disarm() on _chaining_hide_in_progress being False.
+
+        Regression guard (PR #27): if hideEvent calls _disarm() unconditionally,
+        repeat W/A/S/D/Q/E presses will disarm leader mode after the first press.
+        """
+        source = _load_overlay_source()
+        self.assertIn(
+            "_chaining_hide_in_progress",
+            source,
+            "hideEvent must check _chaining_hide_in_progress to skip _disarm() during chaining hides (PR #27)",
+        )
+
+    def test_hide_event_disarm_is_conditional(self):
+        """hideEvent must only call _disarm() when not in a chaining hide.
+
+        Verifies by AST that the _disarm call inside hideEvent is inside an If
+        node (i.e., it is conditional rather than unconditional).
+        """
+        tree = _parse_overlay_ast()
+        overlay_class = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == "LeaderKeyOverlay":
+                overlay_class = node
+                break
+        self.assertIsNotNone(overlay_class, "LeaderKeyOverlay class must exist")
+
+        hide_event = None
+        for node in ast.walk(overlay_class):
+            if isinstance(node, ast.FunctionDef) and node.name == "hideEvent":
+                hide_event = node
+                break
+        self.assertIsNotNone(hide_event, "hideEvent method must exist on LeaderKeyOverlay")
+
+        # Collect all If-nodes within hideEvent and check that at least one
+        # branch (body or orelse) contains a reference to _disarm.
+        if_nodes = [n for n in ast.walk(hide_event) if isinstance(n, ast.If)]
+        disarm_in_if = any(
+            any(
+                "_disarm" in ast.dump(stmt)
+                for stmt in branch_stmts
+            )
+            for if_node in if_nodes
+            for branch_stmts in (if_node.body, if_node.orelse)
+        )
+        self.assertTrue(
+            disarm_in_if,
+            "hideEvent must call _disarm() conditionally (inside an if-branch), not unconditionally (PR #27)",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

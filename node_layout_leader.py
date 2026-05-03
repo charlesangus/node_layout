@@ -111,12 +111,7 @@ class LeaderKeyFilter(QObject):
             chaining_function = _CHAINING_DISPATCH_TABLE.get(key)
             if chaining_function is not None:
                 # Chaining key: dispatch and hide overlay, but stay in leader mode (D-08).
-                # Guard prevents hideEvent from disarming leader during this deliberate hide.
-                global _chaining_hide_in_progress
-                if _overlay is not None:
-                    _chaining_hide_in_progress = True
-                    _overlay.hide()
-                    _chaining_hide_in_progress = False
+                _hide_overlay_for_chaining()
                 chaining_function()
                 return True
 
@@ -523,6 +518,19 @@ def _disarm():
         _overlay.hide()
 
 
+def _hide_overlay_for_chaining():
+    """Hide the overlay without disarming leader mode.
+
+    Sets the chaining guard so hideEvent skips _disarm(), then hides.
+    Both eventFilter and dispatch_key use this to avoid duplicating the guard.
+    """
+    global _chaining_hide_in_progress
+    if _overlay is not None:
+        _chaining_hide_in_progress = True
+        _overlay.hide()
+        _chaining_hide_in_progress = False
+
+
 def dispatch_key(key_letter):
     """Dispatch a leader key action by letter string, as if the user pressed that key.
 
@@ -551,9 +559,5 @@ def dispatch_key(key_letter):
     chaining_function = _CHAINING_DISPATCH_TABLE.get(qt_key)
     if chaining_function is not None:
         # Chaining key: hide overlay but stay in leader mode, then dispatch.
-        global _chaining_hide_in_progress
-        if _overlay is not None:
-            _chaining_hide_in_progress = True
-            _overlay.hide()
-            _chaining_hide_in_progress = False
+        _hide_overlay_for_chaining()
         chaining_function()

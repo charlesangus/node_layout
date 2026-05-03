@@ -566,5 +566,89 @@ class TestFreezeIsNotToggle(unittest.TestCase):
         )
 
 
+class TestChainingHideGuard(unittest.TestCase):
+    """_chaining_hide_in_progress guard and _hide_overlay_for_chaining helper must exist.
+
+    Regression guard: repeat W/A/S/D/Q/E presses must not disarm leader mode.
+    Popup auto-close (hideEvent with guard False) must still disarm. (PR #27)
+    """
+
+    def setUp(self):
+        self.source = _load_leader_source()
+        self.tree = _parse_leader_ast()
+        self.top_level_functions = {
+            node.name: node
+            for node in self.tree.body
+            if isinstance(node, ast.FunctionDef)
+        }
+
+    def test_chaining_hide_in_progress_global_exists(self):
+        """_chaining_hide_in_progress must be declared at module level."""
+        self.assertIn(
+            "_chaining_hide_in_progress",
+            self.source,
+            "_chaining_hide_in_progress guard flag must exist in node_layout_leader.py (PR #27)",
+        )
+
+    def test_hide_overlay_for_chaining_exists_top_level(self):
+        """_hide_overlay_for_chaining must be a top-level (not nested) function."""
+        self.assertIn(
+            "_hide_overlay_for_chaining",
+            self.top_level_functions,
+            "_hide_overlay_for_chaining() must be a top-level function, not nested (PR #27)",
+        )
+
+    def test_hide_overlay_for_chaining_helper_exists(self):
+        """_hide_overlay_for_chaining() must exist as a top-level helper function."""
+        self.assertIn(
+            "_hide_overlay_for_chaining",
+            self.top_level_functions,
+            "_hide_overlay_for_chaining() must be defined as a top-level function (PR #27)",
+        )
+
+    def test_hide_overlay_for_chaining_sets_guard(self):
+        """_hide_overlay_for_chaining must set _chaining_hide_in_progress around hide()."""
+        helper = self.top_level_functions.get("_hide_overlay_for_chaining")
+        self.assertIsNotNone(helper, "_hide_overlay_for_chaining() must exist")
+        fn_source = ast.get_source_segment(self.source, helper)
+        self.assertIn(
+            "_chaining_hide_in_progress",
+            fn_source,
+            "_hide_overlay_for_chaining must set _chaining_hide_in_progress around overlay.hide()",
+        )
+
+    def test_event_filter_uses_hide_overlay_for_chaining(self):
+        """eventFilter must call _hide_overlay_for_chaining() for chaining keys, not inline guard."""
+        leader_class = None
+        for node in ast.walk(self.tree):
+            if isinstance(node, ast.ClassDef) and node.name == "LeaderKeyFilter":
+                leader_class = node
+                break
+        self.assertIsNotNone(leader_class, "LeaderKeyFilter must exist")
+        event_filter = None
+        for node in ast.walk(leader_class):
+            if isinstance(node, ast.FunctionDef) and node.name == "eventFilter":
+                event_filter = node
+                break
+        self.assertIsNotNone(event_filter, "eventFilter must exist")
+        fn_source = ast.get_source_segment(self.source, event_filter)
+        self.assertIn(
+            "_hide_overlay_for_chaining",
+            fn_source,
+            "eventFilter must delegate chaining hide to _hide_overlay_for_chaining() (PR #27)",
+        )
+
+    def test_dispatch_key_uses_hide_overlay_for_chaining(self):
+        """dispatch_key must call _hide_overlay_for_chaining() for chaining keys, not inline guard."""
+        dispatch_key_node = self.top_level_functions.get("dispatch_key")
+        self.assertIsNotNone(dispatch_key_node, "dispatch_key() must exist")
+        fn_source = ast.get_source_segment(self.source, dispatch_key_node)
+        self.assertIn(
+            "_hide_overlay_for_chaining",
+            fn_source,
+            "dispatch_key must delegate chaining hide to _hide_overlay_for_chaining() (PR #27)",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
