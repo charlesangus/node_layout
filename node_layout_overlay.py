@@ -531,7 +531,8 @@ class LeaderKeyOverlay(QDialog):
         """
         super().hideEvent(event)
         import node_layout_leader  # noqa: PLC0415
-        node_layout_leader._disarm()
+        if not node_layout_leader._chaining_hide_in_progress:
+            node_layout_leader._disarm()
 
     def showEvent(self, event):  # noqa: N802 — Qt naming convention
         """Apply platform-specific activation suppression after the native window is created.

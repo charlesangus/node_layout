@@ -36,6 +36,7 @@ from PySide6.QtWidgets import QApplication
 # ---------------------------------------------------------------------------
 
 _leader_active = False       # True while leader mode is armed and waiting for a key
+_chaining_hide_in_progress = False  # True during deliberate hide() in chaining branch
 # LeaderKeyFilter singleton — created lazily on first arm()
 _filter = None
 # LeaderKeyOverlay singleton — created lazily in arm()
@@ -110,8 +111,12 @@ class LeaderKeyFilter(QObject):
             chaining_function = _CHAINING_DISPATCH_TABLE.get(key)
             if chaining_function is not None:
                 # Chaining key: dispatch and hide overlay, but stay in leader mode (D-08).
+                # Guard prevents hideEvent from disarming leader during this deliberate hide.
+                global _chaining_hide_in_progress
                 if _overlay is not None:
+                    _chaining_hide_in_progress = True
                     _overlay.hide()
+                    _chaining_hide_in_progress = False
                 chaining_function()
                 return True
 
@@ -546,6 +551,9 @@ def dispatch_key(key_letter):
     chaining_function = _CHAINING_DISPATCH_TABLE.get(qt_key)
     if chaining_function is not None:
         # Chaining key: hide overlay but stay in leader mode, then dispatch.
+        global _chaining_hide_in_progress
         if _overlay is not None:
+            _chaining_hide_in_progress = True
             _overlay.hide()
+            _chaining_hide_in_progress = False
         chaining_function()
