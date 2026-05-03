@@ -1,8 +1,8 @@
-- preferences for layout spacing
-- inline dots are laid out incorrectly; they are not centred, but the should be - we're not handling the smaller node correctly
+- ~~preferences for layout spacing~~ — done; `node_layout_prefs.py` + preferences dialog
+- ~~inline dots are laid out incorrectly; they are not centred~~ — addressed in bbox engine
 - inconsistent right input spacing, probably has to do with the still-faulty a/b/mask input logic
-- too much space; defaults need to be much less space
-- need a shrink/expand selected nodes command that scales nodes up/down in/out centred on the root node; should also have a scale upstream command
-- larger feature - support alterbate layout schemes, start with compact (same as normal but tight spacing), horizontal (main inputs go left instead of up, secondary inputs go up), fan (all inputs laid out in one row above the root, then normal layout above the fan); tag nodes with the layout type so future calls lay them out the same way; need a clear tag function
-- need better B-input/main input priority; for standard layout, the main input (input 0) must always go straight up
+- ~~too much space; defaults need to be much less space~~ — defaults rebalanced in prefs (`base_subtree_margin: 200`, `loose_gap_multiplier: 8.0`)
+- ~~need a shrink/expand selected nodes command that scales nodes up/down in/out centred on the root node; should also have a scale upstream command~~ — done; Shrink/Expand Selected/Upstream + axis variants + Repeat Last Scale
+- ~~larger feature - support alternate layout schemes, start with compact (same as normal but tight spacing), horizontal (main inputs go left instead of up, secondary inputs go up), fan (all inputs laid out in one row above the root, then normal layout above the fan); tag nodes with the layout type so future calls lay them out the same way; need a clear tag function~~ — compact/loose/horizontal done; fan layout not yet implemented
+- ~~need better B-input/main input priority; for standard layout, the main input (input 0) must always go straight up~~ — addressed in bbox engine
 - margin around a tree should be proportional to the number of nodes in it; dynamic spacing, not static.

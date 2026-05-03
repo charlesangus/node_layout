@@ -62,6 +62,67 @@ This is useful when you have several independent trees you want to clean up at o
 
 ---
 
+### Layout Selected Horizontal
+
+Lays out a sequence of nodes along a horizontal spine — primary inputs run leftward instead of upward.
+
+Select a chain of nodes connected via input 0 and run **Edit → Node Layout → Layout Selected Horizontal**. The plugin identifies the most-downstream node as the chain root and follows `input(0)` leftward to define the spine. Secondary inputs (input 1, 2, …) are laid out vertically above their spine attachment point.
+
+**Layout Selected Horizontal (Place Only)** places the spine without re-laying out the upstream side trees. Use this when a side subtree was already manually arranged and only the spine needs repositioning.
+
+---
+
+### Layout Variants: Compact and Loose
+
+Each primary layout command has a **Compact** and **Loose** variant under **Edit → Node Layout**:
+
+| Command | Effect |
+|---|---|
+| Layout Upstream / Selected Compact | Tighter inter-subtree spacing |
+| Layout Upstream / Selected Loose | More generous inter-subtree spacing |
+
+Spacing multipliers are configurable via **Edit → Node Layout → Node Layout Preferences…**
+
+---
+
+### Freeze / Unfreeze — `Ctrl+Shift+F` / `Ctrl+Shift+U`
+
+Frozen nodes are treated as immovable leaves by the layout engine — their positions are never changed, and dependent nodes are arranged around them. When a freeze block contains multiple nodes, the block moves as a rigid unit (internal offsets preserved).
+
+Select nodes and press `Ctrl+Shift+F` to freeze or `Ctrl+Shift+U` to unfreeze. Useful for anchoring Viewers, final grade outputs, or any manually-placed reference point while still re-laying out the rest of the tree.
+
+Leader mode key: `F`.
+
+---
+
+### Shrink / Expand
+
+Scale an entire layout in or out, centred on the root node:
+
+| Command | Shortcut | Effect |
+|---|---|---|
+| Shrink Selected | `Ctrl+,` | Scale selected tree inward |
+| Expand Selected | `Ctrl+.` | Scale selected tree outward |
+| Shrink Upstream | `Ctrl+Shift+,` | Scale upstream tree inward |
+| Expand Upstream | `Ctrl+Shift+.` | Scale upstream tree outward |
+
+Axis-specific variants (horizontal-only, vertical-only) are available in the **Edit → Node Layout** menu. **Repeat Last Scale** (`Ctrl+/`) re-applies the most recent scale operation.
+
+Leader mode keys: `Q` (shrink) and `E` (expand).
+
+---
+
+### Clear Layout State
+
+Layout state (scheme, mode, freeze flag) is stored as a hidden knob on each node. To reset stale or incorrect state:
+
+- **Clear Layout State Selected** — clears state on selected nodes.
+- **Clear Layout State Upstream** — clears state on all visibly upstream nodes.
+
+Both are under **Edit → Node Layout**. Leader mode key: `C`.
+
+---
+
 ### Diamond Resolution (Automatic Dot Insertion)
 
 When the same node is used as input in more than one place in a tree — a "diamond" pattern — the plugin automatically resolves it by inserting a hidden Dot node on the secondary path. This lets the layout algorithm treat the graph as a tree while keeping the actual node connections intact.
@@ -137,6 +198,31 @@ A set of commands for quickly shifting nodes to create space in your DAG.
 
 ---
 
+### Safe Delete — `Backspace` / `Delete`
+
+Node Layout replaces Nuke's stock delete behaviour. Nuke's built-in delete warns about broken hidden-input and expression links even when every dependent of the deleted node is also being deleted in the same operation — which trains users to dismiss the dialog without reading it.
+
+Safe Delete only shows the warning dialog when a deleted node has dependents that are **not** also being deleted, i.e. when the operation would actually leave a dangling link. Viewer nodes are always treated as benign.
+
+Safe Delete is enabled by default and can be toggled in **Edit → Node Layout → Node Layout Preferences…**
+
+---
+
+### Preferences
+
+**Edit → Node Layout → Node Layout Preferences…** opens a dialog for configuring:
+
+- **Spacing multipliers** for compact, normal, and loose layout schemes
+- **Horizontal layout gaps** — spine-to-spine and side-subtree margins
+- **Mask input ratio** — how much narrower mask branches appear
+- **Leader popup delay** — delay before the overlay appears after `Shift+D`
+- **Keyboard layout** — QWERTY, AZERTY, or QWERTZ (remaps chaining keys to correct physical positions)
+- **Safe Delete** — toggle the smarter delete behaviour on or off
+
+Preferences are saved to `~/.nuke/node_layout_prefs.json`.
+
+---
+
 ## How Spacing Is Calculated
 
 Spacing adapts to the snap threshold you have configured in Nuke's preferences (`dag_snap_threshold`). The base margins are:
@@ -178,12 +264,21 @@ pytest tests/ -v
 
 | File | Purpose |
 |---|---|
-| `node_layout.py` | Core layout engine: dimension calculation, node placement, diamond resolution, collision avoidance |
-| `menu.py` | Registers all commands and keyboard shortcuts in Nuke's Edit menu |
+| `node_layout.py` | Public command API and shared utilities: layout entry points, scale commands, freeze/unfreeze, DAG helpers (subtree collection, bounding box, selection roots) |
+| `node_layout_bbox.py` | Bbox layout engine: recursive geometry computation, packer dispatch, routing dot insertion, horizontal chain layout |
+| `layout_contracts.py` | Pipeline value types: `LayoutRequest`, `LayoutScope`, `PreparedScope`, `LayoutResult`, `HorizontalParams` |
+| `layout_orchestrator.py` | Shared pipeline runner — sequences scope → prepare → layout → apply → state-sync → push for every layout command |
+| `layout_scope.py` | Scope construction: resolves participating nodes, freeze blocks, and pre-mutation bounding box |
+| `layout_prepare.py` | Topology preparation: inserts routing dots and re-resolves post-mutation node and scale tables |
+| `layout_apply.py` | Position mutation: writes computed xpos/ypos to live Nuke nodes |
+| `layout_state_sync.py` | Hidden state write-back: persists per-node scheme and layout mode after each run |
+| `layout_push.py` | Room-push stage: shifts surrounding nodes out of the way when the laid-out tree grows |
+| `menu.py` | Registers all commands and keyboard shortcuts in Nuke's Edit → Node Layout menu |
 | `make_room.py` | Bulk node displacement for creating space in the DAG |
+| `safe_delete.py` | Replaces Nuke's default delete with a smarter version that only warns when a deletion actually breaks external dependencies |
 | `node_layout_leader.py` | Leader key event filter and state machine (`Shift+D`) |
 | `node_layout_overlay.py` | Floating HUD overlay widget displayed during leader mode |
 | `node_layout_util.py` | Upstream selection, hidden-output selection, and file-based sorting utilities |
-| `node_layout_prefs.py` | Preferences loading and defaults |
+| `node_layout_prefs.py` | Preferences loading, defaults, and in-memory singleton |
 | `node_layout_prefs_dialog.py` | Preferences UI dialog |
-| `node_layout_state.py` | Per-node layout state persistence (freeze, scale) |
+| `node_layout_state.py` | Per-node layout state persistence (freeze flag, scheme multiplier, layout mode) |
