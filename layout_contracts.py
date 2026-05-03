@@ -3,7 +3,7 @@
 These types describe the data passed between the pipeline stages defined in
 ``CLEAN_REWRITE_IMPLEMENTATION_PLAN.md``:
 
-    request = LayoutRequest.from_command(...)
+    request = LayoutRequest(command="layout_upstream", ...)
     scope = build_scope(request, graph)
     prepared = prepare_graph(scope, graph)
     result = layout_engine.layout(prepared, graph)

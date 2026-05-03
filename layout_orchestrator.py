@@ -85,18 +85,7 @@ def _run_pipeline(request: LayoutRequest, initial_nodes, current_group):
 # ---------------------------------------------------------------------------
 
 def _layout_context_from_prepared(prepared: PreparedScope) -> LayoutContext:
-    from layout_contracts import PACKER_HORIZONTAL, HorizontalParams  # noqa: PLC0415
-
     snap = node_layout.get_dag_snap_threshold()
-    packer_params: dict = {}
-    if "spine_set" in prepared.packer_params:
-        packer_params[PACKER_HORIZONTAL] = HorizontalParams(
-            spine_ids=frozenset(prepared.packer_params["spine_set"]),
-            root_id=prepared.packer_params.get("horizontal_root_id"),
-            side_layout_mode=prepared.packer_params.get(
-                "side_layout_mode", "recursive",
-            ),
-        )
     return LayoutContext(
         snap_threshold=snap,
         node_count=len(prepared.layout_nodes) or 1,
@@ -107,7 +96,7 @@ def _layout_context_from_prepared(prepared: PreparedScope) -> LayoutContext:
         dimension_overrides=prepared.freeze_dimension_overrides,
         all_member_ids=prepared.freeze_member_ids,
         side_dot_gap=_resolve_side_dot_gap(snap, prepared.request.scheme_multiplier),
-        packer_params=packer_params,
+        packer_params=dict(prepared.packer_params),
     )
 
 

@@ -29,10 +29,7 @@ def sync_layout_state(result: LayoutResult, prepared: PreparedScope):
 
     if request.scope_kind == "selected_horizontal":
         horizontal_params = prepared.packer_params.get(PACKER_HORIZONTAL)
-        spine_set = (
-            set(horizontal_params.spine_ids) if horizontal_params is not None
-            else set(prepared.packer_params.get("spine_set", set()))
-        )
+        spine_set = set(horizontal_params.spine_ids) if horizontal_params is not None else set()
         # state_nodes from prep = initial selection (post-non-root filter).
         selected_ids = {id(n) for n in prepared.state_nodes}
 

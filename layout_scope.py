@@ -12,7 +12,7 @@ routing-dot insertion (final node sets, scale tables) is re-resolved by
 from __future__ import annotations
 
 import node_layout
-from layout_contracts import LayoutRequest, LayoutScope
+from layout_contracts import PACKER_HORIZONTAL, HorizontalParams, LayoutRequest, LayoutScope
 from node_layout_bbox import _setup_freeze
 
 
@@ -155,8 +155,10 @@ def _build_scope_selected_horizontal(request, initial_nodes, current_group):
         freeze_non_root_ids=all_non_root_ids,
         freeze_member_ids=all_member_ids,
         packer_params={
-            "spine_set": spine_set,
-            "horizontal_root_id": id(chain_root),
-            "side_layout_mode": request.selected_horizontal_side_mode or "recursive",
+            PACKER_HORIZONTAL: HorizontalParams(
+                spine_ids=frozenset(spine_set),
+                root_id=id(chain_root),
+                side_layout_mode=request.selected_horizontal_side_mode or "recursive",
+            ),
         },
     )
