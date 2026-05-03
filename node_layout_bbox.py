@@ -98,6 +98,12 @@ def _translate(subtree: Subtree, dx: int, dy: int) -> Subtree:
 
 @dataclass
 class LayoutContext:
+    """Shared per-call state used by every packer.
+
+    Discipline (see ``CLEAN_REWRITE_IMPLEMENTATION_PLAN.md``): only fields
+    consumed by all packers belong here. Per-packer state (e.g. horizontal
+    spine info) lives under ``packer_params`` keyed by packer name.
+    """
     snap_threshold: int
     node_count: int
     node_filter: Optional[set]
@@ -105,15 +111,16 @@ class LayoutContext:
     per_node_h_scale: dict
     per_node_v_scale: dict
     dimension_overrides: dict  # id(root) -> FreezeBlock
-    spine_set: Optional[set] = None  # for horizontal mode
-    horizontal_root_id: Optional[int] = None
-    side_layout_mode: str = "recursive"
     all_member_ids: set = field(default_factory=set)
     # Vertical gap between a side routing Dot's top and the bottom of its
     # upstream subtree's bbox. Constant per layout call: derived from
     # ``base_subtree_margin`` and the resolved scheme multiplier so every
     # side Dot in a single run uses the same spacing.
     side_dot_gap: int = 0
+    # Per-packer params keyed by packer name (e.g. ``HorizontalParams``
+    # under ``"horizontal"``). The shared context never reads these
+    # directly; each packer pulls its own params.
+    packer_params: dict = field(default_factory=dict)
 
     def scheme_for(self, node) -> float:
         return self.per_node_scheme.get(
@@ -237,12 +244,20 @@ def layout(node, ctx: LayoutContext) -> "Subtree":
     horizontal subtrees compose naturally inside vertical parents (and vice
     versa).
     """
+    from layout_contracts import PACKER_HORIZONTAL, HorizontalParams  # noqa: PLC0415
+
     state = node_layout_state.read_node_state(node)
     if state.get("mode") == "horizontal":
-        spine_set = _spine_set_from(node, ctx.all_member_ids)
-        horizontal_ctx = replace(
-            ctx, spine_set=spine_set, horizontal_root_id=id(node),
+        spine_ids = frozenset(_spine_set_from(node, ctx.all_member_ids))
+        existing = ctx.packer_params.get(PACKER_HORIZONTAL)
+        side_layout_mode = existing.side_layout_mode if existing else "recursive"
+        new_packer_params = dict(ctx.packer_params)
+        new_packer_params[PACKER_HORIZONTAL] = HorizontalParams(
+            spine_ids=spine_ids,
+            root_id=id(node),
+            side_layout_mode=side_layout_mode,
         )
+        horizontal_ctx = replace(ctx, packer_params=new_packer_params)
         return layout_horizontal(node, horizontal_ctx)
     return layout_vertical(node, ctx)
 
@@ -717,11 +732,22 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
     """Lay out a horizontal chain rooted at ``root``.
 
     The spine is the chain of ``input[0]`` ancestors whose ids are in
-    ``ctx.spine_set``.  ``root`` is the most-downstream spine node and is
-    placed at (0, 0) in the returned Subtree's local frame.  Earlier spine
-    nodes are placed leftward (more negative X).  Each spine node's side
-    inputs (slots >= 1) are laid out vertically above it.
+    ``params.spine_ids`` (where ``params`` is
+    ``ctx.packer_params[PACKER_HORIZONTAL]``).  ``root`` is the most-
+    downstream spine node and is placed at (0, 0) in the returned Subtree's
+    local frame.  Earlier spine nodes are placed leftward (more negative X).
+    Each spine node's side inputs (slots >= 1) are laid out vertically above
+    it.
     """
+    from layout_contracts import PACKER_HORIZONTAL  # noqa: PLC0415
+
+    params = ctx.packer_params.get(PACKER_HORIZONTAL)
+    if params is not None:
+        spine_set = set(params.spine_ids)
+        side_layout_mode = params.side_layout_mode
+    else:
+        spine_set = _spine_set_from(root, ctx.all_member_ids)
+        side_layout_mode = "recursive"
     prefs = node_layout_prefs.prefs_singleton
     # H-axis margins are scheme-independent everywhere else in the engine
     # (see ``node_layout._horizontal_margin``), so the spine step and the
@@ -734,9 +760,8 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
     # Build spine (rightmost first): root, root.input(0), input(0).input(0), ...
     spine_nodes = []
     cursor = root
-    spine_set = ctx.spine_set
     while cursor is not None:
-        if spine_set is not None and id(cursor) not in spine_set:
+        if id(cursor) not in spine_set:
             break
         spine_nodes.append(cursor)
         cursor = cursor.input(0)
@@ -744,9 +769,13 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
     # Side inputs affect the horizontal footprint of each spine node. Compute
     # them before placing the spine so adjacent spine sections are spaced by
     # their whole occupied bboxes, not just the spine tiles. Sub-recursions
-    # pop back to vertical-mode dispatch — clear the spine fields so a
+    # pop back to vertical-mode dispatch — clear the horizontal params so a
     # nested horizontal subtree below a side input rebuilds its own spine.
-    side_ctx = replace(ctx, spine_set=None, horizontal_root_id=None)
+    from layout_contracts import PACKER_HORIZONTAL as _PACKER_HORIZONTAL  # noqa: PLC0415
+    side_packer_params = {
+        k: v for k, v in ctx.packer_params.items() if k != _PACKER_HORIZONTAL
+    }
+    side_ctx = replace(ctx, packer_params=side_packer_params)
     h_gap = step_x
     side_layouts: list[list[tuple[int, object, Subtree]]] = []
     local_bboxes: list[tuple[int, int, int, int]] = []
@@ -767,7 +796,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                 continue
             child_subtree = (
                 _snapshot_existing_subtree(inp, side_ctx)
-                if ctx.side_layout_mode == "place_only"
+                if side_layout_mode == "place_only"
                 else layout(inp, side_ctx)
             )
             side_entries.append((slot, inp, child_subtree))
@@ -904,7 +933,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         if zero_eligible:
             zero_subtree = (
                 _snapshot_existing_subtree(zero, side_ctx)
-                if ctx.side_layout_mode == "place_only"
+                if side_layout_mode == "place_only"
                 else layout(zero, side_ctx)
             )
             # Target: zero subtree's bbox right edge sits at leftmost_x - step_x.
@@ -1018,9 +1047,13 @@ def _ensure_side_dots(roots, ctx: LayoutContext):
 
 
 def _ensure_leftmost_routing_dot_for_spine(root, ctx: LayoutContext, current_group):
-    spine = ctx.spine_set if ctx.spine_set is not None else _spine_set_from(
-        root, ctx.all_member_ids
-    )
+    from layout_contracts import PACKER_HORIZONTAL  # noqa: PLC0415
+
+    params = ctx.packer_params.get(PACKER_HORIZONTAL)
+    if params is not None and params.spine_ids is not None:
+        spine = set(params.spine_ids)
+    else:
+        spine = _spine_set_from(root, ctx.all_member_ids)
     cursor = root
     leftmost = None
     while cursor is not None and id(cursor) in spine:

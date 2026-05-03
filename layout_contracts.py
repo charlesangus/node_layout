@@ -12,11 +12,16 @@ These types describe the data passed between the pipeline stages defined in
 participating set before topology mutation. ``PreparedScope`` is the
 authoritative post-mutation input to layout, apply, state-sync, and push.
 ``LayoutResult`` is what the engine returns.
+
+Per-packer parameter objects (e.g. ``HorizontalParams``) are also defined
+here so that ``LayoutContext`` can stay free of packer-specific fields.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Optional
+
+PACKER_HORIZONTAL = "horizontal"
 
 
 @dataclass(frozen=True)
@@ -79,6 +84,18 @@ class PreparedScope:
     per_node_h_scale: dict
     per_node_v_scale: dict
     packer_params: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class HorizontalParams:
+    """Per-call params for the horizontal packer.
+
+    Lives under ``LayoutContext.packer_params[PACKER_HORIZONTAL]`` so the
+    packer's specifics never leak into the shared context.
+    """
+    spine_ids: frozenset
+    root_id: Optional[int]
+    side_layout_mode: str = "recursive"
 
 
 @dataclass

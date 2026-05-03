@@ -45,10 +45,18 @@ def prepare_graph(scope: LayoutScope, current_group) -> PreparedScope:
 
     # Build a transient context for the prep helpers. They only read
     # node_filter, dimension_overrides, all_member_ids, and (for horizontal
-    # routing) spine_set — scheme/scale tables are unused at this stage.
-    spine_set = scope.packer_params.get("spine_set")
-    horizontal_root_id = scope.packer_params.get("horizontal_root_id")
-    side_layout_mode = scope.packer_params.get("side_layout_mode", "recursive")
+    # routing) the horizontal packer params — scheme/scale tables are
+    # unused at this stage.
+    from layout_contracts import PACKER_HORIZONTAL, HorizontalParams  # noqa: PLC0415
+    packer_params: dict = {}
+    if "spine_set" in scope.packer_params:
+        packer_params[PACKER_HORIZONTAL] = HorizontalParams(
+            spine_ids=frozenset(scope.packer_params["spine_set"]),
+            root_id=scope.packer_params.get("horizontal_root_id"),
+            side_layout_mode=scope.packer_params.get(
+                "side_layout_mode", "recursive",
+            ),
+        )
     prep_ctx = LayoutContext(
         snap_threshold=snap,
         node_count=len(scope.initial_nodes) or 1,
@@ -57,11 +65,9 @@ def prepare_graph(scope: LayoutScope, current_group) -> PreparedScope:
         per_node_h_scale=per_node_h_scale,
         per_node_v_scale=per_node_v_scale,
         dimension_overrides=scope.freeze_dimension_overrides,
-        spine_set=spine_set,
-        horizontal_root_id=horizontal_root_id,
-        side_layout_mode=side_layout_mode,
         all_member_ids=scope.freeze_member_ids,
         side_dot_gap=_resolve_side_dot_gap(snap, request.scheme_multiplier),
+        packer_params=packer_params,
     )
 
     prepare_layout_graph(
