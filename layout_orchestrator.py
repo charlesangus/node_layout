@@ -11,22 +11,24 @@ and calls ``run_layout``. The differences between commands live entirely in
 """
 from __future__ import annotations
 
+import contextlib
+
+import nuke
+
 import node_layout
-import node_layout_prefs
+from layout_apply import apply_layout
 from layout_contracts import (
     LayoutRequest,
     LayoutResult,
     PreparedScope,
 )
 from layout_prepare import prepare_graph
+from layout_push import push_surrounding_nodes
 from layout_scope import build_scope
+from layout_state_sync import sync_layout_state
 from node_layout_bbox import (
     LayoutContext,
-    _apply_subtree_anchored_at,
-    _push_after,
     _resolve_side_dot_gap,
-    _undo_block,
-    _write_state,
 )
 from node_layout_bbox import (
     layout as _engine_layout,
@@ -34,6 +36,20 @@ from node_layout_bbox import (
 from node_layout_bbox import (
     layout_horizontal as _engine_layout_horizontal,
 )
+
+
+@contextlib.contextmanager
+def _undo_block(label: str):
+    """Wrap a block in a Nuke undo group, cancelling on exception."""
+    nuke.Undo.name(label)
+    nuke.Undo.begin()
+    try:
+        yield
+    except Exception:
+        nuke.Undo.cancel()
+        raise
+    else:
+        nuke.Undo.end()
 
 # ---------------------------------------------------------------------------
 # Public entry point.
@@ -58,9 +74,9 @@ def _run_pipeline(request: LayoutRequest, initial_nodes, current_group):
     prepared = prepare_graph(scope, current_group)
     ctx = _layout_context_from_prepared(prepared)
     result = _run_engine(prepared, ctx)
-    _apply_layout_result(result, prepared)
-    _sync_layout_state(result, prepared)
-    _push_layout(result, prepared, current_group)
+    apply_layout(result, prepared)
+    sync_layout_state(result, prepared)
+    push_surrounding_nodes(result, prepared, current_group)
     return result
 
 
@@ -122,42 +138,3 @@ def _run_engine(prepared: PreparedScope, ctx: LayoutContext) -> LayoutResult:
     )
 
 
-# ---------------------------------------------------------------------------
-# Apply / state-sync / push — final mutation stages.
-# ---------------------------------------------------------------------------
-
-def _apply_layout_result(result: LayoutResult, prepared: PreparedScope):
-    for subtree, root in zip(result.subtrees, prepared.roots, strict=False):
-        _apply_subtree_anchored_at(subtree, root)
-
-
-def _sync_layout_state(result: LayoutResult, prepared: PreparedScope):
-    request = prepared.request
-    prefs = node_layout_prefs.prefs_singleton
-    state_nodes = set(prepared.state_nodes) | result.placed_nodes
-
-    if request.scope_kind == "selected_horizontal":
-        spine_set = prepared.packer_params.get("spine_set", set())
-        # state_nodes from prep = initial selection (post-non-root filter).
-        selected_ids = {id(n) for n in prepared.state_nodes}
-
-        def _mode_for(node):
-            if id(node) in spine_set:
-                return "horizontal"
-            if id(node) in selected_ids:
-                return "vertical"
-            return None
-
-        _write_state(state_nodes, prepared.per_node_scheme, prefs, mode_for_node=_mode_for)
-        return
-
-    mode_assignments = result.mode_assignments
-    _write_state(
-        state_nodes, prepared.per_node_scheme, prefs,
-        mode_for_node=lambda n: mode_assignments.get(id(n), "vertical"),
-    )
-
-
-def _push_layout(result: LayoutResult, prepared: PreparedScope, current_group):
-    push_set = set(prepared.push_subject_nodes) | result.placed_nodes
-    _push_after(push_set, prepared.bbox_before, current_group, prepared.freeze_blocks)
