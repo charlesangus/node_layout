@@ -62,11 +62,11 @@ class Subtree:
     nodes: dict[object, tuple[int, int]]
     root_node: object  # the actual Nuke node object at anchor_out
     anchor_in_per_slot: dict[int, tuple[int, int]] = field(default_factory=dict)
-    # Set of id(node) values for every node that ended up on a horizontal
-    # spine inside this subtree. Bubbles up through merges so the entry
-    # points can drive mode write-back from the layout result instead of
-    # mutating the layout context during recursion.
-    horizontal_ids: set = field(default_factory=set)
+    # Maps id(node) -> mode name (e.g. "horizontal") for every node placed
+    # by a non-default packer inside this subtree. Bubbles up through
+    # merges so entry points can drive mode write-back from the layout
+    # result instead of mutating the layout context during recursion.
+    mode_assignments: dict = field(default_factory=dict)
 
 
 def _translate(subtree: Subtree, dx: int, dy: int) -> Subtree:
@@ -88,7 +88,7 @@ def _translate(subtree: Subtree, dx: int, dy: int) -> Subtree:
         nodes=new_nodes,
         root_node=subtree.root_node,
         anchor_in_per_slot=new_anchors_in,
-        horizontal_ids=set(subtree.horizontal_ids),
+        mode_assignments=dict(subtree.mode_assignments),
     )
 
 
@@ -310,12 +310,12 @@ def _merge_translated(
     subtree: Subtree,
     dx: int,
     dy: int,
-    horizontal_ids: Optional[set] = None,
+    mode_assignments: Optional[dict] = None,
 ) -> tuple[int, int, int, int]:
     translated = _translate(subtree, dx, dy)
     target_nodes.update(translated.nodes)
-    if horizontal_ids is not None:
-        horizontal_ids.update(translated.horizontal_ids)
+    if mode_assignments is not None:
+        mode_assignments.update(translated.mode_assignments)
     return (
         min(bbox[0], translated.bbox[0]),
         min(bbox[1], translated.bbox[1]),
@@ -329,7 +329,7 @@ def _fold_freeze_block_geometry(
     ctx: LayoutContext,
     nodes_dict: dict[object, tuple[int, int]],
     bbox: tuple[int, int, int, int],
-    horizontal_ids: Optional[set] = None,
+    mode_assignments: Optional[dict] = None,
 ) -> tuple[int, int, int, int]:
     """Add a freeze block's rigid members and non-root external inputs.
 
@@ -372,7 +372,7 @@ def _fold_freeze_block_geometry(
             entry_subtree,
             entry_x,
             entry_y,
-            horizontal_ids,
+            mode_assignments,
         )
 
     block_left, block_top, block_right, block_bottom = _block_local_extents(block)
@@ -436,9 +436,9 @@ def _layout_side_dot(node, ctx: LayoutContext, pairs) -> Subtree:
     child_x = node_layout._center_x(upstream.screenWidth(), 0, dot_w)
     child_y = -gap - child.bbox[3]
     nodes_dict: dict[object, tuple[int, int]] = {node: (0, 0)}
-    horizontal_ids: set = set()
+    mode_assignments: dict = {}
     bbox = _merge_translated(
-        nodes_dict, (0, 0, dot_w, dot_h), child, child_x, child_y, horizontal_ids,
+        nodes_dict, (0, 0, dot_w, dot_h), child, child_x, child_y, mode_assignments,
     )
     return Subtree(
         bbox=bbox,
@@ -446,7 +446,7 @@ def _layout_side_dot(node, ctx: LayoutContext, pairs) -> Subtree:
         nodes=nodes_dict,
         root_node=node,
         anchor_in_per_slot={0: (child_x, child_y)},
-        horizontal_ids=horizontal_ids,
+        mode_assignments=mode_assignments,
     )
 
 
@@ -470,16 +470,16 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         # Members keep their stored relative offsets; non-root external input
         # subtrees are included in this local geometry.
         nodes = {block.root: (0, 0)}
-        horizontal_ids: set = set()
+        mode_assignments: dict = {}
         bbox = _fold_freeze_block_geometry(
-            block, ctx, nodes, _block_local_extents(block), horizontal_ids,
+            block, ctx, nodes, _block_local_extents(block), mode_assignments,
         )
         return Subtree(
             bbox=bbox,
             anchor_out=(0, 0),
             nodes=nodes,
             root_node=node,
-            horizontal_ids=horizontal_ids,
+            mode_assignments=mode_assignments,
         )
 
     if not pairs:
@@ -676,12 +676,12 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
     nodes_dict: dict[object, tuple[int, int]] = {node: (0, 0)}
     bbox_left, bbox_top, bbox_right, bbox_bottom = 0, 0, node_w, node_h
     anchor_in_per_slot: dict[int, tuple[int, int]] = {}
-    horizontal_ids: set = set()
+    mode_assignments: dict = {}
 
     for i, child in enumerate(child_subtrees):
         translated = _translate(child, x_positions[i], y_positions[i])
         nodes_dict.update(translated.nodes)
-        horizontal_ids.update(translated.horizontal_ids)
+        mode_assignments.update(translated.mode_assignments)
         bbox_left = min(bbox_left, translated.bbox[0])
         bbox_top = min(bbox_top, translated.bbox[1])
         bbox_right = max(bbox_right, translated.bbox[2])
@@ -695,7 +695,7 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         bbox_left, bbox_top, bbox_right, bbox_bottom = _fold_freeze_block_geometry(
             block, ctx, nodes_dict,
             (bbox_left, bbox_top, bbox_right, bbox_bottom),
-            horizontal_ids,
+            mode_assignments,
         )
 
     return Subtree(
@@ -704,7 +704,7 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         nodes=nodes_dict,
         root_node=node,
         anchor_in_per_slot=anchor_in_per_slot,
-        horizontal_ids=horizontal_ids,
+        mode_assignments=mode_assignments,
     )
 
 
@@ -798,7 +798,9 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
     # Spine nodes themselves are the horizontal-mode set this subtree
     # contributes; side-input subtrees may add more if they contain nested
     # horizontal layouts.
-    horizontal_ids: set = {id(spine_node) for spine_node in spine_nodes}
+    mode_assignments: dict = {
+        id(spine_node): "horizontal" for spine_node in spine_nodes
+    }
 
     # Walk spine left to right (index 0 = rightmost root).
     # We place the root first, then each upstream spine node steps left.
@@ -820,7 +822,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
             block_nodes: dict[object, tuple[int, int]] = {spine_node: (0, 0)}
             block_bbox = _fold_freeze_block_geometry(
                 block, ctx, block_nodes, _block_local_extents(block),
-                horizontal_ids,
+                mode_assignments,
             )
             for member, (mx, my) in block_nodes.items():
                 nodes_dict[member] = (spine_x + mx, cur_y + my)
@@ -861,7 +863,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                 target_bbox_bottom - child_subtree.bbox[3],
             )
             nodes_dict.update(translated.nodes)
-            horizontal_ids.update(translated.horizontal_ids)
+            mode_assignments.update(translated.mode_assignments)
             bbox_l = min(bbox_l, translated.bbox[0])
             bbox_t = min(bbox_t, translated.bbox[1])
             bbox_r = max(bbox_r, translated.bbox[2])
@@ -877,7 +879,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                     target_bbox_bottom - child_subtree.bbox[3],
                 )
                 nodes_dict.update(translated.nodes)
-                horizontal_ids.update(translated.horizontal_ids)
+                mode_assignments.update(translated.mode_assignments)
                 bbox_l = min(bbox_l, translated.bbox[0])
                 bbox_t = min(bbox_t, translated.bbox[1])
                 bbox_r = max(bbox_r, translated.bbox[2])
@@ -934,7 +936,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                 target_zero_root_y,
             )
             nodes_dict.update(translated.nodes)
-            horizontal_ids.update(translated.horizontal_ids)
+            mode_assignments.update(translated.mode_assignments)
             bbox_l = min(bbox_l, translated.bbox[0])
             bbox_t = min(bbox_t, translated.bbox[1])
             bbox_r = max(bbox_r, translated.bbox[2])
@@ -945,7 +947,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         anchor_out=(0, cur_y),
         nodes=nodes_dict,
         root_node=root,
-        horizontal_ids=horizontal_ids,
+        mode_assignments=mode_assignments,
     )
 
 
@@ -1084,7 +1086,7 @@ def prepare_layout_graph(roots, ctx: LayoutContext, current_group, routing_mode=
 #   2. expand scope for freeze groups, build freeze blocks
 #   3. resolve per-node scheme/scale state
 #   4. mutate graph topology (insert routing dots) up front
-#   5. recurse: produce a Subtree with horizontal_ids carried on the result
+#   5. recurse: produce a Subtree with mode_assignments carried on the result
 #   6. translate the Subtree so the anchor node lands at its current xpos/ypos
 #   7. write per-node state (scheme + mode) back from the recursion result
 #   8. push surrounding DAG nodes to make room
@@ -1273,12 +1275,10 @@ class BboxEngine:
         _apply_subtree_anchored_at(subtree, root)
 
         final_nodes = list(subtree.nodes.keys())
-        horizontal_ids = subtree.horizontal_ids
+        mode_assignments = subtree.mode_assignments
         _write_state(
             final_nodes, per_node_scheme, prefs,
-            mode_for_node=lambda n: (
-                "horizontal" if id(n) in horizontal_ids else "vertical"
-            ),
+            mode_for_node=lambda n: mode_assignments.get(id(n), "vertical"),
         )
 
         _push_after(final_nodes, bbox_before, current_group, freeze_blocks)
@@ -1346,20 +1346,18 @@ class BboxEngine:
             per_node_scheme, per_node_h_scale, per_node_v_scale,
         )
 
-        all_horizontal_ids: set = set()
+        all_mode_assignments: dict = {}
         placed_nodes: set = set()
         for root in roots:
             subtree = layout(root, ctx)
             placed_nodes.update(subtree.nodes.keys())
-            all_horizontal_ids.update(subtree.horizontal_ids)
+            all_mode_assignments.update(subtree.mode_assignments)
             _apply_subtree_anchored_at(subtree, root)
 
         all_after_nodes = set(selected) | mutated_selected | placed_nodes
         _write_state(
             all_after_nodes, per_node_scheme, prefs,
-            mode_for_node=lambda n: (
-                "horizontal" if id(n) in all_horizontal_ids else "vertical"
-            ),
+            mode_for_node=lambda n: all_mode_assignments.get(id(n), "vertical"),
         )
 
         _push_after(all_after_nodes, bbox_before, current_group, freeze_blocks)
