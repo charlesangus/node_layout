@@ -237,29 +237,47 @@ def _spine_set_from(seed_node, all_member_ids):
     return spine
 
 
-def layout(node, ctx: LayoutContext) -> "Subtree":
-    """Dispatch to vertical or horizontal layout based on ``node``'s stored mode.
+def _dispatch_vertical(node, ctx: LayoutContext) -> "Subtree":
+    return layout_vertical(node, ctx)
 
-    This is the single entry point used by every recursion site so that nested
-    horizontal subtrees compose naturally inside vertical parents (and vice
-    versa).
-    """
+
+def _dispatch_horizontal(node, ctx: LayoutContext) -> "Subtree":
+    """Build HorizontalParams for ``node`` and call ``layout_horizontal``."""
     from layout_contracts import PACKER_HORIZONTAL, HorizontalParams  # noqa: PLC0415
 
+    spine_ids = frozenset(_spine_set_from(node, ctx.all_member_ids))
+    existing = ctx.packer_params.get(PACKER_HORIZONTAL)
+    side_layout_mode = existing.side_layout_mode if existing else "recursive"
+    new_packer_params = dict(ctx.packer_params)
+    new_packer_params[PACKER_HORIZONTAL] = HorizontalParams(
+        spine_ids=spine_ids,
+        root_id=id(node),
+        side_layout_mode=side_layout_mode,
+    )
+    horizontal_ctx = replace(ctx, packer_params=new_packer_params)
+    return layout_horizontal(node, horizontal_ctx)
+
+
+# Per-node mode -> packer dispatcher. Adding a new mode is one new dispatch
+# function and one entry here. Unknown modes fall back to ``vertical``.
+PACKERS = {
+    "vertical": _dispatch_vertical,
+    "horizontal": _dispatch_horizontal,
+}
+_DEFAULT_PACKER_NAME = "vertical"
+
+
+def layout(node, ctx: LayoutContext) -> "Subtree":
+    """Dispatch to the packer registered for ``node``'s stored mode.
+
+    This is the single entry point used by every recursion site so that
+    nested mode subtrees compose naturally inside any parent. Unknown modes
+    fall back to the default packer.
+    """
     state = node_layout_state.read_node_state(node)
-    if state.get("mode") == "horizontal":
-        spine_ids = frozenset(_spine_set_from(node, ctx.all_member_ids))
-        existing = ctx.packer_params.get(PACKER_HORIZONTAL)
-        side_layout_mode = existing.side_layout_mode if existing else "recursive"
-        new_packer_params = dict(ctx.packer_params)
-        new_packer_params[PACKER_HORIZONTAL] = HorizontalParams(
-            spine_ids=spine_ids,
-            root_id=id(node),
-            side_layout_mode=side_layout_mode,
-        )
-        horizontal_ctx = replace(ctx, packer_params=new_packer_params)
-        return layout_horizontal(node, horizontal_ctx)
-    return layout_vertical(node, ctx)
+    mode = state.get("mode", _DEFAULT_PACKER_NAME)
+    packer = PACKERS.get(mode, PACKERS[_DEFAULT_PACKER_NAME])
+    return packer(node, ctx)
 
 
 # ---------------------------------------------------------------------------
