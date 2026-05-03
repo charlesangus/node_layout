@@ -62,11 +62,11 @@ class Subtree:
     nodes: dict[object, tuple[int, int]]
     root_node: object  # the actual Nuke node object at anchor_out
     anchor_in_per_slot: dict[int, tuple[int, int]] = field(default_factory=dict)
-    # Set of id(node) values for every node that ended up on a horizontal
-    # spine inside this subtree. Bubbles up through merges so the entry
-    # points can drive mode write-back from the layout result instead of
-    # mutating the layout context during recursion.
-    horizontal_ids: set = field(default_factory=set)
+    # Maps id(node) -> mode name (e.g. "horizontal") for every node placed
+    # by a non-default packer inside this subtree. Bubbles up through
+    # merges so entry points can drive mode write-back from the layout
+    # result instead of mutating the layout context during recursion.
+    mode_assignments: dict = field(default_factory=dict)
 
 
 def _translate(subtree: Subtree, dx: int, dy: int) -> Subtree:
@@ -88,7 +88,7 @@ def _translate(subtree: Subtree, dx: int, dy: int) -> Subtree:
         nodes=new_nodes,
         root_node=subtree.root_node,
         anchor_in_per_slot=new_anchors_in,
-        horizontal_ids=set(subtree.horizontal_ids),
+        mode_assignments=dict(subtree.mode_assignments),
     )
 
 
@@ -98,6 +98,12 @@ def _translate(subtree: Subtree, dx: int, dy: int) -> Subtree:
 
 @dataclass
 class LayoutContext:
+    """Shared per-call state used by every packer.
+
+    Discipline (see ``CLEAN_REWRITE_IMPLEMENTATION_PLAN.md``): only fields
+    consumed by all packers belong here. Per-packer state (e.g. horizontal
+    spine info) lives under ``packer_params`` keyed by packer name.
+    """
     snap_threshold: int
     node_count: int
     node_filter: Optional[set]
@@ -105,15 +111,16 @@ class LayoutContext:
     per_node_h_scale: dict
     per_node_v_scale: dict
     dimension_overrides: dict  # id(root) -> FreezeBlock
-    spine_set: Optional[set] = None  # for horizontal mode
-    horizontal_root_id: Optional[int] = None
-    side_layout_mode: str = "recursive"
     all_member_ids: set = field(default_factory=set)
     # Vertical gap between a side routing Dot's top and the bottom of its
     # upstream subtree's bbox. Constant per layout call: derived from
     # ``base_subtree_margin`` and the resolved scheme multiplier so every
     # side Dot in a single run uses the same spacing.
     side_dot_gap: int = 0
+    # Per-packer params keyed by packer name (e.g. ``HorizontalParams``
+    # under ``"horizontal"``). The shared context never reads these
+    # directly; each packer pulls its own params.
+    packer_params: dict = field(default_factory=dict)
 
     def scheme_for(self, node) -> float:
         return self.per_node_scheme.get(
@@ -230,21 +237,47 @@ def _spine_set_from(seed_node, all_member_ids):
     return spine
 
 
-def layout(node, ctx: LayoutContext) -> "Subtree":
-    """Dispatch to vertical or horizontal layout based on ``node``'s stored mode.
+def _dispatch_vertical(node, ctx: LayoutContext) -> "Subtree":
+    return layout_vertical(node, ctx)
 
-    This is the single entry point used by every recursion site so that nested
-    horizontal subtrees compose naturally inside vertical parents (and vice
-    versa).
+
+def _dispatch_horizontal(node, ctx: LayoutContext) -> "Subtree":
+    """Build HorizontalParams for ``node`` and call ``layout_horizontal``."""
+    from layout_contracts import PACKER_HORIZONTAL, HorizontalParams  # noqa: PLC0415
+
+    spine_ids = frozenset(_spine_set_from(node, ctx.all_member_ids))
+    existing = ctx.packer_params.get(PACKER_HORIZONTAL)
+    side_layout_mode = existing.side_layout_mode if existing else "recursive"
+    new_packer_params = dict(ctx.packer_params)
+    new_packer_params[PACKER_HORIZONTAL] = HorizontalParams(
+        spine_ids=spine_ids,
+        root_id=id(node),
+        side_layout_mode=side_layout_mode,
+    )
+    horizontal_ctx = replace(ctx, packer_params=new_packer_params)
+    return layout_horizontal(node, horizontal_ctx)
+
+
+# Per-node mode -> packer dispatcher. Adding a new mode is one new dispatch
+# function and one entry here. Unknown modes fall back to ``vertical``.
+PACKERS = {
+    "vertical": _dispatch_vertical,
+    "horizontal": _dispatch_horizontal,
+}
+_DEFAULT_PACKER_NAME = "vertical"
+
+
+def layout(node, ctx: LayoutContext) -> "Subtree":
+    """Dispatch to the packer registered for ``node``'s stored mode.
+
+    This is the single entry point used by every recursion site so that
+    nested mode subtrees compose naturally inside any parent. Unknown modes
+    fall back to the default packer.
     """
     state = node_layout_state.read_node_state(node)
-    if state.get("mode") == "horizontal":
-        spine_set = _spine_set_from(node, ctx.all_member_ids)
-        horizontal_ctx = replace(
-            ctx, spine_set=spine_set, horizontal_root_id=id(node),
-        )
-        return layout_horizontal(node, horizontal_ctx)
-    return layout_vertical(node, ctx)
+    mode = state.get("mode", _DEFAULT_PACKER_NAME)
+    packer = PACKERS.get(mode, PACKERS[_DEFAULT_PACKER_NAME])
+    return packer(node, ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -310,12 +343,12 @@ def _merge_translated(
     subtree: Subtree,
     dx: int,
     dy: int,
-    horizontal_ids: Optional[set] = None,
+    mode_assignments: Optional[dict] = None,
 ) -> tuple[int, int, int, int]:
     translated = _translate(subtree, dx, dy)
     target_nodes.update(translated.nodes)
-    if horizontal_ids is not None:
-        horizontal_ids.update(translated.horizontal_ids)
+    if mode_assignments is not None:
+        mode_assignments.update(translated.mode_assignments)
     return (
         min(bbox[0], translated.bbox[0]),
         min(bbox[1], translated.bbox[1]),
@@ -329,7 +362,7 @@ def _fold_freeze_block_geometry(
     ctx: LayoutContext,
     nodes_dict: dict[object, tuple[int, int]],
     bbox: tuple[int, int, int, int],
-    horizontal_ids: Optional[set] = None,
+    mode_assignments: Optional[dict] = None,
 ) -> tuple[int, int, int, int]:
     """Add a freeze block's rigid members and non-root external inputs.
 
@@ -372,7 +405,7 @@ def _fold_freeze_block_geometry(
             entry_subtree,
             entry_x,
             entry_y,
-            horizontal_ids,
+            mode_assignments,
         )
 
     block_left, block_top, block_right, block_bottom = _block_local_extents(block)
@@ -436,9 +469,9 @@ def _layout_side_dot(node, ctx: LayoutContext, pairs) -> Subtree:
     child_x = node_layout._center_x(upstream.screenWidth(), 0, dot_w)
     child_y = -gap - child.bbox[3]
     nodes_dict: dict[object, tuple[int, int]] = {node: (0, 0)}
-    horizontal_ids: set = set()
+    mode_assignments: dict = {}
     bbox = _merge_translated(
-        nodes_dict, (0, 0, dot_w, dot_h), child, child_x, child_y, horizontal_ids,
+        nodes_dict, (0, 0, dot_w, dot_h), child, child_x, child_y, mode_assignments,
     )
     return Subtree(
         bbox=bbox,
@@ -446,7 +479,7 @@ def _layout_side_dot(node, ctx: LayoutContext, pairs) -> Subtree:
         nodes=nodes_dict,
         root_node=node,
         anchor_in_per_slot={0: (child_x, child_y)},
-        horizontal_ids=horizontal_ids,
+        mode_assignments=mode_assignments,
     )
 
 
@@ -470,16 +503,16 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         # Members keep their stored relative offsets; non-root external input
         # subtrees are included in this local geometry.
         nodes = {block.root: (0, 0)}
-        horizontal_ids: set = set()
+        mode_assignments: dict = {}
         bbox = _fold_freeze_block_geometry(
-            block, ctx, nodes, _block_local_extents(block), horizontal_ids,
+            block, ctx, nodes, _block_local_extents(block), mode_assignments,
         )
         return Subtree(
             bbox=bbox,
             anchor_out=(0, 0),
             nodes=nodes,
             root_node=node,
-            horizontal_ids=horizontal_ids,
+            mode_assignments=mode_assignments,
         )
 
     if not pairs:
@@ -676,12 +709,12 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
     nodes_dict: dict[object, tuple[int, int]] = {node: (0, 0)}
     bbox_left, bbox_top, bbox_right, bbox_bottom = 0, 0, node_w, node_h
     anchor_in_per_slot: dict[int, tuple[int, int]] = {}
-    horizontal_ids: set = set()
+    mode_assignments: dict = {}
 
     for i, child in enumerate(child_subtrees):
         translated = _translate(child, x_positions[i], y_positions[i])
         nodes_dict.update(translated.nodes)
-        horizontal_ids.update(translated.horizontal_ids)
+        mode_assignments.update(translated.mode_assignments)
         bbox_left = min(bbox_left, translated.bbox[0])
         bbox_top = min(bbox_top, translated.bbox[1])
         bbox_right = max(bbox_right, translated.bbox[2])
@@ -695,7 +728,7 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         bbox_left, bbox_top, bbox_right, bbox_bottom = _fold_freeze_block_geometry(
             block, ctx, nodes_dict,
             (bbox_left, bbox_top, bbox_right, bbox_bottom),
-            horizontal_ids,
+            mode_assignments,
         )
 
     return Subtree(
@@ -704,7 +737,7 @@ def layout_vertical(node, ctx: LayoutContext) -> Subtree:
         nodes=nodes_dict,
         root_node=node,
         anchor_in_per_slot=anchor_in_per_slot,
-        horizontal_ids=horizontal_ids,
+        mode_assignments=mode_assignments,
     )
 
 
@@ -717,11 +750,22 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
     """Lay out a horizontal chain rooted at ``root``.
 
     The spine is the chain of ``input[0]`` ancestors whose ids are in
-    ``ctx.spine_set``.  ``root`` is the most-downstream spine node and is
-    placed at (0, 0) in the returned Subtree's local frame.  Earlier spine
-    nodes are placed leftward (more negative X).  Each spine node's side
-    inputs (slots >= 1) are laid out vertically above it.
+    ``params.spine_ids`` (where ``params`` is
+    ``ctx.packer_params[PACKER_HORIZONTAL]``).  ``root`` is the most-
+    downstream spine node and is placed at (0, 0) in the returned Subtree's
+    local frame.  Earlier spine nodes are placed leftward (more negative X).
+    Each spine node's side inputs (slots >= 1) are laid out vertically above
+    it.
     """
+    from layout_contracts import PACKER_HORIZONTAL  # noqa: PLC0415
+
+    params = ctx.packer_params.get(PACKER_HORIZONTAL)
+    if params is not None:
+        spine_set = set(params.spine_ids)
+        side_layout_mode = params.side_layout_mode
+    else:
+        spine_set = _spine_set_from(root, ctx.all_member_ids)
+        side_layout_mode = "recursive"
     prefs = node_layout_prefs.prefs_singleton
     # H-axis margins are scheme-independent everywhere else in the engine
     # (see ``node_layout._horizontal_margin``), so the spine step and the
@@ -734,9 +778,8 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
     # Build spine (rightmost first): root, root.input(0), input(0).input(0), ...
     spine_nodes = []
     cursor = root
-    spine_set = ctx.spine_set
     while cursor is not None:
-        if spine_set is not None and id(cursor) not in spine_set:
+        if id(cursor) not in spine_set:
             break
         spine_nodes.append(cursor)
         cursor = cursor.input(0)
@@ -744,9 +787,13 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
     # Side inputs affect the horizontal footprint of each spine node. Compute
     # them before placing the spine so adjacent spine sections are spaced by
     # their whole occupied bboxes, not just the spine tiles. Sub-recursions
-    # pop back to vertical-mode dispatch — clear the spine fields so a
+    # pop back to vertical-mode dispatch — clear the horizontal params so a
     # nested horizontal subtree below a side input rebuilds its own spine.
-    side_ctx = replace(ctx, spine_set=None, horizontal_root_id=None)
+    from layout_contracts import PACKER_HORIZONTAL as _PACKER_HORIZONTAL  # noqa: PLC0415
+    side_packer_params = {
+        k: v for k, v in ctx.packer_params.items() if k != _PACKER_HORIZONTAL
+    }
+    side_ctx = replace(ctx, packer_params=side_packer_params)
     h_gap = step_x
     side_layouts: list[list[tuple[int, object, Subtree]]] = []
     local_bboxes: list[tuple[int, int, int, int]] = []
@@ -767,7 +814,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                 continue
             child_subtree = (
                 _snapshot_existing_subtree(inp, side_ctx)
-                if ctx.side_layout_mode == "place_only"
+                if side_layout_mode == "place_only"
                 else layout(inp, side_ctx)
             )
             side_entries.append((slot, inp, child_subtree))
@@ -798,7 +845,9 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
     # Spine nodes themselves are the horizontal-mode set this subtree
     # contributes; side-input subtrees may add more if they contain nested
     # horizontal layouts.
-    horizontal_ids: set = {id(spine_node) for spine_node in spine_nodes}
+    mode_assignments: dict = {
+        id(spine_node): "horizontal" for spine_node in spine_nodes
+    }
 
     # Walk spine left to right (index 0 = rightmost root).
     # We place the root first, then each upstream spine node steps left.
@@ -820,7 +869,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
             block_nodes: dict[object, tuple[int, int]] = {spine_node: (0, 0)}
             block_bbox = _fold_freeze_block_geometry(
                 block, ctx, block_nodes, _block_local_extents(block),
-                horizontal_ids,
+                mode_assignments,
             )
             for member, (mx, my) in block_nodes.items():
                 nodes_dict[member] = (spine_x + mx, cur_y + my)
@@ -861,7 +910,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                 target_bbox_bottom - child_subtree.bbox[3],
             )
             nodes_dict.update(translated.nodes)
-            horizontal_ids.update(translated.horizontal_ids)
+            mode_assignments.update(translated.mode_assignments)
             bbox_l = min(bbox_l, translated.bbox[0])
             bbox_t = min(bbox_t, translated.bbox[1])
             bbox_r = max(bbox_r, translated.bbox[2])
@@ -877,7 +926,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                     target_bbox_bottom - child_subtree.bbox[3],
                 )
                 nodes_dict.update(translated.nodes)
-                horizontal_ids.update(translated.horizontal_ids)
+                mode_assignments.update(translated.mode_assignments)
                 bbox_l = min(bbox_l, translated.bbox[0])
                 bbox_t = min(bbox_t, translated.bbox[1])
                 bbox_r = max(bbox_r, translated.bbox[2])
@@ -902,7 +951,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         if zero_eligible:
             zero_subtree = (
                 _snapshot_existing_subtree(zero, side_ctx)
-                if ctx.side_layout_mode == "place_only"
+                if side_layout_mode == "place_only"
                 else layout(zero, side_ctx)
             )
             # Target: zero subtree's bbox right edge sits at leftmost_x - step_x.
@@ -934,7 +983,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
                 target_zero_root_y,
             )
             nodes_dict.update(translated.nodes)
-            horizontal_ids.update(translated.horizontal_ids)
+            mode_assignments.update(translated.mode_assignments)
             bbox_l = min(bbox_l, translated.bbox[0])
             bbox_t = min(bbox_t, translated.bbox[1])
             bbox_r = max(bbox_r, translated.bbox[2])
@@ -945,7 +994,7 @@ def layout_horizontal(root, ctx: LayoutContext) -> Subtree:
         anchor_out=(0, cur_y),
         nodes=nodes_dict,
         root_node=root,
-        horizontal_ids=horizontal_ids,
+        mode_assignments=mode_assignments,
     )
 
 
@@ -1016,9 +1065,13 @@ def _ensure_side_dots(roots, ctx: LayoutContext):
 
 
 def _ensure_leftmost_routing_dot_for_spine(root, ctx: LayoutContext, current_group):
-    spine = ctx.spine_set if ctx.spine_set is not None else _spine_set_from(
-        root, ctx.all_member_ids
-    )
+    from layout_contracts import PACKER_HORIZONTAL  # noqa: PLC0415
+
+    params = ctx.packer_params.get(PACKER_HORIZONTAL)
+    if params is not None and params.spine_ids is not None:
+        spine = set(params.spine_ids)
+    else:
+        spine = _spine_set_from(root, ctx.all_member_ids)
     cursor = root
     leftmost = None
     while cursor is not None and id(cursor) in spine:
@@ -1084,7 +1137,7 @@ def prepare_layout_graph(roots, ctx: LayoutContext, current_group, routing_mode=
 #   2. expand scope for freeze groups, build freeze blocks
 #   3. resolve per-node scheme/scale state
 #   4. mutate graph topology (insert routing dots) up front
-#   5. recurse: produce a Subtree with horizontal_ids carried on the result
+#   5. recurse: produce a Subtree with mode_assignments carried on the result
 #   6. translate the Subtree so the anchor node lands at its current xpos/ypos
 #   7. write per-node state (scheme + mode) back from the recursion result
 #   8. push surrounding DAG nodes to make room
@@ -1119,75 +1172,6 @@ def _resolve_per_node_state(nodes, scheme_multiplier, prefs,
         v_scale_map[id(node)] = stored["v_scale"]
 
 
-def _apply_subtree_anchored_at(subtree: Subtree, anchor_node):
-    """Translate the subtree so ``anchor_node`` ends at its current xpos/ypos.
-
-    Falls back to ``subtree.anchor_out`` when the anchor isn't in the node
-    dict (defensive — every recursion path returns the anchor in nodes).
-    """
-    local_x, local_y = subtree.nodes.get(anchor_node, subtree.anchor_out)
-    dx = anchor_node.xpos() - local_x
-    dy = anchor_node.ypos() - local_y
-    for obj, (lx, ly) in subtree.nodes.items():
-        obj.setXpos(lx + dx)
-        obj.setYpos(ly + dy)
-
-
-def _write_state(nodes, scheme_map, prefs, mode_for_node):
-    """Write scheme + mode back to each node's hidden state knob.
-
-    ``mode_for_node`` is a callable returning either ``"horizontal"`` or
-    ``None`` to leave the existing mode untouched.
-    """
-    for node in nodes:
-        stored = node_layout_state.read_node_state(node)
-        n_scheme = scheme_map.get(id(node), prefs.get("normal_multiplier"))
-        stored["scheme"] = node_layout_state.multiplier_to_scheme_name(
-            n_scheme, prefs,
-        )
-        new_mode = mode_for_node(node)
-        if new_mode is not None:
-            stored["mode"] = new_mode
-        node_layout_state.write_node_state(node, stored)
-
-
-def _push_after(all_after_nodes, bbox_before, current_group, freeze_blocks):
-    """Run ``push_nodes_to_make_room`` for the post-layout bounding box.
-
-    ``all_after_nodes`` is augmented with any freeze-block members that
-    weren't part of the recursion result so the push correctly skips over
-    rigid block geometry.
-    """
-    augmented = set(all_after_nodes)
-    for block in freeze_blocks:
-        augmented.update(block.members)
-    bbox_after = node_layout.compute_node_bounding_box(list(augmented))
-    if bbox_before is None or bbox_after is None:
-        return
-    node_layout.push_nodes_to_make_room(
-        {id(n) for n in augmented}, bbox_before, bbox_after,
-        current_group=current_group,
-        freeze_blocks=freeze_blocks,
-    )
-
-
-@contextlib.contextmanager
-def _undo_block(label):
-    """Context manager that wraps a block in a Nuke undo group.
-
-    Cancels the undo group on exception, ends it cleanly otherwise.
-    """
-    nuke.Undo.name(label)
-    nuke.Undo.begin()
-    try:
-        yield
-    except Exception:
-        nuke.Undo.cancel()
-        raise
-    else:
-        nuke.Undo.end()
-
-
 def _setup_freeze(scope_nodes, current_group):
     """Expand the scope for freeze groups and build FreezeBlock objects.
 
@@ -1208,287 +1192,76 @@ def _setup_freeze(scope_nodes, current_group):
 
 
 class BboxEngine:
+    """Thin compatibility shim over ``layout_orchestrator``.
 
-    # ------------------------------------------------------------------
-    # layout_upstream — selected node anchors, all upstream gets recomposed.
-    # ------------------------------------------------------------------
+    Public commands now build a ``LayoutRequest`` and call
+    ``layout_orchestrator.run_layout``. The four methods below preserve the
+    pre-refactor surface so existing tests and ``node_layout`` entry points
+    keep working without churn.
+    """
+
     def layout_upstream(self, scheme_multiplier=None):
-        node_layout._clear_color_cache()
+        from layout_contracts import LayoutRequest  # noqa: PLC0415
+        from layout_orchestrator import run_layout  # noqa: PLC0415
+
         current_group = nuke.lastHitGroup()
         root = nuke.selectedNode()
-
-        with _undo_block("Layout Upstream (bbox)"), current_group:
-            self._run_upstream(root, scheme_multiplier, current_group)
-
-    def _run_upstream(self, root, scheme_multiplier, current_group):
-        all_upstream = node_layout.collect_subtree_nodes(root)
-        bbox_before = node_layout.compute_node_bounding_box(all_upstream)
-
-        _, freeze_blocks, dimension_overrides, all_non_root_ids, all_member_ids = (
-            _setup_freeze(all_upstream, current_group)
+        request = LayoutRequest(
+            command="layout_upstream",
+            scheme_multiplier=scheme_multiplier,
+            undo_label="Layout Upstream (bbox)",
+            scope_kind="upstream",
         )
+        return run_layout(request, [root], current_group)
 
-        snap = node_layout.get_dag_snap_threshold()
-        prefs = node_layout_prefs.prefs_singleton
-
-        node_filter = (
-            {n for n in all_upstream if id(n) not in all_non_root_ids}
-            if all_non_root_ids else None
-        )
-
-        per_node_scheme: dict = {}
-        per_node_h_scale: dict = {}
-        per_node_v_scale: dict = {}
-        _resolve_per_node_state(
-            all_upstream, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        ctx = LayoutContext(
-            snap_threshold=snap,
-            node_count=len(all_upstream),
-            node_filter=node_filter,
-            per_node_scheme=per_node_scheme,
-            per_node_h_scale=per_node_h_scale,
-            per_node_v_scale=per_node_v_scale,
-            dimension_overrides=dimension_overrides,
-            all_member_ids=all_member_ids,
-            side_dot_gap=_resolve_side_dot_gap(snap, scheme_multiplier),
-        )
-
-        prepare_layout_graph([root], ctx, current_group)
-        upstream_after_mutation = node_layout.collect_subtree_nodes(root)
-        ctx.node_count = len(upstream_after_mutation)
-        if all_non_root_ids:
-            ctx.node_filter = {
-                n for n in upstream_after_mutation
-                if id(n) not in all_non_root_ids
-            }
-        _resolve_per_node_state(
-            upstream_after_mutation, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        subtree = layout(root, ctx)
-        _apply_subtree_anchored_at(subtree, root)
-
-        final_nodes = list(subtree.nodes.keys())
-        horizontal_ids = subtree.horizontal_ids
-        _write_state(
-            final_nodes, per_node_scheme, prefs,
-            mode_for_node=lambda n: (
-                "horizontal" if id(n) in horizontal_ids else "vertical"
-            ),
-        )
-
-        _push_after(final_nodes, bbox_before, current_group, freeze_blocks)
-
-    # ------------------------------------------------------------------
-    # layout_selected — multiple selected roots, each laid out independently
-    # within the selection.  Simplification: run vertical recursion per root
-    # using the selected set as node_filter.
-    # ------------------------------------------------------------------
     def layout_selected(self, scheme_multiplier=None):
-        node_layout._clear_color_cache()
+        from layout_contracts import LayoutRequest  # noqa: PLC0415
+        from layout_orchestrator import run_layout  # noqa: PLC0415
+
         current_group = nuke.lastHitGroup()
         selected = nuke.selectedNodes()
         if len(selected) < 2:
-            return
-
-        with _undo_block("Layout Selected (bbox)"), current_group:
-            self._run_selected(selected, scheme_multiplier, current_group)
-
-    def _run_selected(self, selected, scheme_multiplier, current_group):
-        expanded, freeze_blocks, dimension_overrides, all_non_root_ids, all_member_ids = (
-            _setup_freeze(selected, current_group)
+            return None
+        request = LayoutRequest(
+            command="layout_selected",
+            scheme_multiplier=scheme_multiplier,
+            undo_label="Layout Selected (bbox)",
+            scope_kind="selected",
         )
-        bbox_before = node_layout.compute_node_bounding_box(expanded)
+        return run_layout(request, selected, current_group)
 
-        node_filter = set(expanded)
-        selected = list(node_filter)
-        if all_non_root_ids:
-            node_filter = {n for n in node_filter if id(n) not in all_non_root_ids}
-            selected = [n for n in selected if id(n) not in all_non_root_ids]
-
-        roots = node_layout.find_selection_roots(selected)
-        roots.sort(key=lambda n: n.xpos())
-
-        prefs = node_layout_prefs.prefs_singleton
-        per_node_scheme: dict = {}
-        per_node_h_scale: dict = {}
-        per_node_v_scale: dict = {}
-        _resolve_per_node_state(
-            selected, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        snap = node_layout.get_dag_snap_threshold()
-        ctx = LayoutContext(
-            snap_threshold=snap,
-            node_count=len(selected),
-            node_filter=node_filter,
-            per_node_scheme=per_node_scheme,
-            per_node_h_scale=per_node_h_scale,
-            per_node_v_scale=per_node_v_scale,
-            dimension_overrides=dimension_overrides,
-            all_member_ids=all_member_ids,
-            side_dot_gap=_resolve_side_dot_gap(snap, scheme_multiplier),
-        )
-        prepare_layout_graph(roots, ctx, current_group)
-        mutated_selected: set = set()
-        for root in roots:
-            mutated_selected.update(
-                node_layout.collect_subtree_nodes(root, ctx.node_filter)
-            )
-        ctx.node_count = len(mutated_selected) or len(selected)
-        _resolve_per_node_state(
-            mutated_selected, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        all_horizontal_ids: set = set()
-        placed_nodes: set = set()
-        for root in roots:
-            subtree = layout(root, ctx)
-            placed_nodes.update(subtree.nodes.keys())
-            all_horizontal_ids.update(subtree.horizontal_ids)
-            _apply_subtree_anchored_at(subtree, root)
-
-        all_after_nodes = set(selected) | mutated_selected | placed_nodes
-        _write_state(
-            all_after_nodes, per_node_scheme, prefs,
-            mode_for_node=lambda n: (
-                "horizontal" if id(n) in all_horizontal_ids else "vertical"
-            ),
-        )
-
-        _push_after(all_after_nodes, bbox_before, current_group, freeze_blocks)
-
-    # ------------------------------------------------------------------
-    # layout_selected_horizontal — selection laid out as horizontal chain.
-    # ------------------------------------------------------------------
     def layout_selected_horizontal(self, scheme_multiplier=None):
-        self._run_selected_horizontal(
-            scheme_multiplier, side_layout_mode="recursive",
-            undo_label="Layout Selected Horizontal (bbox)",
-        )
+        from layout_contracts import LayoutRequest  # noqa: PLC0415
+        from layout_orchestrator import run_layout  # noqa: PLC0415
 
-    def layout_selected_horizontal_place_only(self, scheme_multiplier=None):
-        self._run_selected_horizontal(
-            scheme_multiplier, side_layout_mode="place_only",
-            undo_label="Layout Selected Horizontal Place-Only (bbox)",
-        )
-
-    def _run_selected_horizontal(self, scheme_multiplier, side_layout_mode, undo_label):
-        node_layout._clear_color_cache()
         current_group = nuke.lastHitGroup()
         selected = nuke.selectedNodes()
         if not selected:
-            return
-
-        with _undo_block(undo_label), current_group:
-            self._run_selected_horizontal_impl(
-                selected, scheme_multiplier, side_layout_mode, current_group,
-            )
-
-    def _run_selected_horizontal_impl(
-        self, selected, scheme_multiplier, side_layout_mode, current_group,
-    ):
-        # Pass 1: detect freeze groups in the selection so we can identify
-        # non-root members and pick a chain root that isn't one of them.
-        expanded, _, _, sel_non_root_ids, _ = _setup_freeze(selected, current_group)
-        bbox_before = node_layout.compute_node_bounding_box(expanded)
-
-        node_filter = set(expanded)
-        selected = list(node_filter)
-        if sel_non_root_ids:
-            node_filter = {n for n in node_filter if id(n) not in sel_non_root_ids}
-            selected = [n for n in selected if id(n) not in sel_non_root_ids]
-
-        roots = node_layout.find_selection_roots(selected)
-        if not roots:
-            return
-        roots.sort(key=lambda n: -n.xpos())  # rightmost wins as chain root
-        root = roots[0]
-
-        # Build the spine: walk input(0) through the selection.
-        spine_set: set = set()
-        cursor = root
-        while cursor is not None and cursor in node_filter:
-            spine_set.add(id(cursor))
-            cursor = cursor.input(0)
-
-        # Expand scope to the spine's full upstream so side inputs and the
-        # leftmost spine node's input(0) get laid out by the recursion.
-        wider_scope = set(node_filter)
-        for sid in spine_set:
-            spine_node_obj = next((n for n in selected if id(n) == sid), None)
-            if spine_node_obj is not None:
-                wider_scope.update(node_layout.collect_subtree_nodes(spine_node_obj))
-
-        # Pass 2: re-detect freeze groups against the wider scope. Blocks
-        # living entirely upstream of the spine were invisible to pass 1
-        # but must be folded as opaque leaves so the recursion preserves
-        # rigid offsets. ``_setup_freeze`` also expands partial blocks.
-        wider_filter, freeze_blocks, dim_overrides, all_non_root_ids, all_member_ids = (
-            _setup_freeze(wider_scope, current_group)
-        )
-        wider_filter = set(wider_filter)
-        if all_non_root_ids:
-            wider_filter = {
-                n for n in wider_filter if id(n) not in all_non_root_ids
-            }
-            selected = [n for n in selected if id(n) not in all_non_root_ids]
-
-        prefs = node_layout_prefs.prefs_singleton
-        per_node_scheme: dict = {}
-        per_node_h_scale: dict = {}
-        per_node_v_scale: dict = {}
-        _resolve_per_node_state(
-            wider_filter, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        snap = node_layout.get_dag_snap_threshold()
-        ctx = LayoutContext(
-            snap_threshold=snap,
-            node_count=len(wider_filter),
-            node_filter=wider_filter,
-            per_node_scheme=per_node_scheme,
-            per_node_h_scale=per_node_h_scale,
-            per_node_v_scale=per_node_v_scale,
-            dimension_overrides=dim_overrides,
-            spine_set=spine_set,
-            horizontal_root_id=id(root),
-            side_layout_mode=side_layout_mode,
-            all_member_ids=all_member_ids,
-            side_dot_gap=_resolve_side_dot_gap(snap, scheme_multiplier),
-        )
-
-        prepare_layout_graph(
-            [root], ctx, current_group, routing_mode="selected_horizontal",
-        )
-        mutated_nodes = set(_walk_mutable_graph([root], ctx))
-        _resolve_per_node_state(
-            mutated_nodes, scheme_multiplier, prefs,
-            per_node_scheme, per_node_h_scale, per_node_v_scale,
-        )
-
-        subtree = layout_horizontal(root, ctx)
-        _apply_subtree_anchored_at(subtree, root)
-
-        all_after_nodes = set(selected) | set(subtree.nodes.keys())
-        selected_ids = {id(n) for n in selected}
-
-        def _mode_for(node):
-            if id(node) in spine_set:
-                return "horizontal"
-            if id(node) in selected_ids:
-                return "vertical"
             return None
-
-        _write_state(
-            all_after_nodes, per_node_scheme, prefs, mode_for_node=_mode_for,
+        request = LayoutRequest(
+            command="layout_selected_horizontal",
+            scheme_multiplier=scheme_multiplier,
+            undo_label="Layout Selected Horizontal (bbox)",
+            scope_kind="selected_horizontal",
+            routing_mode="selected_horizontal",
+            selected_horizontal_side_mode="recursive",
         )
+        return run_layout(request, selected, current_group)
 
-        _push_after(all_after_nodes, bbox_before, current_group, freeze_blocks)
+    def layout_selected_horizontal_place_only(self, scheme_multiplier=None):
+        from layout_contracts import LayoutRequest  # noqa: PLC0415
+        from layout_orchestrator import run_layout  # noqa: PLC0415
+
+        current_group = nuke.lastHitGroup()
+        selected = nuke.selectedNodes()
+        if not selected:
+            return None
+        request = LayoutRequest(
+            command="layout_selected_horizontal_place_only",
+            scheme_multiplier=scheme_multiplier,
+            undo_label="Layout Selected Horizontal Place-Only (bbox)",
+            scope_kind="selected_horizontal",
+            routing_mode="selected_horizontal",
+            selected_horizontal_side_mode="place_only",
+        )
+        return run_layout(request, selected, current_group)
