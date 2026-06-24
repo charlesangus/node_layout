@@ -102,3 +102,9 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Build harness — generated artifacts (not committed)
+docs/manual.pdf
+docs/intermediate/
+*.pdf
+*.stub
