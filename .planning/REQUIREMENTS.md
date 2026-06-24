@@ -1,115 +1,79 @@
-# Requirements: node_layout
+# Requirements — v1.5 Automated Documentation
 
-**Defined:** 2026-03-18
-**Core Value:** Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave.
+**Milestone goal:** A local, single-command pipeline that programmatically generates demo DAG scenes from node_layout, captures them via `nuke-docs-screenshotter`, and assembles a hierarchical tutorial + reference manual covering all functionality — output as markdown (committed PNGs) and PDF (pandoc/LaTeX build artifact).
 
-## v1.4 Requirements
+**Automation boundary:** Local-only. Screenshot capture requires an interactive Nuke GUI license, so nothing doc-related runs in GitHub Actions CI (consistent with the existing "no headless Nuke in CI" decision). The markdown→PDF stage needs only pandoc + LaTeX and can run anywhere, but is invoked locally as part of the same build command.
 
-Requirements for the Leader Key milestone. Phases continue from v1.3 (starting at Phase 17).
+**Sequencing principle:** The build harness (Makefile) is scaffolded up front and each subsequent phase wires its stage into it, so every stage is testable as it lands rather than integrated all at once.
 
-### Leader Mode
+---
 
-- [x] **LEAD-01**: Shift+E arms leader mode (replaces the existing Layout Upstream shortcut)
-- [x] **LEAD-02**: Pressing an unrecognized key cancels leader mode; the key event is consumed, not forwarded to Nuke
-- [x] **LEAD-03**: Any mouse click cancels leader mode
-- [x] **LEAD-04**: Leader mode is not armed if a dialog, text field, or non-DAG widget has keyboard focus at the time of Shift+E
+## v1.5 Requirements
 
-### Command Dispatch
+### Build Pipeline (BUILD)
+- [ ] **BUILD-01**: A single local command (Makefile) runs the full chain — generate scenes → capture screenshots → assemble markdown → build PDF. The Makefile is scaffolded first (skeleton with stage targets) and extended incrementally as each stage is implemented.
+- [ ] **BUILD-02**: The build command and its prerequisites (Nuke, `nuke-docs-screenshotter`, pandoc, LaTeX) are documented.
+- [ ] **BUILD-03**: Stages can run independently — e.g. rebuild the PDF from committed PNGs without re-capturing — for the no-Nuke case.
 
-- [x] **DISP-01**: V dispatches vertical layout — context-aware: 1 node selected → layout upstream; 2+ nodes → layout selection — then exits leader mode
-- [x] **DISP-02**: Z dispatches horizontal layout then exits leader mode
-- [x] **DISP-03**: F toggles freeze/unfreeze for selected nodes based on their current freeze state, then exits leader mode
-- [x] **DISP-04**: C removes selected nodes from their freeze group then exits leader mode
-- [x] **DISP-05**: W/A/S/D dispatch node movement in the corresponding direction and keep leader mode active for chained input
-- [x] **DISP-06**: Q dispatches scale down (shrink) and keeps leader mode active
-- [x] **DISP-07**: E dispatches scale up (expand) and keeps leader mode active
-- [x] **DISP-08**: Auto-repeat key events (OS key-hold) are discarded — each step requires a deliberate keypress
+### Demo Scene Generation (SCENE)
+- [ ] **SCENE-01**: A node_layout routine programmatically builds a demo `.nk` script containing one `screenshot:`-labelled backdrop per documented feature.
+- [ ] **SCENE-02**: Each backdrop's slug maps deterministically to a feature so captured PNG filenames are stable across regenerations.
+- [ ] **SCENE-03**: Generated scenes cover all functionality — vertical / horizontal / selected layout, multi-input fan alignment, mask placement, shrink/expand axis modes, freeze/unfreeze, every leader-key command, and prefs schemes.
+- [ ] **SCENE-04**: Where a command transforms a DAG, the scene presents before/after states so the screenshot illustrates the effect.
 
-### Overlay
+### Screenshot Capture (CAP)
+- [ ] **CAP-01**: A documented setup step installs `nuke-docs-screenshotter` (the `nuke_dag_capture_auto` CLI) as a build-time dependency.
+- [ ] **CAP-02**: The pipeline invokes `nuke_dag_capture_auto` on the generated demo `.nk` to produce one PNG per backdrop into a docs image directory.
+- [ ] **CAP-03**: Captured PNGs are committed to the repo so docs and PDF rebuild without a Nuke license.
 
-- [x] **OVRL-01**: An icon-style keyboard overlay is displayed over the active DAG on leader arm, after the hint popup delay
-- [x] **OVRL-02**: The overlay shows only the active command keys with their action labels
-- [x] **OVRL-03**: The overlay does not steal keyboard focus from the DAG
-- [x] **OVRL-04**: The overlay is dismissed when leader mode exits
+### Documentation Content (DOC)
+- [ ] **DOC-01**: A top-level overview introduces node_layout's main functions hierarchically.
+- [ ] **DOC-02**: A tutorial/walkthrough guides a new user through common workflows (install, first layout, leader key, prefs).
+- [ ] **DOC-03**: A reference section documents every menu command with a description and screenshot.
+- [ ] **DOC-04**: The reference documents every leader-key binding (Shift+E entry plus V/Z/F/C/W/A/S/D/Q/E).
+- [ ] **DOC-05**: The reference documents every preference in the prefs dialog with its default and effect.
+- [ ] **DOC-06**: Markdown embeds the captured PNGs and renders correctly on GitHub.
 
-### Preferences
+### PDF Build (PDF)
+- [ ] **PDF-01**: A pandoc + LaTeX build converts the markdown source into a single PDF.
+- [ ] **PDF-02**: The PDF preserves document hierarchy (table of contents, nested sections) and embedded screenshots.
+- [ ] **PDF-03**: The PDF is produced as a build artifact (not committed), suitable for attaching to a GitHub Release.
 
-- [x] **PREF-01**: A "hint popup delay (ms)" preference is added with default 0
-- [x] **PREF-02**: The hint popup delay preference is exposed in the preferences dialog
+---
 
-## v1.3 Requirements (Complete)
+## Future Requirements (Deferred)
 
-Requirements for the Freeze Layout milestone.
-
-### Freeze Commands
-
-- [x] **FRZE-01**: User can freeze selected nodes into a named group via "Freeze Selected" menu command (with keyboard shortcut)
-- [x] **FRZE-02**: User can unfreeze selected nodes via "Unfreeze Selected" menu command (with keyboard shortcut)
-- [x] **FRZE-03**: Freeze group UUID is stored as an invisible knob on the existing hidden layout tab; no visual indicator appears in the DAG
-
-### Layout Integration
-
-- [x] **FRZE-04**: Layout crawl runs a preprocessing step that detects all freeze groups before any node positioning begins (analogous to existing horizontal block detection)
-- [x] **FRZE-05**: During preprocessing, nodes topologically inserted between frozen nodes in the DAG auto-join the freeze group (no real-time callbacks; resolved at crawl time only)
-- [x] **FRZE-06**: Layout positions a frozen block as a unit — the root node (most downstream node in the block) is placed by the layout algorithm and all other block nodes are repositioned to maintain their original relative offsets
-- [x] **FRZE-07**: Push-away (expand) treats a frozen block's bounding box as a single rigid obstacle; the entire block shifts as a unit when pushed
-
-## Future Requirements
-
-### Potential v1.5+
-
-- Freeze group visualization (e.g. overlay or node tint) — explicitly deferred; no DAG clutter in v1.3
-- Per-group freeze label / name — UUID is sufficient for v1.3 identity
-- Freeze membership query command ("which group is this node in?") — defer until user need is established
-- Configurable leader key — first-class keymap config is a larger UX system; hardcoded Shift+E sufficient for v1.4
-- Multi-character leader sequences (e.g. Shift+E, L, 1 for "layout scheme compact")
+- CI integration of the doc build — deferred; requires a headless Nuke license, which the project does not have.
+- HTML / web documentation target — markdown + PDF are sufficient for v1.5.
 
 ## Out of Scope
 
-| Feature | Reason |
-|---------|--------|
-| Real-time auto-join callbacks | Nuke callback overhead and complexity; preprocessing at crawl time is sufficient |
-| Visual freeze indicator in DAG | User prefers no DAG clutter; state is in hidden knobs |
-| Nested freeze groups | Not needed; single-level grouping covers all intended use cases |
-| Cross-script freeze state | Freeze groups are per-session layout artifacts; not intended to persist across script loads differently from other state |
-| Timeout-based leader cancellation | User explicitly rejected this — cancellation is key/click only |
-| Custom keybindings via prefs dialog | Out of scope for v1.4; hardcoded keymap is sufficient |
+- Hosting docs on a website / ReadTheDocs — markdown renders on GitHub; PDF attaches to releases.
+- Animated GIF or video capture — `nuke-docs-screenshotter` produces still PNGs only.
+- Documenting internal/private functions — docs cover user-facing functionality, not the source API.
+
+---
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FRZE-01 | Phase 15 | Complete |
-| FRZE-02 | Phase 15 | Complete |
-| FRZE-03 | Phase 15 | Complete |
-| FRZE-04 | Phase 16 | Complete |
-| FRZE-05 | Phase 16 | Complete |
-| FRZE-06 | Phase 16 | Complete |
-| FRZE-07 | Phase 16 | Complete |
-| PREF-01 | Phase 17 | Complete |
-| PREF-02 | Phase 17 | Complete |
-| OVRL-01 | Phase 18 | Complete |
-| OVRL-02 | Phase 18 | Complete |
-| OVRL-03 | Phase 18 | Complete |
-| OVRL-04 | Phase 18 | Complete |
-| LEAD-02 | Phase 19 | Complete |
-| LEAD-03 | Phase 19 | Complete |
-| LEAD-04 | Phase 19 | Complete |
-| DISP-01 | Phase 19 | Complete |
-| DISP-02 | Phase 19 | Complete |
-| DISP-03 | Phase 19 | Complete |
-| DISP-04 | Phase 19 | Complete |
-| DISP-05 | Phase 20 | Complete |
-| DISP-06 | Phase 20 | Complete |
-| DISP-07 | Phase 20 | Complete |
-| DISP-08 | Phase 20 | Complete |
-| LEAD-01 | Phase 21 | Complete |
-
-**Coverage:**
-- v1.4 requirements: 18 total
-- Mapped to phases: 18
-- Unmapped: 0 ✓
-
----
-*Requirements defined: 2026-03-18*
-*Last updated: 2026-03-29 after v1.4 roadmap creation*
+| BUILD-01 | Phase 22 | Pending |
+| SCENE-01 | Phase 23 | Pending |
+| SCENE-02 | Phase 23 | Pending |
+| SCENE-03 | Phase 23 | Pending |
+| SCENE-04 | Phase 23 | Pending |
+| CAP-01 | Phase 23 | Pending |
+| CAP-02 | Phase 24 | Pending |
+| CAP-03 | Phase 24 | Pending |
+| DOC-01 | Phase 25 | Pending |
+| DOC-02 | Phase 25 | Pending |
+| DOC-03 | Phase 25 | Pending |
+| DOC-04 | Phase 25 | Pending |
+| DOC-05 | Phase 25 | Pending |
+| DOC-06 | Phase 25 | Pending |
+| PDF-01 | Phase 26 | Pending |
+| PDF-02 | Phase 26 | Pending |
+| PDF-03 | Phase 26 | Pending |
+| BUILD-02 | Phase 26 | Pending |
+| BUILD-03 | Phase 26 | Pending |

@@ -8,6 +8,23 @@ node_layout is a Nuke plugin that automatically lays out DAG node trees with int
 
 Layout operations must be reliable, undoable, and configurable — users need to trust the tool won't silently misbehave and need to be able to undo when the result isn't what they wanted.
 
+## Current Milestone: v1.5 Automated Documentation
+
+**Goal:** A local, single-command pipeline that programmatically generates demo DAG scenes from node_layout, captures them via `nuke-docs-screenshotter`, and assembles a hierarchical tutorial + reference manual covering all functionality — output as markdown (committed PNGs) and PDF (pandoc/LaTeX build artifact).
+
+**Target features:**
+- A node_layout routine that programmatically builds demo `.nk` scenes with `screenshot:`-labelled backdrops, one per feature, so scenes regenerate from code and never drift.
+- Integration with the `nuke_dag_capture_auto` CLI to capture those backdrops into committed PNGs.
+- Tutorial + reference documentation: overview of main functions → guided walkthrough → complete reference for every command, leader key, and preference.
+- Markdown source embedding the committed PNGs (viewable on GitHub).
+- PDF build via pandoc + LaTeX, treated as a build artifact (release-attachable, not committed).
+- A single local build command orchestrating the whole chain: generate scenes → capture → assemble markdown → build PDF.
+
+**Key context / constraints:**
+- Screenshot capture requires an interactive Nuke GUI license → the pipeline is local-only; nothing doc-related runs in GitHub Actions CI (consistent with the existing "no headless Nuke in CI" decision).
+- New build-time tooling: `nuke-docs-screenshotter` (installs `nuke_dag_capture_auto`, zero runtime pip deps), pandoc, and a LaTeX distribution (PDF only).
+- Phase numbering continues from v1.4 (last phase 21) → v1.5 starts at Phase 22.
+
 ## Requirements
 
 ### Validated
@@ -75,9 +92,9 @@ Layout operations must be reliable, undoable, and configurable — users need to
 
 ### Active
 
-<!-- v1.5+ Future Requirements -->
+<!-- v1.5 Automated Documentation — requirements being defined -->
 
-(None defined yet — ready for requirements gathering in next milestone)
+(Defining requirements for v1.5 Automated Documentation — see REQUIREMENTS.md)
 
 ### Out of Scope
 
@@ -179,5 +196,22 @@ Sibling project Labelmaker uses an identical prefs pattern: `labelmaker_prefs.py
 
 **Phases:** 15–16 (2 phases, 6 plans)
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-04-01 after v1.4 Leader Key completion*
+*Last updated: 2026-06-23 — started milestone v1.5 Automated Documentation*

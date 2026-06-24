@@ -7,6 +7,7 @@
 - ✅ **v1.2 CI/CD** — Phases 13-14 (shipped 2026-03-18)
 - ✅ **v1.3 Freeze Layout** — Phases 15-16 (shipped 2026-03-20)
 - ✅ **v1.4 Leader Key** — Phases 17-21 (shipped 2026-04-01)
+- 🔜 **v1.5 Automated Documentation** — Phases 22-26
 
 ## Phases
 
@@ -73,9 +74,19 @@ Full archive: `.planning/milestones/v1.4-ROADMAP.md`
 
 </details>
 
+### 🔜 v1.5 Automated Documentation (Phases 22-26)
+
+**Milestone Goal:** A local, single-command pipeline that programmatically generates demo DAG scenes from node_layout, captures them via `nuke-docs-screenshotter`, and assembles a hierarchical tutorial + reference manual covering all functionality — output as markdown (committed PNGs) and PDF (pandoc/LaTeX build artifact).
+
+- [ ] **Phase 22: Build Harness Skeleton** - Scaffold the Makefile up front with one target per pipeline stage, each a testable no-op placeholder
+- [ ] **Phase 23: Demo Scene Generation** - A node_layout routine programmatically builds a demo `.nk` with one `screenshot:`-labelled backdrop per feature, wired into the `scenes` Makefile target
+- [ ] **Phase 24: Screenshot Capture** - The `capture` Makefile target runs `nuke_dag_capture_auto` on the demo `.nk` to emit committed PNGs
+- [ ] **Phase 25: Documentation Content** - The `docs` Makefile target assembles the tutorial + reference markdown embedding the captured PNGs
+- [ ] **Phase 26: PDF Build & Finalization** - The `pdf` Makefile target builds the PDF via pandoc + LaTeX; independent stage invocation and prerequisites are documented
+
 ## Phase Details
 
-(v1.4 phase details archived to `.planning/milestones/v1.4-ROADMAP.md` — see archive for full phase breakdown)
+(v1.0–v1.3 phase details archived to their respective `.planning/milestones/vX.Y-ROADMAP.md` files)
 
 ### Phase 15: Freeze State & Commands
 **Goal**: Users can freeze and unfreeze node groups, with group membership persisted invisibly in node state
@@ -109,7 +120,87 @@ Plans:
 
 (Phase details for v1.4 archived to `.planning/milestones/v1.4-ROADMAP.md`)
 
+### Phase 22: Build Harness Skeleton
+**Goal**: A Makefile exists at the repo root with one target per pipeline stage (`scenes`, `capture`, `docs`, `pdf`) plus an `all` target chaining them in dependency order. Each stage target is initially a testable placeholder, establishing the harness that later phases wire real work into.
+**Depends on**: Phase 21 (v1.4 complete)
+**Requirements**: BUILD-01
+**Success Criteria** (what must be TRUE):
+  1. Running `make` (or `make all`) from the repo root succeeds and visibly invokes each stage target in order: `scenes` → `capture` → `docs` → `pdf`
+  2. Each stage can be run independently by name (e.g. `make scenes`, `make pdf`) and reports which stage it is running
+  3. `make help` (or `make` with no real work) lists every available target so a contributor can discover the pipeline stages
+  4. The Makefile declares inter-stage dependencies so that a downstream target triggers its upstream prerequisites rather than running them all unconditionally
+**Plans**: TBD
+
+Plans:
+- [ ] 22-01: Author Makefile skeleton with stage targets, `all` chain, dependency wiring, and a `help` target
+
+### Phase 23: Demo Scene Generation
+**Goal**: A node_layout routine programmatically builds a demo `.nk` script containing one `screenshot:`-labelled backdrop per documented feature, with deterministic per-feature slugs and before/after framing where a command transforms the DAG. The `scenes` Makefile target invokes this routine so demo scenes regenerate from code and never drift.
+**Depends on**: Phase 22
+**Requirements**: SCENE-01, SCENE-02, SCENE-03, SCENE-04, CAP-01
+**Success Criteria** (what must be TRUE):
+  1. Running `make scenes` produces a demo `.nk` file on disk containing one `screenshot:`-labelled backdrop per documented feature
+  2. `nuke_dag_capture_auto --list` (or equivalent) on the generated `.nk` enumerates a stable, deterministic slug for every feature, and re-running `make scenes` reproduces the identical slug set (no drift)
+  3. The generated backdrops collectively cover all documented functionality — vertical / horizontal / selected layout, multi-input fan alignment, mask placement, shrink/expand axis modes, freeze/unfreeze, every leader-key command, and prefs schemes
+  4. For commands that transform a DAG, the scene presents distinct before-state and after-state backdrops so the eventual screenshot illustrates the effect
+  5. The documented setup step installs `nuke-docs-screenshotter` (providing the `nuke_dag_capture_auto` CLI) as a build-time dependency
+**Plans**: TBD
+**UI hint**: yes
+
+Plans:
+- [ ] 23-01: Demo-scene builder routine in node_layout — backdrop-per-feature with deterministic slugs and before/after states
+- [ ] 23-02: Feature-coverage map + `nuke-docs-screenshotter` setup step; wire the routine into the `scenes` Makefile target
+
+### Phase 24: Screenshot Capture
+**Goal**: The `capture` Makefile target runs `nuke_dag_capture_auto` against the generated demo `.nk`, emitting one PNG per backdrop into a docs image directory, and those PNGs are committed so docs and the PDF rebuild without a Nuke license.
+**Depends on**: Phase 23
+**Requirements**: CAP-02, CAP-03
+**Success Criteria** (what must be TRUE):
+  1. Running `make capture` invokes `nuke_dag_capture_auto` on the demo `.nk` and writes one PNG per `screenshot:` backdrop into the docs image directory
+  2. Each captured PNG filename matches its backdrop slug, so the image set is predictable and stable across regenerations
+  3. The captured PNGs are committed to the repo, allowing later stages to run on a machine without a Nuke license
+**Plans**: TBD
+**UI hint**: yes
+
+Plans:
+- [ ] 24-01: Wire `nuke_dag_capture_auto` invocation into the `capture` Makefile target; commit the generated PNG set into the docs image directory
+
+### Phase 25: Documentation Content
+**Goal**: The `docs` Makefile target assembles the hierarchical tutorial + reference manual in markdown — overview of main functions, guided walkthrough, and a complete reference for every menu command, leader-key binding, and preference — embedding the committed PNGs so the docs render correctly on GitHub.
+**Depends on**: Phase 24
+**Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06
+**Success Criteria** (what must be TRUE):
+  1. Running `make docs` produces the markdown documentation source, opening with a hierarchical overview of node_layout's main functions
+  2. The markdown contains a tutorial/walkthrough guiding a new user through install → first layout → leader key → prefs
+  3. The reference section documents every menu command, every leader-key binding (Shift+E entry plus V/Z/F/C/W/A/S/D/Q/E), and every preference (with its default and effect) — each with a description and screenshot
+  4. The markdown embeds the committed PNGs and renders correctly when viewed on GitHub (relative image paths resolve, no broken images)
+**Plans**: TBD
+**UI hint**: yes
+
+Plans:
+- [ ] 25-01: Overview + tutorial/walkthrough markdown; embed captured PNGs with GitHub-relative paths
+- [ ] 25-02: Complete reference (menu commands, leader-key bindings, prefs); wire assembly into the `docs` Makefile target
+
+### Phase 26: PDF Build & Finalization
+**Goal**: The `pdf` Makefile target converts the markdown source into a single PDF via pandoc + LaTeX, preserving document hierarchy (table of contents, nested sections) and embedded screenshots, produced as an uncommitted build artifact. The build's prerequisites are documented and stages can run independently — including rebuilding the PDF from committed PNGs without Nuke — so the no-Nuke case works end to end.
+**Depends on**: Phase 25
+**Requirements**: PDF-01, PDF-02, PDF-03, BUILD-02, BUILD-03
+**Success Criteria** (what must be TRUE):
+  1. Running `make pdf` invokes pandoc + LaTeX and produces a single PDF from the markdown source
+  2. The PDF contains a table of contents and nested sections matching the markdown hierarchy, with the captured screenshots embedded inline
+  3. The PDF is produced as a build artifact that is not committed to the repo (suitable for attaching to a GitHub Release)
+  4. On a machine without Nuke, running the doc/PDF stages independently (skipping `scenes`/`capture`) rebuilds the PDF from the committed PNGs — `make pdf` succeeds without re-capturing
+  5. The build command and all its prerequisites (Nuke, `nuke-docs-screenshotter`, pandoc, LaTeX) are documented
+**Plans**: TBD
+
+Plans:
+- [ ] 26-01: Wire pandoc + LaTeX conversion into the `pdf` Makefile target with TOC, section hierarchy, and embedded images; keep the PDF uncommitted
+- [ ] 26-02: Document prerequisites + the build command; verify independent/no-Nuke stage invocation (rebuild PDF from committed PNGs)
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 22 → 23 → 24 → 25 → 26
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -136,3 +227,8 @@ Plans:
 | 19. Event Filter + Core Dispatch | v1.4 | 2/2 | Complete | 2026-03-31 |
 | 20. WASD Chaining + C Command | v1.4 | 1/1 | Complete | 2026-03-31 |
 | 21. Menu Wiring | v1.4 | 1/1 | Complete | 2026-04-01 |
+| 22. Build Harness Skeleton | v1.5 | 0/1 | Not started | - |
+| 23. Demo Scene Generation | v1.5 | 0/2 | Not started | - |
+| 24. Screenshot Capture | v1.5 | 0/1 | Not started | - |
+| 25. Documentation Content | v1.5 | 0/2 | Not started | - |
+| 26. PDF Build & Finalization | v1.5 | 0/2 | Not started | - |
