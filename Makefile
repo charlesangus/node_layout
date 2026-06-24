@@ -13,22 +13,22 @@
 # ---------------------------------------------------------------------------
 
 docs/scenes/demo.nk.stub:
-	mkdir -p docs/scenes
+	@mkdir -p docs/scenes
 	@echo "==> [scenes] (placeholder)"
 	@echo "scenes-placeholder" > docs/scenes/demo.nk.stub
 
 docs/images/capture.stub: docs/scenes/demo.nk.stub
-	mkdir -p docs/images
+	@mkdir -p docs/images
 	@echo "==> [capture] (placeholder)"
 	@echo "capture-placeholder" > docs/images/capture.stub
 
 docs/manual.md.stub: docs/images/capture.stub
-	mkdir -p docs
+	@mkdir -p docs
 	@echo "==> [docs] (placeholder)"
 	@echo "docs-placeholder" > docs/manual.md.stub
 
 docs/manual.pdf: docs/manual.md.stub
-	mkdir -p docs
+	@mkdir -p docs
 	@echo "==> [pdf] (placeholder)"
 	@echo "pdf-placeholder" > docs/manual.pdf
 
