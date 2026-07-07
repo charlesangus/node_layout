@@ -108,3 +108,8 @@ docs/user-guide.pdf
 docs/*.aux
 docs/*.out
 build/
+
+# Third-party tooling cloned by `make screenshotter-setup` (see Makefile
+# SCREENSHOTTER_DIR). Not vendored: charlesangus/nuke-screenshotter is a
+# separate GPL-licensed project.
+.tools/

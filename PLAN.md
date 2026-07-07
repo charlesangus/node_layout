@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M2.P1.T1
-pm_heartbeat: 2026-07-07T03:40:00+00:00
+current: M2.P2.T1
+pm_heartbeat: 2026-07-07T03:55:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -118,14 +118,14 @@ screenshotter PNG render) end to end on the required-first feature, Make Room.
 
 ### Phase 2.1: Screenshotter environment
 
-- [ ] M2.P1.T1 — Add reproducible screenshotter setup
+- [x] M2.P1.T1 — Add reproducible screenshotter setup
   - files: docs/README-build.md (new), Makefile (edit)
   - approach: document + script cloning `charlesangus/nuke-screenshotter` and
     `pip install .` into the venv, and running under xvfb. Expose the
     screenshotter dir and Nuke binary as overridable Make variables / env vars
     (e.g. `SCREENSHOTTER_DIR ?= …`, `NUKE ?= nuke`) — no hardcoded local paths.
   - verify: following docs/README-build.md on a clean venv makes
-    `python -m nuke_docs_screenshotter.cli --help` succeed.
+    `nuke_dag_capture_auto --help` succeed (the installed console command).
   - size: M
 
 ### Phase 2.2: Make Room before/after
@@ -325,6 +325,16 @@ absolute paths and README pointing to it.
 - 2026-07-07 (M1.P2.T1) — Gitignore the generated `docs/user-guide.pdf` (a
   regenerable `make pdf` artifact) rather than commit it, to avoid binary churn
   as images change each milestone; `docs/latex/logo.pdf` stays tracked.
+
+- 2026-07-07 (M2.P1.T1) — Screenshotter facts confirmed by inspecting the repo:
+  install via `pip install .` (zero runtime deps, py>=3.9); the console command is
+  `nuke_dag_capture_auto` (smart input by extension: `.nk`→backdrop, `.json`→
+  playback, `.py`→widget); it launches Nuke itself wrapped in `xvfb-run` (pass
+  `--no-xvfb` to use an existing `$DISPLAY`), finds Nuke via `--nuke-exec` / `NUKE`
+  env / `which nuke`, sets `LIBGL_ALWAYS_SOFTWARE=1`+`GALLIUM_DRIVER=llvmpipe`, and
+  needs Mesa software-GL (present here) + an interactive Nuke license (GUI mode,
+  not `--tg`). Backdrop mode removes `screenshot:` marker backdrops before capture
+  by default (`--show-backdrop` to keep them); never modifies the `.nk` on disk.
 
 # Open questions
 
