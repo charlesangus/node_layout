@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M3.P2.T1
-pm_heartbeat: 2026-07-07T23:45:00+00:00
+current: M4.P1.T1
+pm_heartbeat: 2026-07-08T00:00:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -199,7 +199,7 @@ DAG-transformation commands, reusing the M2 pipeline.
 
 ### Phase 3.2: Guide sections
 
-- [ ] M3.P2.T1 — Write the layout-command guide sections with images
+- [x] M3.P2.T1 — Write the layout-command guide sections with images
   - files: docs/user-guide.md (edit)
   - approach: add reader-oriented sections for Layout Upstream, Layout Selected,
     Layout Selected Horizontal, Freeze/Unfreeze, and Shrink/Expand, each with its
