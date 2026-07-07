@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
-status: paused
-current: M3.P1.T2
-pm_heartbeat: 2026-07-07T05:40:00+00:00
+status: running
+current: M3.P1.T3
+pm_heartbeat: 2026-07-07T12:55:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -179,7 +179,7 @@ DAG-transformation commands, reusing the M2 pipeline.
   - verify: `nuke -t …build_dag_fixtures.py` emits the four new backdrops; `make
     screenshots` renders four PNGs.
   - size: M
-- [ ] M3.P1.T2 — Add Layout Selected Horizontal and Freeze/Unfreeze fixtures
+- [x] M3.P1.T2 — Add Layout Selected Horizontal and Freeze/Unfreeze fixtures
   - files: docs/screenshots/build_dag_fixtures.py (edit)
   - approach: add a horizontal-spine scenario via
     `node_layout.layout_selected_horizontal()`, and a freeze scenario that pins a
@@ -337,33 +337,14 @@ absolute paths and README pointing to it.
   not `--tg`). Backdrop mode removes `screenshot:` marker backdrops before capture
   by default (`--show-backdrop` to keep them); never modifies the `.nk` on disk.
 
-# Paused — resume notes (2026-07-07)
-
-Run PAUSED by the user (usage limit) mid-M3.P1.T2, on branch
-`milestone/m3-headline-dag-features`. State when paused:
-
-- **Shipped & merged:** M1 (PR #31), M2 (PR #32) on `master`.
-- **M3.P1.T1 committed** on the branch (`15abdd1`): Layout Upstream + Layout
-  Selected fixtures/PNGs.
-- **M3.P1.T2 is ~90% done but UNCOMMITTED in the working tree** (a stopped
-  subagent's output — do NOT discard):
-  - `docs/screenshots/build_dag_fixtures.py` has +127 lines adding two scenarios:
-    Layout Selected Horizontal and Freeze.
-  - Generated fixtures present untracked: `docs/screenshots/fixtures/freeze.nk`,
-    `docs/screenshots/fixtures/layout_selected_horizontal.nk`.
-  - Rendered PNGs present untracked: `docs/images/freeze_before.png`,
-    `freeze_after.png`. In-script assertions passed: horizontal after = a
-    left-to-right spine (all y=420); freeze node stays at (455,466) across the
-    layout while other nodes move. The frozen node is tinted `0xffaa00ff` as a
-    doc highlight.
-  - **Still TODO for T2:** run `make screenshots` to render the missing
-    `layout_selected_horizontal_before/after.png`; verify all four PNGs are
-    real/non-blank and before≠after; confirm no churn on the M2/T1 fixtures;
-    independent review; then commit T2 and check its box.
-- **Then continue:** M3.P1.T3 (Shrink/Expand fixture), M3.P2.T1 (write the five
-  layout-command guide sections), M3 gate + ship PR; then M4 (GUI captures) and
-  M5 (Other Features + polish).
-- To resume: re-run `/cat-pm`; set `status: running`, refresh `pm_heartbeat`.
+- 2026-07-07 (M3.P1.T2) — Freeze only preserves a MULTI-node block's internal
+  offsets during layout; a lone frozen node is a no-op (verified via
+  tests/test_freeze_integration.py Scenario B + `nuke -t` trials). The Freeze
+  figure therefore freezes a 2-node Grade+Merge block with a hand-set side
+  offset and shows the ENGINE keeping that offset while non-frozen nodes tidy —
+  no fabricated positions. Also: `freeze_selected()` writes a random `uuid4` into
+  the `.nk`, so the builder patches `uuid.uuid4` with a deterministic counter (as
+  with the other `nuke -t` patches) to keep `freeze.nk` byte-reproducible.
 
 # Open questions
 

@@ -18,8 +18,10 @@ explicitly here, which makes the resulting geometry fully deterministic.
 
 Part of the node_layout project (GPL-3.0).
 """
+import itertools
 import os
 import sys
+import uuid
 
 # ---------------------------------------------------------------------------
 # sys.path: make the repo root importable so make_room et al. resolve.
@@ -46,9 +48,19 @@ import nuke  # noqa: E402 (must come after sys.path setup; provided by Nuke runt
 #    same_toolbar_folder() fall back to True for every node pair.
 # 2. nuke.lastHitGroup() may return None in terminal mode. The layout functions
 #    call it first for undo scoping; redirect it to the root group.
+# 3. node_layout.freeze_selected() tags every frozen node with a random
+#    uuid.uuid4() freeze-group id. That randomness is hidden internal state
+#    with no effect on the rendered screenshot, but it would make the saved
+#    freeze fixture churn on every rebuild even though its geometry is fully
+#    fixed. Replace uuid4 with a deterministic counter-based sequence so the
+#    committed fixtures stay byte-stable across rebuilds; the concrete id
+#    values are irrelevant, only their stability matters.
 # ---------------------------------------------------------------------------
 node_layout._build_toolbar_folder_map = lambda: {}
 nuke.lastHitGroup = lambda: nuke.root()
+
+_deterministic_uuid_counter = itertools.count(1)
+uuid.uuid4 = lambda: uuid.UUID(int=next(_deterministic_uuid_counter))
 
 # ---------------------------------------------------------------------------
 # Fixture output location. This is anchored to _REPO_ROOT (not the process
@@ -390,6 +402,143 @@ def build_layout_selected_scenario():
     wrap_region_in_backdrop(after_nodes, "screenshot:layout-selected-after")
 
 
+def build_layout_selected_horizontal_scenario():
+    """Build the Layout Selected Horizontal before/after fixture.
+
+    ``layout_selected_horizontal`` arranges the selection along a LEFT-TO-RIGHT
+    horizontal spine rather than the default top-to-bottom vertical one, so the
+    "after" reads as a wide chain instead of a tall column. The whole messy tree
+    is selected and laid out. Ordering (after graph built + laid out first, then
+    translated aside, then the static before graph) matches the other scenarios
+    so the layout's make-room step can never disturb the before region.
+    """
+    nuke.scriptClear()
+
+    # ---- After region: build messy, lay out horizontally, then move aside ---
+    # Capture the full laid-out graph via allNodes() so any Dot nodes the command
+    # inserts are moved and enclosed with the rest.
+    messy_nodes, _ = _build_messy_tree(0, 0)
+    _select_only(messy_nodes)
+    node_layout.layout_selected_horizontal()
+    after_nodes = nuke.allNodes()
+    _move_region_left_edge_to(after_nodes, AFTER_REGION_LEFT_X)
+
+    # ---- Before region: static messy tree at the left -----------------------
+    before_nodes, _ = _build_messy_tree(0, 0)
+
+    # ---- Wrap each region in a labelled BackdropNode ------------------------
+    wrap_region_in_backdrop(
+        before_nodes, "screenshot:layout-selected-horizontal-before",
+    )
+    wrap_region_in_backdrop(
+        after_nodes, "screenshot:layout-selected-horizontal-after",
+    )
+
+
+# Packed RGBA (0xRRGGBBAA) bright-orange highlight painted on BOTH members of the
+# frozen block in the Freeze scenario, so the reader can see the whole locked
+# unit. Freezing itself makes no visual change; the colour is only a tracking aid.
+FROZEN_NODE_HIGHLIGHT_COLOR = 0xFFAA00FF
+
+# Internal arrangement of the 2-node freeze block: the frozen Grade is placed to
+# the SIDE of (and slightly above) the frozen Merge it feeds, rather than the
+# directly-overhead spot a tidy layout would use. This deliberately non-standard
+# offset is what makes the "locked shape" obvious once everything else tidies.
+FREEZE_BLOCK_GRADE_OFFSET_X = 260
+FREEZE_BLOCK_GRADE_OFFSET_Y = -20
+
+
+def _arrange_and_highlight_freeze_block(grade_node, merge_node):
+    """Place ``grade_node`` off to the side of ``merge_node`` and highlight both.
+
+    Returns the internal offset (grade - merge) that the freeze block must keep
+    rigid through a layout.
+    """
+    grade_node.setXpos(merge_node.xpos() + FREEZE_BLOCK_GRADE_OFFSET_X)
+    grade_node.setYpos(merge_node.ypos() + FREEZE_BLOCK_GRADE_OFFSET_Y)
+    grade_node["tile_color"].setValue(FROZEN_NODE_HIGHLIGHT_COLOR)
+    merge_node["tile_color"].setValue(FROZEN_NODE_HIGHLIGHT_COLOR)
+    return (
+        grade_node.xpos() - merge_node.xpos(),
+        grade_node.ypos() - merge_node.ypos(),
+    )
+
+
+def build_freeze_scenario():
+    """Build the Freeze before/after fixture -- GENUINE engine behaviour.
+
+    Demonstrates the real freeze signature: a multi-node freeze block keeps its
+    INTERNAL relative arrangement as a rigid unit while every non-frozen node is
+    tidied around it. The block here is a Grade and the Merge it feeds
+    (grade_foreground -> merge_over), arranged with the Grade offset out to the
+    SIDE of the Merge rather than directly overhead. Both members are highlighted.
+
+    In the "after" (real ``layout_selected`` output) the non-frozen nodes snap
+    into a tidy vertical spine, but the two highlighted nodes retain their
+    hand-set side-by-side offset -- visibly locked together, off the spine. This
+    is not fixture-placed: the offset is preserved by the engine's freeze logic,
+    which this function asserts by comparing the offset immediately before and
+    after the ``layout_selected`` call.
+    """
+    nuke.scriptClear()
+
+    # ---- After region: freeze the 2-node block, then lay out for real --------
+    messy_nodes, _ = _build_messy_tree(0, 0)
+    frozen_grade = messy_nodes[2]   # grade_foreground
+    frozen_merge = messy_nodes[3]   # merge_over (grade_foreground feeds this)
+    offset_before = _arrange_and_highlight_freeze_block(frozen_grade, frozen_merge)
+
+    _select_only([frozen_grade, frozen_merge])
+    node_layout.freeze_selected()
+
+    # A non-frozen witness node, to prove the layout actually moved things.
+    # (Not the root write_out: the root is the anchor and lands back on its own
+    # current position, so it would not move.)
+    witness_node = messy_nodes[1]   # read_background
+    witness_before = (witness_node.xpos(), witness_node.ypos())
+
+    _select_only(messy_nodes)
+    node_layout.layout_selected()
+
+    offset_after = (
+        frozen_grade.xpos() - frozen_merge.xpos(),
+        frozen_grade.ypos() - frozen_merge.ypos(),
+    )
+    witness_after = (witness_node.xpos(), witness_node.ypos())
+    if offset_before != offset_after:
+        raise AssertionError(
+            "Freeze block internal offset changed across layout: "
+            "{} -> {}".format(offset_before, offset_after)
+        )
+    if witness_before == witness_after:
+        raise AssertionError(
+            "Layout did not move the non-frozen witness node "
+            "{} (stayed at {})".format(witness_node.name(), witness_before)
+        )
+    print(
+        "[build_dag_fixtures] Freeze: block internal offset preserved "
+        "{} -> {}; witness {} moved {} -> {}".format(
+            offset_before, offset_after, witness_node.name(),
+            witness_before, witness_after,
+        )
+    )
+
+    after_nodes = nuke.allNodes()
+    _move_region_left_edge_to(after_nodes, AFTER_REGION_LEFT_X)
+
+    # ---- Before region: the messy pre-layout graph, block already frozen -----
+    before_nodes, _ = _build_messy_tree(0, 0)
+    before_grade = before_nodes[2]
+    before_merge = before_nodes[3]
+    _arrange_and_highlight_freeze_block(before_grade, before_merge)
+    _select_only([before_grade, before_merge])
+    node_layout.freeze_selected()
+
+    # ---- Wrap each region in a labelled BackdropNode ------------------------
+    wrap_region_in_backdrop(before_nodes, "screenshot:freeze-before")
+    wrap_region_in_backdrop(after_nodes, "screenshot:freeze-after")
+
+
 def _save_current_script(filename):
     """Save the current script to FIXTURES_DIR/filename as a portable fixture.
 
@@ -416,6 +565,12 @@ def main():
 
     build_layout_selected_scenario()
     _save_current_script("layout_selected.nk")
+
+    build_layout_selected_horizontal_scenario()
+    _save_current_script("layout_selected_horizontal.nk")
+
+    build_freeze_scenario()
+    _save_current_script("freeze.nk")
 
 
 def _rewrite_root_name(nk_path, relative_name):
