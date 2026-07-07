@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M2.P2.T3
-pm_heartbeat: 2026-07-07T04:25:00+00:00
+current: M3.P1.T1
+pm_heartbeat: 2026-07-07T04:35:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -150,7 +150,7 @@ screenshotter PNG render) end to end on the required-first feature, Make Room.
     make_room_after.png that visibly differ. (The screenshotter slugifies the
     `screenshot:make-room-*` labels to underscore filenames.)
   - size: M
-- [ ] M2.P2.T3 — Write the Make Room guide section with its images
+- [x] M2.P2.T3 — Write the Make Room guide section with its images
   - files: docs/user-guide.md (edit)
   - approach: replace the Make Room placeholder with prose (headline framing,
     shortcuts table, with/without-selection behaviour) and a before/after figure
