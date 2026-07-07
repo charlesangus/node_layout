@@ -16,6 +16,12 @@ PANDOC_DEFAULTS := docs/pandoc/pdf.yaml
 PANDOC_LUA_FILTER := docs/pandoc/float-images.lua
 LATEX_RESOURCE_DIR := docs/latex
 
+# Directory of committed .nk fixtures rendered by `make screenshots`, and the
+# directory the resulting PNGs are written into. The PNGs are committed
+# artifacts so `make pdf` works without a Nuke license; do not gitignore them.
+SCREENSHOT_FIXTURES_DIR := docs/screenshots/fixtures
+DOCS_IMAGES_DIR := docs/images
+
 # Settings for `make screenshotter-setup`, which installs the
 # `nuke-docs-screenshotter` tool (console command `nuke_dag_capture_auto`)
 # used by a later `screenshots` target to render documentation PNGs from
@@ -24,6 +30,9 @@ LATEX_RESOURCE_DIR := docs/latex
 # these are overridable, e.g. `make screenshotter-setup NUKE=/path/to/nuke`.
 SCREENSHOTTER_REPO ?= https://github.com/charlesangus/nuke-screenshotter.git
 SCREENSHOTTER_DIR ?= .tools/nuke-screenshotter
+# Console command installed by `make screenshotter-setup`; overridable so the
+# `screenshots` target can point at a different binary/wrapper if needed.
+SCREENSHOTTER ?= nuke_dag_capture_auto
 NUKE ?= nuke
 PIP ?= pip3
 # --break-system-packages is needed on Debian/Ubuntu's "externally managed"
@@ -31,7 +40,7 @@ PIP ?= pip3
 # Override if your pip does not need/support this flag.
 PIP_INSTALL_ARGS ?= --user --break-system-packages
 
-.PHONY: all pdf clean screenshotter-setup
+.PHONY: all pdf clean screenshotter-setup screenshots
 
 all: pdf
 
@@ -57,9 +66,20 @@ screenshotter-setup:
 	fi
 	$(PIP) install $(PIP_INSTALL_ARGS) "$(SCREENSHOTTER_DIR)"
 
-# A `screenshots` target for regenerating documentation screenshots from a
-# running Nuke instance will be added by a later milestone. It must remain
-# independent of `pdf` (the pdf target must never trigger a Nuke run).
+# Regenerates documentation screenshots by running the installed screenshotter
+# (see screenshotter-setup) in backdrop mode over every .nk fixture, emitting
+# one PNG per `screenshot:`-labelled backdrop into DOCS_IMAGES_DIR. The tool
+# wraps its Nuke launch in xvfb-run and auto-discovers the nuke binary, so a
+# Nuke launch here can take a few minutes. Kept deliberately SEPARATE from the
+# `pdf` target: `make pdf` must never trigger a Nuke run, so the committed PNGs
+# are not prerequisites of `pdf`. Intended workflow: `make screenshots` (needs
+# a Nuke license) then `make pdf`. Requires `make screenshotter-setup` first.
+screenshots:
+	mkdir -p $(DOCS_IMAGES_DIR)
+	@for fixture in $(SCREENSHOT_FIXTURES_DIR)/*.nk; do \
+		echo "Capturing screenshots from $$fixture"; \
+		$(SCREENSHOTTER) --nuke-exec $(NUKE) "$$fixture" $(DOCS_IMAGES_DIR) || exit 1; \
+	done
 
 clean:
 	rm -f $(USER_GUIDE_PDF)

@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M2.P2.T2
-pm_heartbeat: 2026-07-07T04:10:00+00:00
+current: M2.P2.T3
+pm_heartbeat: 2026-07-07T04:25:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -140,20 +140,21 @@ screenshotter PNG render) end to end on the required-first feature, Make Room.
   - verify: `nuke -t docs/screenshots/build_dag_fixtures.py` writes
     make_room.nk containing two `screenshot:`-labelled backdrops.
   - size: M
-- [ ] M2.P2.T2 — `make screenshots` renders Make Room PNGs via backdrop mode
+- [x] M2.P2.T2 — `make screenshots` renders Make Room PNGs via backdrop mode
   - files: Makefile (edit)
   - approach: add a `screenshots` target that runs screenshotter backdrop mode
     over docs/screenshots/fixtures/*.nk under xvfb, emitting PNGs to
     docs/images/. Make `pdf` depend on images being present (but not force a
     Nuke run on every pdf build — keep them separate targets).
-  - verify: `make screenshots` produces docs/images/make-room-before.png and
-    make-room-after.png that visibly differ.
+  - verify: `make screenshots` produces docs/images/make_room_before.png and
+    make_room_after.png that visibly differ. (The screenshotter slugifies the
+    `screenshot:make-room-*` labels to underscore filenames.)
   - size: M
 - [ ] M2.P2.T3 — Write the Make Room guide section with its images
   - files: docs/user-guide.md (edit)
   - approach: replace the Make Room placeholder with prose (headline framing,
     shortcuts table, with/without-selection behaviour) and a before/after figure
-    pair referencing docs/images/make-room-*.png. Place this section first.
+    pair referencing docs/images/make_room_*.png. Place this section first.
   - verify: `make pdf` embeds both Make Room images and the section renders first.
   - size: S
 
