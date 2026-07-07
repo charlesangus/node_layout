@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M2.P1.T1
-pm_heartbeat: 2026-07-07T03:40:00+00:00
+current: M3.P1.T1
+pm_heartbeat: 2026-07-07T04:55:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -118,19 +118,19 @@ screenshotter PNG render) end to end on the required-first feature, Make Room.
 
 ### Phase 2.1: Screenshotter environment
 
-- [ ] M2.P1.T1 — Add reproducible screenshotter setup
+- [x] M2.P1.T1 — Add reproducible screenshotter setup
   - files: docs/README-build.md (new), Makefile (edit)
   - approach: document + script cloning `charlesangus/nuke-screenshotter` and
     `pip install .` into the venv, and running under xvfb. Expose the
     screenshotter dir and Nuke binary as overridable Make variables / env vars
     (e.g. `SCREENSHOTTER_DIR ?= …`, `NUKE ?= nuke`) — no hardcoded local paths.
   - verify: following docs/README-build.md on a clean venv makes
-    `python -m nuke_docs_screenshotter.cli --help` succeed.
+    `nuke_dag_capture_auto --help` succeed (the installed console command).
   - size: M
 
 ### Phase 2.2: Make Room before/after
 
-- [ ] M2.P2.T1 — Headless fixture builder for Make Room before/after
+- [x] M2.P2.T1 — Headless fixture builder for Make Room before/after
   - files: docs/screenshots/build_dag_fixtures.py (new)
   - approach: a `nuke -t`-run script that builds a small messy cluster, copies
     it, calls `make_room.make_room(amount, direction)` on the copy, and wraps a
@@ -140,20 +140,21 @@ screenshotter PNG render) end to end on the required-first feature, Make Room.
   - verify: `nuke -t docs/screenshots/build_dag_fixtures.py` writes
     make_room.nk containing two `screenshot:`-labelled backdrops.
   - size: M
-- [ ] M2.P2.T2 — `make screenshots` renders Make Room PNGs via backdrop mode
+- [x] M2.P2.T2 — `make screenshots` renders Make Room PNGs via backdrop mode
   - files: Makefile (edit)
   - approach: add a `screenshots` target that runs screenshotter backdrop mode
     over docs/screenshots/fixtures/*.nk under xvfb, emitting PNGs to
     docs/images/. Make `pdf` depend on images being present (but not force a
     Nuke run on every pdf build — keep them separate targets).
-  - verify: `make screenshots` produces docs/images/make-room-before.png and
-    make-room-after.png that visibly differ.
+  - verify: `make screenshots` produces docs/images/make_room_before.png and
+    make_room_after.png that visibly differ. (The screenshotter slugifies the
+    `screenshot:make-room-*` labels to underscore filenames.)
   - size: M
-- [ ] M2.P2.T3 — Write the Make Room guide section with its images
+- [x] M2.P2.T3 — Write the Make Room guide section with its images
   - files: docs/user-guide.md (edit)
   - approach: replace the Make Room placeholder with prose (headline framing,
     shortcuts table, with/without-selection behaviour) and a before/after figure
-    pair referencing docs/images/make-room-*.png. Place this section first.
+    pair referencing docs/images/make_room_*.png. Place this section first.
   - verify: `make pdf` embeds both Make Room images and the section renders first.
   - size: S
 
@@ -325,6 +326,16 @@ absolute paths and README pointing to it.
 - 2026-07-07 (M1.P2.T1) — Gitignore the generated `docs/user-guide.pdf` (a
   regenerable `make pdf` artifact) rather than commit it, to avoid binary churn
   as images change each milestone; `docs/latex/logo.pdf` stays tracked.
+
+- 2026-07-07 (M2.P1.T1) — Screenshotter facts confirmed by inspecting the repo:
+  install via `pip install .` (zero runtime deps, py>=3.9); the console command is
+  `nuke_dag_capture_auto` (smart input by extension: `.nk`→backdrop, `.json`→
+  playback, `.py`→widget); it launches Nuke itself wrapped in `xvfb-run` (pass
+  `--no-xvfb` to use an existing `$DISPLAY`), finds Nuke via `--nuke-exec` / `NUKE`
+  env / `which nuke`, sets `LIBGL_ALWAYS_SOFTWARE=1`+`GALLIUM_DRIVER=llvmpipe`, and
+  needs Mesa software-GL (present here) + an interactive Nuke license (GUI mode,
+  not `--tg`). Backdrop mode removes `screenshot:` marker backdrops before capture
+  by default (`--show-backdrop` to keep them); never modifies the `.nk` on disk.
 
 # Open questions
 

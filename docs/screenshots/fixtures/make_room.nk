@@ -1,0 +1,118 @@
+#! /usr/local/Nuke16.0v6/libnuke-16.0.6.so -nx
+version 16.0 v6
+Root {
+ inputs 0
+ name docs/screenshots/fixtures/make_room.nk
+ format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement Nuke
+ workingSpaceLUT linear
+ monitorLut sRGB
+ monitorOutLUT rec709
+ int8Lut sRGB
+ int16Lut sRGB
+ logLut Cineon
+ floatLut linear
+}
+BackdropNode {
+ inputs 0
+ name BackdropNode1
+ label screenshot:make-room-before
+ xpos -60
+ ypos -60
+ bdwidth 340
+ bdheight 528
+}
+BackdropNode {
+ inputs 0
+ name BackdropNode2
+ label screenshot:make-room-after
+ selected true
+ xpos 1140
+ ypos -60
+ bdwidth 340
+ bdheight 828
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read2
+ xpos 140
+ ypos 90
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read1
+ xpos 0
+}
+Grade {
+ name Grade1
+ xpos 0
+ ypos 90
+}
+Blur {
+ name Blur1
+ xpos 0
+ ypos 180
+}
+Merge2 {
+ inputs 2
+ name Merge1
+ xpos 0
+ ypos 300
+}
+Write {
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ ocioColorspace scene_linear
+ display default
+ view sRGB
+ name Write1
+ xpos 0
+ ypos 390
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read4
+ xpos 1340
+ ypos 90
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read3
+ xpos 1200
+}
+Grade {
+ name Grade2
+ xpos 1200
+ ypos 90
+}
+Blur {
+ name Blur2
+ xpos 1200
+ ypos 180
+}
+Merge2 {
+ inputs 2
+ name Merge2
+ xpos 1200
+ ypos 600
+}
+Write {
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ ocioColorspace scene_linear
+ display default
+ view sRGB
+ name Write2
+ xpos 1200
+ ypos 690
+}
