@@ -1,8 +1,8 @@
 # Build setup
 
 This document covers the tooling used to build project documentation:
-rendering the PDF user guide, and (from a later milestone onward) capturing
-Nuke DAG screenshots for the docs.
+rendering the PDF user guide, and capturing Nuke DAG screenshots for the
+docs.
 
 ## PDF user guide
 
@@ -12,7 +12,7 @@ section is unaffected by anything below.
 
 ## Documentation screenshotter
 
-Later milestones render PNG screenshots of Nuke node graphs for the docs
+`make screenshots` renders PNG screenshots of Nuke node graphs for the docs
 using [`nuke-docs-screenshotter`](https://github.com/charlesangus/nuke-screenshotter)
 (console command `nuke_dag_capture_auto`). This tool is a separate,
 GPL-licensed project — it is **not vendored** into this repository. Instead
@@ -92,6 +92,7 @@ Basic usage:
 nuke_dag_capture_auto <input> <output-dir>
 ```
 
-A `make screenshots` target that drives this tool over this project's
-documentation inputs will be added by a later milestone task; it will
-remain independent of `make pdf`, which never invokes Nuke.
+`make screenshots` drives this tool over this project's committed `.nk`
+fixtures under `docs/screenshots/fixtures/`, rendering PNGs into
+`docs/images/`. It remains independent of `make pdf`, which never invokes
+Nuke. Further feature fixtures are added by later milestone tasks.

@@ -33,9 +33,15 @@ import make_room  # noqa: E402, I001
 import nuke  # noqa: E402 (must come after sys.path setup; provided by Nuke runtime)
 
 # ---------------------------------------------------------------------------
-# Fixture output location, relative to the repo root (no machine-local paths).
+# Fixture output location. This is anchored to _REPO_ROOT (not the process
+# CWD) so the script writes to the correct place regardless of where it is
+# launched from, e.g. `nuke -t /abs/path/to/build_dag_fixtures.py` run from
+# an unrelated directory. The repo-relative form of this path (with forward
+# slashes) is what gets written into the committed .nk's Root `name` knob,
+# so no machine-local absolute path leaks into version control.
 # ---------------------------------------------------------------------------
-FIXTURES_DIR = os.path.join("docs", "screenshots", "fixtures")
+FIXTURES_DIR = os.path.join(_REPO_ROOT, "docs", "screenshots", "fixtures")
+FIXTURES_DIR_RELATIVE = "docs/screenshots/fixtures"
 
 # Nuke node tiles are roughly this size in DAG units. screenWidth()/screenHeight()
 # are used when available (they may return 0 under -t); these are the fallbacks.
@@ -191,12 +197,14 @@ def main():
     build_make_room_scenario()
 
     output_path = os.path.join(FIXTURES_DIR, "make_room.nk")
+    relative_output_path = "/".join([FIXTURES_DIR_RELATIVE, "make_room.nk"])
     nuke.scriptSaveAs(output_path, overwrite=1)
 
-    # nuke.scriptSaveAs records the script's ABSOLUTE path in the Root `name`
-    # knob, which would leak a machine-local path into the committed fixture.
-    # Rewrite that one line to the repo-relative path so the .nk is portable.
-    _rewrite_root_name(output_path, output_path)
+    # nuke.scriptSaveAs records the script's ABSOLUTE path (the one we just
+    # saved to) in the Root `name` knob, which would leak a machine-local
+    # path into the committed fixture. Rewrite that one line to the
+    # repo-relative path so the .nk is portable.
+    _rewrite_root_name(output_path, relative_output_path)
     print("[build_dag_fixtures] Saved: {}".format(output_path))
 
 

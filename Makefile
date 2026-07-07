@@ -59,7 +59,7 @@ $(USER_GUIDE_PDF): $(USER_GUIDE_MD) $(PANDOC_DEFAULTS) $(PANDOC_LUA_FILTER) $(LA
 # software-GL) and how the tool is invoked.
 screenshotter-setup:
 	@if [ -d "$(SCREENSHOTTER_DIR)/.git" ]; then \
-		git -C "$(SCREENSHOTTER_DIR)" pull; \
+		git -C "$(SCREENSHOTTER_DIR)" pull --ff-only; \
 	else \
 		mkdir -p "$$(dirname "$(SCREENSHOTTER_DIR)")"; \
 		git clone "$(SCREENSHOTTER_REPO)" "$(SCREENSHOTTER_DIR)"; \
@@ -75,11 +75,22 @@ screenshotter-setup:
 # are not prerequisites of `pdf`. Intended workflow: `make screenshots` (needs
 # a Nuke license) then `make pdf`. Requires `make screenshotter-setup` first.
 screenshots:
+	@command -v $(SCREENSHOTTER) >/dev/null 2>&1 || { \
+		echo "error: '$(SCREENSHOTTER)' not found on PATH. Run 'make screenshotter-setup' first."; \
+		exit 1; \
+	}
 	mkdir -p $(DOCS_IMAGES_DIR)
-	@for fixture in $(SCREENSHOT_FIXTURES_DIR)/*.nk; do \
+	@rendered_any_fixture=0; \
+	for fixture in $(SCREENSHOT_FIXTURES_DIR)/*.nk; do \
+		[ -e "$$fixture" ] || continue; \
 		echo "Capturing screenshots from $$fixture"; \
 		$(SCREENSHOTTER) --nuke-exec $(NUKE) "$$fixture" $(DOCS_IMAGES_DIR) || exit 1; \
-	done
+		rendered_any_fixture=1; \
+	done; \
+	if [ "$$rendered_any_fixture" -eq 0 ]; then \
+		echo "error: no .nk fixtures found in $(SCREENSHOT_FIXTURES_DIR)"; \
+		exit 1; \
+	fi
 
 clean:
 	rm -f $(USER_GUIDE_PDF)

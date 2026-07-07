@@ -2,7 +2,7 @@
 title: Node Layout user guide PDF
 status: running
 current: M3.P1.T1
-pm_heartbeat: 2026-07-07T04:35:00+00:00
+pm_heartbeat: 2026-07-07T04:55:00+00:00
 ship: pr-per-milestone
 ---
 
