@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M1.P2.T1
-pm_heartbeat: 2026-07-07T03:16:00+00:00
+current: M2.P1.T1
+pm_heartbeat: 2026-07-07T03:22:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -96,7 +96,7 @@ adds content. Reuse the already-present `training_doc.cls` + `logo.pdf`.
 
 ### Phase 1.2: Make target
 
-- [ ] M1.P2.T1 — Add `make pdf` target producing docs/user-guide.pdf
+- [x] M1.P2.T1 — Add `make pdf` target producing docs/user-guide.pdf
   - files: Makefile (new), .gitignore (edit)
   - approach: `pdf` target invokes pandoc with `TEXINPUTS` including
     `docs/latex`, the `--defaults`/`--lua-filter`/`--resource-path` flags, input
@@ -322,6 +322,9 @@ absolute paths and README pointing to it.
   `docs/pandoc/pdf.yaml` because this environment lacks `lmodern.sty` and pandoc's
   default LaTeX template loads it unless `fontfamily` is set; keeps `make pdf`
   self-sufficient with no CLI flags.
+- 2026-07-07 (M1.P2.T1) — Gitignore the generated `docs/user-guide.pdf` (a
+  regenerable `make pdf` artifact) rather than commit it, to avoid binary churn
+  as images change each milestone; `docs/latex/logo.pdf` stays tracked.
 
 # Open questions
 
