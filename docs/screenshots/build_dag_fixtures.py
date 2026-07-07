@@ -54,13 +54,34 @@ import nuke  # noqa: E402 (must come after sys.path setup; provided by Nuke runt
 #    freeze fixture churn on every rebuild even though its geometry is fully
 #    fixed. Replace uuid4 with a deterministic counter-based sequence so the
 #    committed fixtures stay byte-stable across rebuilds; the concrete id
-#    values are irrelevant, only their stability matters.
+#    values are irrelevant, only their stability matters. Scoped to
+#    node_layout's own ``uuid`` reference (via a shim module object) rather
+#    than mutating the global stdlib ``uuid`` module, so other code that
+#    imports ``uuid`` is unaffected.
 # ---------------------------------------------------------------------------
 node_layout._build_toolbar_folder_map = lambda: {}
 nuke.lastHitGroup = lambda: nuke.root()
 
 _deterministic_uuid_counter = itertools.count(1)
-uuid.uuid4 = lambda: uuid.UUID(int=next(_deterministic_uuid_counter))
+
+
+class _DeterministicUuidShim:
+    """Stand-in for the ``uuid`` module used only by node_layout.
+
+    Exposes a deterministic ``uuid4`` and delegates everything else (e.g.
+    ``UUID``) to the real ``uuid`` module, so node_layout's behaviour is
+    unchanged except for the source of its freeze-group ids.
+    """
+
+    @staticmethod
+    def uuid4():
+        return uuid.UUID(int=next(_deterministic_uuid_counter))
+
+    def __getattr__(self, attribute_name):
+        return getattr(uuid, attribute_name)
+
+
+node_layout.uuid = _DeterministicUuidShim()
 
 # ---------------------------------------------------------------------------
 # Fixture output location. This is anchored to _REPO_ROOT (not the process
@@ -287,7 +308,7 @@ def _move_region_left_edge_to(nodes, target_left_x):
 
 
 def build_make_room_scenario():
-    """Build the Make Room before/after fixture and save it.
+    """Build the Make Room before/after fixture in the current script.
 
     Two identical clusters are placed side by side. The right ("after") cluster
     has make_room applied to its downstream half, opening a visible vertical gap
