@@ -1,0 +1,24 @@
+# Pandoc defaults file for building the standalone Node Layout user guide PDF.
+#
+# This intentionally does not restyle or override the LaTeX document class;
+# it only references the existing `trainingDoc` class by name (see
+# docs/latex/trainingDoc.cls). The LaTeX engine resolves that class via
+# TEXINPUTS, which is wired up separately by the Makefile.
+
+to: pdf
+pdf-engine: xelatex
+
+variables:
+  documentclass: trainingDoc
+  # lmodern.sty is not guaranteed to be installed, and pandoc's default
+  # LaTeX template unconditionally loads it unless `fontfamily` is set.
+  # mathptmx is available and keeps the build self-sufficient without any
+  # extra command-line flags. trainingDoc.cls already selects fontspec
+  # under xelatex/lualatex, so this only affects the fallback pdflatex path.
+  fontfamily: mathptmx
+
+resource-path:
+  - .
+  - docs
+  - docs/images
+  - docs/latex
