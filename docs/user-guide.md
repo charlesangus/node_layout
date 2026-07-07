@@ -48,13 +48,113 @@ The amounts are DAG units; the bracket shortcuts open a large gap, and their
 
 ## Layout Upstream
 
+Layout Upstream tidies the entire tree feeding into one node, turning a
+tangled upstream graph into a clean, readable stack in a single keystroke.
+
+Select the node at the bottom of the branch you want to clean up. Its whole
+upstream subtree — every node that feeds into it, directly or indirectly — is
+collected and arranged automatically; you only ever select the one downstream
+node. That node stays put as the root, and its inputs are laid out above it,
+because in Nuke's DAG upstream is up, toward the inputs. Nodes elsewhere in
+the script are left where they are.
+
+![A branch with several Reads, Grades, and a Merge feeding a Write, arranged untidily by hand.](docs/images/layout_upstream_before.png)
+
+![After Layout Upstream on the Write, the whole feeding tree is stacked neatly above it while the Write stays in place.](docs/images/layout_upstream_after.png)
+
+| Command | Shortcut |
+|---|---|
+| Layout Upstream | `Shift+E` |
+
+The shortcut is active in the DAG. It lays out the last selected node's
+upstream tree.
+
 ## Layout Selected
+
+Layout Selected arranges only the nodes you have selected, leaving the rest of
+the script untouched — useful for tidying one cluster without reflowing the
+whole graph.
+
+Select two or more nodes; the command does nothing with fewer than two. Only
+the selected nodes move, even if unselected nodes sit between them. Node
+Layout finds the *roots* of your selection — the most downstream selected
+nodes, the ones no other selected node feeds into — and stacks each root's
+selected inputs above it. If the selection contains several independent roots,
+they are arranged side by side, ordered left to right.
+
+![A loose selection of nodes across two small branches, positioned by hand.](docs/images/layout_selected_before.png)
+
+![After Layout Selected, only the selected nodes are tidied into clean stacks; everything else stays put.](docs/images/layout_selected_after.png)
+
+| Command | Shortcut |
+|---|---|
+| Layout Selected | *(none — run from the Node Layout menu)* |
 
 ## Layout Selected Horizontal
 
+Layout Selected Horizontal arranges the selected nodes along a left-to-right
+spine instead of a vertical stack, for branches you would rather read across
+the screen than down it.
+
+Select the nodes to arrange. The most downstream selected node anchors the
+right end of the spine, and its `input(0)` chain extends leftward from there,
+so the primary pipe flows left to right into that root. Each spine node's side
+inputs — its second and later inputs — stack vertically above their point on
+the spine. As with Layout Selected, unselected nodes are left alone.
+
+![A chain of nodes selected in their default vertical arrangement.](docs/images/layout_selected_horizontal_before.png)
+
+![After Layout Selected Horizontal, the main chain runs left to right along a spine with side inputs stacked above it.](docs/images/layout_selected_horizontal_after.png)
+
+| Command | Shortcut |
+|---|---|
+| Layout Selected Horizontal | *(none — run from the Node Layout menu)* |
+
 ## Freeze / Unfreeze
 
+Freeze locks the internal shape of a hand-arranged block so that later layout
+commands move the block as a rigid unit without disturbing its relative
+positions.
+
+Freezing tags the selected nodes with a shared group ID; nothing moves at the
+moment you freeze. The effect appears on the next layout: a frozen block of
+two or more nodes keeps its internal offsets — the exact relative positions
+you set by hand — while the surrounding graph is tidied around it as one solid
+piece. Freezing a single node on its own is a no-op, because a lone node has
+no internal offsets to preserve. Unfreeze removes the tag so the nodes flow
+with the layout again.
+
+![A Grade and Merge frozen together as a two-node block, with the Merge deliberately nudged to one side by hand.](docs/images/freeze_before.png)
+
+![After a layout, the unfrozen nodes tidy up while the frozen Grade+Merge block keeps its hand-set side offset intact.](docs/images/freeze_after.png)
+
+| Command | Shortcut |
+|---|---|
+| Freeze Selected | `Ctrl+Shift+F` |
+| Unfreeze Selected | `Ctrl+Shift+U` |
+
 ## Shrink / Expand
+
+Shrink and Expand tighten or loosen the spacing of a selection without
+changing its shape, so you can compact a sprawling tree or give a cramped one
+more room to breathe.
+
+Select two or more nodes. The most downstream selected node acts as the
+anchor and stays fixed; every other node moves toward it (Shrink) or away from
+it (Expand), scaling all the gaps by a constant factor. Because the scale is
+anchored on that downstream node rather than the selection's midpoint, the
+tree holds its position at the bottom and contracts or grows upward. Each
+press applies one step — Shrink multiplies spacing by 0.8, Expand by 1.25 —
+so repeat the shortcut to compact or spread further.
+
+![A tidy two-branch tree: Reads into Grades into a Merge into a Write.](docs/images/shrink_before.png)
+
+![After one Shrink step, the same tree is pulled in tighter around the downstream Write, which has not moved.](docs/images/shrink_after.png)
+
+| Command | Shortcut |
+|---|---|
+| Shrink Selected | `Ctrl+,` |
+| Expand Selected | `Ctrl+.` |
 
 ## Leader Window
 

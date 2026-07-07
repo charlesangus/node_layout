@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M3.P1.T1
-pm_heartbeat: 2026-07-07T04:55:00+00:00
+current: M4.P1.T1
+pm_heartbeat: 2026-07-08T00:00:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -169,7 +169,7 @@ DAG-transformation commands, reusing the M2 pipeline.
 
 ### Phase 3.1: Fixtures for the layout commands
 
-- [ ] M3.P1.T1 — Add Layout Upstream and Layout Selected fixtures
+- [x] M3.P1.T1 — Add Layout Upstream and Layout Selected fixtures
   - files: docs/screenshots/build_dag_fixtures.py (edit)
   - approach: extend the builder with two scenarios — a messy upstream tree run
     through `node_layout.layout_upstream()`, and a multi-root selection run
@@ -179,7 +179,7 @@ DAG-transformation commands, reusing the M2 pipeline.
   - verify: `nuke -t …build_dag_fixtures.py` emits the four new backdrops; `make
     screenshots` renders four PNGs.
   - size: M
-- [ ] M3.P1.T2 — Add Layout Selected Horizontal and Freeze/Unfreeze fixtures
+- [x] M3.P1.T2 — Add Layout Selected Horizontal and Freeze/Unfreeze fixtures
   - files: docs/screenshots/build_dag_fixtures.py (edit)
   - approach: add a horizontal-spine scenario via
     `node_layout.layout_selected_horizontal()`, and a freeze scenario that pins a
@@ -188,7 +188,7 @@ DAG-transformation commands, reusing the M2 pipeline.
   - verify: `make screenshots` renders the horizontal and freeze before/after
     PNGs; the freeze "after" shows the pinned node unmoved.
   - size: M
-- [ ] M3.P1.T3 — Add Shrink/Expand fixture
+- [x] M3.P1.T3 — Add Shrink/Expand fixture
   - files: docs/screenshots/build_dag_fixtures.py (edit)
   - approach: build a laid-out tree, capture "before", call
     `node_layout.shrink_selected()` (and/or `expand_selected()`) on the copy,
@@ -199,7 +199,7 @@ DAG-transformation commands, reusing the M2 pipeline.
 
 ### Phase 3.2: Guide sections
 
-- [ ] M3.P2.T1 — Write the layout-command guide sections with images
+- [x] M3.P2.T1 — Write the layout-command guide sections with images
   - files: docs/user-guide.md (edit)
   - approach: add reader-oriented sections for Layout Upstream, Layout Selected,
     Layout Selected Horizontal, Freeze/Unfreeze, and Shrink/Expand, each with its
@@ -336,6 +336,22 @@ absolute paths and README pointing to it.
   needs Mesa software-GL (present here) + an interactive Nuke license (GUI mode,
   not `--tg`). Backdrop mode removes `screenshot:` marker backdrops before capture
   by default (`--show-backdrop` to keep them); never modifies the `.nk` on disk.
+
+- 2026-07-07 (M3.P1.T2) — Freeze only preserves a MULTI-node block's internal
+  offsets during layout; a lone frozen node is a no-op (verified via
+  tests/test_freeze_integration.py Scenario B + `nuke -t` trials). The Freeze
+  figure therefore freezes a 2-node Grade+Merge block with a hand-set side
+  offset and shows the ENGINE keeping that offset while non-frozen nodes tidy —
+  no fabricated positions. Also: `freeze_selected()` writes a random `uuid4` into
+  the `.nk`, so the builder patches `uuid.uuid4` with a deterministic counter (as
+  with the other `nuke -t` patches) to keep `freeze.nk` byte-reproducible.
+
+- 2026-07-07 (M3.P1.T3) — Shrink/Expand scale is anchored on the most-downstream
+  selected node (which stays fixed), not the selection's bounding-box midpoint —
+  verified against `_scale_selected_nodes` in the engine. The shrink fixture uses
+  a tidy two-branch tree and asserts both spreads shrink and the anchor is
+  unmoved; guide prose (M3.P2.T1) should describe the behaviour as anchor-centred,
+  not "centred on the selection".
 
 # Open questions
 
