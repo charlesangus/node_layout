@@ -2,7 +2,7 @@
 title: Node Layout user guide PDF
 status: running
 current: M2.P1.T1
-pm_heartbeat: 2026-07-07T03:22:00+00:00
+pm_heartbeat: 2026-07-07T03:40:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -10,7 +10,7 @@ ship: pr-per-milestone
 
 Produce a print-friendly **Node Layout user guide** as `docs/user-guide.pdf`,
 built with `make pdf` from a standalone `docs/user-guide.md` through pandoc +
-the existing `docs/latex/training_doc.cls`, styled like the labelmaker/anchors
+the existing `docs/latex/trainingDoc.cls`, styled like the labelmaker/anchors
 guides. Headline features are illustrated with **before/after** DAG images whose
 "after" state is produced by actually running the real Node Layout commands
 (headless via `nuke -t`) on a copy of a messy graph, all kept in as few
@@ -29,9 +29,9 @@ readable PDF with all headline images embedded and current.
   `float-images.lua` filter, `TEXINPUTS` pointing at `docs/latex`) → PDF, with a
   `make screenshots` step that drives nuke-screenshotter over committed `.nk`
   fixtures and a `gui.json` playback scenario. `charlesangus/labelmaker` uses the
-  same pandoc/`training_doc.cls` toolchain but derives its guide from README; we
+  same pandoc/`trainingDoc.cls` toolchain but derives its guide from README; we
   are NOT doing that — this guide is authored standalone.
-- **Already present in this repo.** `docs/latex/training_doc.cls` and
+- **Already present in this repo.** `docs/latex/trainingDoc.cls` and
   `docs/latex/logo.pdf` are already copied in (the only pre-existing "started
   work" — adopt them as-is). `pandoc`, `xelatex`/`pdflatex`/`lualatex`, `make`,
   and a `nuke` binary are all installed locally. Existing `.nk` fixtures live in
@@ -72,7 +72,7 @@ readable PDF with all headline images embedded and current.
 ## Milestone 1: PDF build harness
 
 Stand up the standalone-guide toolchain end to end so every later milestone only
-adds content. Reuse the already-present `training_doc.cls` + `logo.pdf`.
+adds content. Reuse the already-present `trainingDoc.cls` + `logo.pdf`.
 
 ### Phase 1.1: Pandoc pipeline
 
@@ -80,7 +80,7 @@ adds content. Reuse the already-present `training_doc.cls` + `logo.pdf`.
   - files: docs/pandoc/pdf.yaml (new), docs/pandoc/float-images.lua (new)
   - approach: mirror the anchors setup — `pdf.yaml` sets pdf-engine
     (xelatex), `documentclass: trainingDoc`, a resource path, and standard margins;
-    `float-images.lua` forces `[H]` figure placement. Reference `training_doc.cls`
+    `float-images.lua` forces `[H]` figure placement. Reference `trainingDoc.cls`
     by class name; do not restyle the class.
   - verify: `pandoc --defaults docs/pandoc/pdf.yaml --lua-filter docs/pandoc/float-images.lua`
     parses without error against a one-line test markdown.
@@ -88,7 +88,7 @@ adds content. Reuse the already-present `training_doc.cls` + `logo.pdf`.
 - [x] M1.P1.T2 — Add a stub standalone guide with title metadata
   - files: docs/user-guide.md (new)
   - approach: YAML metadata block (title "Node Layout — User Guide", author,
-    the logo via `training_doc.cls` conventions) plus a short intro paragraph and
+    the logo via `trainingDoc.cls` conventions) plus a short intro paragraph and
     empty placeholder headings for Make Room and the headline features. No images
     yet.
   - verify: file parses as valid pandoc markdown; headings present.
@@ -108,7 +108,7 @@ adds content. Reuse the already-present `training_doc.cls` + `logo.pdf`.
   - size: M
 
 **Milestone 1 verification gate:** `make pdf` builds `docs/user-guide.pdf` from
-the stub `docs/user-guide.md` using `training_doc.cls`, with no absolute paths in
+the stub `docs/user-guide.md` using `trainingDoc.cls`, with no absolute paths in
 the Makefile or pandoc config.
 
 ## Milestone 2: Image pipeline proven on Make Room
@@ -314,7 +314,7 @@ absolute paths and README pointing to it.
   Horizontal, Freeze/Unfreeze, Shrink/Expand, plus leader window and
   preferences); all other features go in a text-only "Other Features" section.
   (User decision.)
-- 2026-07-07 — Adopt the pre-existing `docs/latex/training_doc.cls` + `logo.pdf`
+- 2026-07-07 — Adopt the pre-existing `docs/latex/trainingDoc.cls` + `logo.pdf`
   as-is; the only prior "started work" was these two copied files.
 - 2026-07-07 (M1.P1.T1) — Renamed `docs/latex/training_doc.cls` →
   `trainingDoc.cls` (content unchanged) so `\documentclass{trainingDoc}` resolves
