@@ -1,0 +1,136 @@
+#! /usr/local/Nuke16.0v6/libnuke-16.0.6.so -nx
+version 16.0 v6
+Root {
+ inputs 0
+ name docs/screenshots/fixtures/shrink_selected.nk
+ format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement Nuke
+ workingSpaceLUT linear
+ monitorLut sRGB
+ monitorOutLUT rec709
+ int8Lut sRGB
+ int16Lut sRGB
+ logLut Cineon
+ floatLut linear
+}
+BackdropNode {
+ inputs 0
+ name BackdropNode1
+ label screenshot:shrink-before
+ xpos -60
+ ypos -60
+ bdwidth 420
+ bdheight 518
+}
+BackdropNode {
+ inputs 0
+ name BackdropNode2
+ label screenshot:shrink-after
+ selected true
+ xpos 940
+ ypos 16
+ bdwidth 376
+ bdheight 442
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read2
+ xpos 1176
+ ypos 76
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "\{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 0.8, \"v_scale\": 0.8, \"freeze_group\": null\}"
+}
+Grade {
+ name Grade2
+ xpos 1176
+ ypos 172
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "\{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 0.8, \"v_scale\": 0.8, \"freeze_group\": null\}"
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read1
+ xpos 1000
+ ypos 76
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "\{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 0.8, \"v_scale\": 0.8, \"freeze_group\": null\}"
+}
+Grade {
+ name Grade1
+ xpos 1000
+ ypos 172
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "\{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 0.8, \"v_scale\": 0.8, \"freeze_group\": null\}"
+}
+Merge2 {
+ inputs 2
+ name Merge1
+ xpos 1088
+ ypos 284
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "\{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 0.8, \"v_scale\": 0.8, \"freeze_group\": null\}"
+}
+Write {
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ ocioColorspace scene_linear
+ display default
+ view sRGB
+ name Write1
+ xpos 1088
+ ypos 380
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "\{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 0.8, \"v_scale\": 0.8, \"freeze_group\": null\}"
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read4
+ xpos 220
+}
+Grade {
+ name Grade4
+ xpos 220
+ ypos 120
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read3
+ xpos 0
+}
+Grade {
+ name Grade3
+ xpos 0
+ ypos 120
+}
+Merge2 {
+ inputs 2
+ name Merge2
+ xpos 110
+ ypos 260
+}
+Write {
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ ocioColorspace scene_linear
+ display default
+ view sRGB
+ name Write2
+ xpos 110
+ ypos 380
+}

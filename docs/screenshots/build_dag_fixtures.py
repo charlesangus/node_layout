@@ -539,6 +539,133 @@ def build_freeze_scenario():
     wrap_region_in_backdrop(after_nodes, "screenshot:freeze-after")
 
 
+def _build_clean_tree(x_origin, y_origin):
+    r"""Build one TIDY, comfortably-spaced two-branch tree with explicit positions.
+
+    Unlike _build_messy_tree, this is already a clean layout with generous
+    spacing -- the "before" for the shrink scenario is meant to read as a normal,
+    well-spread graph, not a mess. Two source->grade branches merge into a Write.
+
+    Topology (Y-down: inputs higher on screen = more negative Y):
+
+        read_left        read_right
+            |                |
+        grade_left       grade_right
+             \              /
+              \            /
+                 merge_ab
+                    |
+                 write_out
+
+    Positions are relative to (x_origin, y_origin). Returns
+    ``(all_nodes, root_node)`` where ``root_node`` is ``write_out``.
+    """
+    read_left = nuke.createNode("Read", inpanel=False)
+    read_left.setXpos(x_origin + 0)
+    read_left.setYpos(y_origin + 0)
+
+    read_right = nuke.createNode("Read", inpanel=False)
+    read_right.setXpos(x_origin + 220)
+    read_right.setYpos(y_origin + 0)
+
+    grade_left = nuke.createNode("Grade", inpanel=False)
+    grade_left.setInput(0, read_left)
+    grade_left.setXpos(x_origin + 0)
+    grade_left.setYpos(y_origin + 120)
+
+    grade_right = nuke.createNode("Grade", inpanel=False)
+    grade_right.setInput(0, read_right)
+    grade_right.setXpos(x_origin + 220)
+    grade_right.setYpos(y_origin + 120)
+
+    merge_ab = nuke.createNode("Merge2", inpanel=False)
+    merge_ab.setInput(0, grade_left)
+    merge_ab.setInput(1, grade_right)
+    merge_ab.setXpos(x_origin + 110)
+    merge_ab.setYpos(y_origin + 260)
+
+    write_out = nuke.createNode("Write", inpanel=False)
+    write_out.setInput(0, merge_ab)
+    write_out.setXpos(x_origin + 110)
+    write_out.setYpos(y_origin + 380)
+
+    all_nodes = [
+        read_left, read_right, grade_left, grade_right, merge_ab, write_out,
+    ]
+    return all_nodes, write_out
+
+
+def _selection_spread_and_center(nodes):
+    """Return (spread_x, spread_y, center_x, center_y) of ``nodes``' bounding box."""
+    min_x = min(node.xpos() for node in nodes)
+    min_y = min(node.ypos() for node in nodes)
+    max_x = max(node.xpos() + _node_extent(node)[0] for node in nodes)
+    max_y = max(node.ypos() + _node_extent(node)[1] for node in nodes)
+    return (max_x - min_x, max_y - min_y, (min_x + max_x) // 2, (min_y + max_y) // 2)
+
+
+def build_shrink_selected_scenario():
+    """Build the Shrink Selected before/after fixture.
+
+    ``shrink_selected`` scales the selected nodes closer together, keeping the
+    arrangement's shape, so the "after" is a more COMPACT copy of the same tree.
+
+    Engine note: the scale is anchored on the most-downstream selected node (the
+    root ``write_out``), which stays fixed -- every other node moves toward it by
+    the SHRINK_FACTOR. So the bounding box shrinks in both axes and its midpoint
+    shifts slightly toward that fixed anchor (it is an anchor-centred scale, not
+    a bbox-midpoint-centred one). This function asserts the real invariants: both
+    spreads shrink and the anchor node does not move.
+    """
+    nuke.scriptClear()
+
+    # ---- After region: build a clean tree, then shrink it for real ----------
+    after_nodes, anchor_node = _build_clean_tree(0, 0)
+    spread_x_before, spread_y_before, center_x_before, center_y_before = (
+        _selection_spread_and_center(after_nodes)
+    )
+    anchor_before = (anchor_node.xpos(), anchor_node.ypos())
+
+    _select_only(after_nodes)
+    node_layout.shrink_selected()
+
+    after_nodes = nuke.allNodes()
+    spread_x_after, spread_y_after, center_x_after, center_y_after = (
+        _selection_spread_and_center(after_nodes)
+    )
+    anchor_after = (anchor_node.xpos(), anchor_node.ypos())
+
+    if not (spread_x_after < spread_x_before and spread_y_after < spread_y_before):
+        raise AssertionError(
+            "Shrink did not reduce both spreads: x {}->{}, y {}->{}".format(
+                spread_x_before, spread_x_after, spread_y_before, spread_y_after,
+            )
+        )
+    if anchor_before != anchor_after:
+        raise AssertionError(
+            "Shrink anchor (scale centre) moved: {} -> {}".format(
+                anchor_before, anchor_after,
+            )
+        )
+    print(
+        "[build_dag_fixtures] Shrink: spread x {}->{} y {}->{}; "
+        "bbox centre ({}, {})->({}, {}); anchor {} fixed".format(
+            spread_x_before, spread_x_after, spread_y_before, spread_y_after,
+            center_x_before, center_y_before, center_x_after, center_y_after,
+            anchor_after,
+        )
+    )
+
+    _move_region_left_edge_to(after_nodes, AFTER_REGION_LEFT_X)
+
+    # ---- Before region: the same clean tree at its normal spread ------------
+    before_nodes, _ = _build_clean_tree(0, 0)
+
+    # ---- Wrap each region in a labelled BackdropNode ------------------------
+    wrap_region_in_backdrop(before_nodes, "screenshot:shrink-before")
+    wrap_region_in_backdrop(after_nodes, "screenshot:shrink-after")
+
+
 def _save_current_script(filename):
     """Save the current script to FIXTURES_DIR/filename as a portable fixture.
 
@@ -571,6 +698,9 @@ def main():
 
     build_freeze_scenario()
     _save_current_script("freeze.nk")
+
+    build_shrink_selected_scenario()
+    _save_current_script("shrink_selected.nk")
 
 
 def _rewrite_root_name(nk_path, relative_name):
