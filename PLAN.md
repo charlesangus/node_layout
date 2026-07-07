@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M2.P2.T1
-pm_heartbeat: 2026-07-07T03:55:00+00:00
+current: M2.P2.T2
+pm_heartbeat: 2026-07-07T04:10:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -130,7 +130,7 @@ screenshotter PNG render) end to end on the required-first feature, Make Room.
 
 ### Phase 2.2: Make Room before/after
 
-- [ ] M2.P2.T1 — Headless fixture builder for Make Room before/after
+- [x] M2.P2.T1 — Headless fixture builder for Make Room before/after
   - files: docs/screenshots/build_dag_fixtures.py (new)
   - approach: a `nuke -t`-run script that builds a small messy cluster, copies
     it, calls `make_room.make_room(amount, direction)` on the copy, and wraps a
