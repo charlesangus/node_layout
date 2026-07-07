@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M1.P1.T2
-pm_heartbeat: 2026-07-07T03:12:00+00:00
+current: M1.P2.T1
+pm_heartbeat: 2026-07-07T03:16:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -85,7 +85,7 @@ adds content. Reuse the already-present `training_doc.cls` + `logo.pdf`.
   - verify: `pandoc --defaults docs/pandoc/pdf.yaml --lua-filter docs/pandoc/float-images.lua`
     parses without error against a one-line test markdown.
   - size: M
-- [ ] M1.P1.T2 — Add a stub standalone guide with title metadata
+- [x] M1.P1.T2 — Add a stub standalone guide with title metadata
   - files: docs/user-guide.md (new)
   - approach: YAML metadata block (title "Node Layout — User Guide", author,
     the logo via `training_doc.cls` conventions) plus a short intro paragraph and
