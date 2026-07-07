@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M3.P1.T1
-pm_heartbeat: 2026-07-07T04:55:00+00:00
+current: M3.P1.T2
+pm_heartbeat: 2026-07-07T05:30:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -169,7 +169,7 @@ DAG-transformation commands, reusing the M2 pipeline.
 
 ### Phase 3.1: Fixtures for the layout commands
 
-- [ ] M3.P1.T1 — Add Layout Upstream and Layout Selected fixtures
+- [x] M3.P1.T1 — Add Layout Upstream and Layout Selected fixtures
   - files: docs/screenshots/build_dag_fixtures.py (edit)
   - approach: extend the builder with two scenarios — a messy upstream tree run
     through `node_layout.layout_upstream()`, and a multi-root selection run

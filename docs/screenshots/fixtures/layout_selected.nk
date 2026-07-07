@@ -1,0 +1,169 @@
+#! /usr/local/Nuke16.0v6/libnuke-16.0.6.so -nx
+version 16.0 v6
+Root {
+ inputs 0
+ name docs/screenshots/fixtures/layout_selected.nk
+ format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement Nuke
+ workingSpaceLUT linear
+ monitorLut sRGB
+ monitorOutLUT rec709
+ int8Lut sRGB
+ int16Lut sRGB
+ logLut Cineon
+ floatLut linear
+}
+BackdropNode {
+ inputs 0
+ name BackdropNode1
+ label screenshot:layout-selected-before
+ xpos -60
+ ypos -60
+ bdwidth 455
+ bdheight 558
+}
+BackdropNode {
+ inputs 0
+ name BackdropNode2
+ label screenshot:layout-selected-after
+ selected true
+ xpos 940
+ ypos -506
+ bdwidth 635
+ bdheight 1004
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read3
+ xpos 1410
+ ypos 55
+}
+Blur {
+ name Blur1
+ xpos 1435
+ ypos 150
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read2
+ xpos 1250
+ ypos 10
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "\{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 1.0, \"v_scale\": 1.0, \"freeze_group\": null\}"
+}
+Dot {
+ name Dot1
+ xpos 1250
+ ypos 210
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {3 node_layout_bbox_side_dot l "BBox Side Dot Marker" +INVISIBLE}
+ node_layout_bbox_side_dot 1
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "\{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 1.0, \"v_scale\": 1.0, \"freeze_group\": null\}"
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read1
+ xpos 1000
+ ypos -446
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "\{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 1.0, \"v_scale\": 1.0, \"freeze_group\": null\}"
+}
+Grade {
+ name Grade1
+ xpos 1000
+ ypos -390
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "\{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 1.0, \"v_scale\": 1.0, \"freeze_group\": null\}"
+}
+Merge2 {
+ inputs 2
+ name Merge1
+ xpos 1000
+ ypos 210
+ addUserKnob {20 node_layout_tab l "Node Layout" +INVISIBLE}
+ addUserKnob {1 node_layout_state l "Node Layout State" +INVISIBLE}
+ node_layout_state "\{\"scheme\": \"normal\", \"mode\": \"vertical\", \"h_scale\": 1.0, \"v_scale\": 1.0, \"freeze_group\": null\}"
+}
+Merge2 {
+ inputs 2
+ name Merge2
+ xpos 1035
+ ypos 320
+}
+Write {
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ ocioColorspace scene_linear
+ display default
+ view sRGB
+ name Write1
+ xpos 1065
+ ypos 420
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read6
+ xpos 230
+ ypos 55
+}
+Blur {
+ name Blur2
+ xpos 255
+ ypos 150
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read5
+ xpos 45
+ ypos 35
+}
+Read {
+ inputs 0
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ name Read4
+ xpos 0
+}
+Grade {
+ name Grade2
+ xpos 15
+ ypos 120
+}
+Merge2 {
+ inputs 2
+ name Merge3
+ xpos 70
+ ypos 210
+}
+Merge2 {
+ inputs 2
+ name Merge4
+ xpos 105
+ ypos 320
+}
+Write {
+ in_colorspace scene_linear
+ out_colorspace scene_linear
+ ocioColorspace scene_linear
+ display default
+ view sRGB
+ name Write2
+ xpos 135
+ ypos 420
+}
