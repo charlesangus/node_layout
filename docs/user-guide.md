@@ -253,3 +253,116 @@ the dialog stays open. Saving also rebuilds the leader-key tables immediately, s
 a new keyboard layout takes effect without restarting Nuke.
 
 ## Other Features
+
+Beyond the headline layout commands, Node Layout ships a handful of smaller
+utilities and behaviours. Most live in the Node Layout menu; a couple run
+automatically as part of every layout.
+
+### Compact and Loose variants
+
+The Compact and Loose commands run the same Layout Upstream and Layout Selected
+algorithms described above, but tighten or open up the spacing in one step —
+handy when the default (Normal) spacing packs a tree too densely or leaves it
+too airy for the shot you are working on. They are convenience shortcuts for a
+one-off spacing scheme without changing your saved preferences: Compact applies
+the compact multiplier (0.6) and Loose applies the loose multiplier (1.5) to the
+base spacing, exactly the values documented under **Scheme Multipliers** in the
+Preferences section. Adjust those multipliers there and every Compact/Loose run
+follows suit.
+
+These are menu-only; the plain Layout Upstream (`Shift+E`) and Layout Selected
+commands cover the Normal scheme.
+
+| Command | Shortcut |
+|---|---|
+| Layout Upstream Compact | *(none — run from the Node Layout menu)* |
+| Layout Selected Compact | *(none — run from the Node Layout menu)* |
+| Layout Upstream Loose | *(none — run from the Node Layout menu)* |
+| Layout Selected Loose | *(none — run from the Node Layout menu)* |
+
+### Clear Layout State
+
+Node Layout remembers per-node settings — the scheme (Normal/Compact/Loose) and
+the accumulated Shrink/Expand scale — by storing them on the nodes themselves, so
+a later layout reuses your last choices. Clear Layout State wipes that stored
+state, resetting the affected nodes to the default scheme and a scale of 1.0 the
+next time they are laid out. Reach for it when a tree has drifted after repeated
+Shrink/Expand passes, or when you want a clean baseline before re-running a
+layout.
+
+The Selected variant clears only the selected nodes; the Upstream variant clears
+the selected node and its whole upstream tree. Both are wrapped in an undo group,
+so a single `Ctrl+Z` restores the previous state. The command is also on the
+Leader Window as the one-shot `C` key, which is context-aware like the other
+leader keys: with one node selected it runs the Upstream variant, and with two
+or more selected it runs the Selected variant.
+
+| Command | Shortcut |
+|---|---|
+| Clear Layout State Selected | *(none — Node Layout menu, or `C` in Leader mode with two or more nodes selected)* |
+| Clear Layout State Upstream | *(none — Node Layout menu, or `C` in Leader mode with one node selected)* |
+
+### Diamond resolution
+
+Diamond resolution is automatic — there is no command to run. Layout arranges
+nodes as a tree, but real graphs contain "diamonds": a single node whose output
+fans out to two or more consumers within the tree being laid out. A pure tree
+cannot draw one node in two places, so before placing nodes the engine inserts a
+hidden pass-through Dot on the second and later connections into any such shared
+node. Each consumer then gets its own leaf to stack under, while the Dot
+preserves the real DAG topology (its input still carries the shared node's
+output). The inserted Dots are tagged internally and have their input hidden, so
+they stay out of the way; you generally will not notice them beyond seeing the
+tree lay out cleanly instead of overlapping. Non-mask connections always win the
+"directly above" position over mask connections when both reach the same node.
+
+### Select Upstream Ignoring Hidden
+
+This selection helper walks up from the current node and selects its entire
+visible upstream tree, following only ordinary input connections and skipping any
+that are hidden. Use it to grab a whole branch for a follow-up operation —
+layout, freeze, delete — without having to rubber-band or shift-click each node.
+The starting node is included in the resulting selection along with everything
+that feeds it through visible inputs.
+
+Unlike the headline Layout Upstream (`Shift+E`), this command only *selects*
+nodes; it does not move anything.
+
+| Command | Shortcut |
+|---|---|
+| Select Upstream Ignoring Hidden | `E` |
+
+### Sort by filename
+
+Sort by filename lines the selected file-based nodes up in a single horizontal
+row, left to right, in alphabetical order of their file paths — a quick way to
+put a scattered set of Reads into a predictable, readable order. Only nodes that
+have a `file` knob are affected; anything else in the selection is ignored. The
+row starts at the top-left corner of the selection's current bounds and spaces
+the nodes at a fixed 300-unit horizontal interval on a single line.
+
+The command appears in the menu as **Arrange by Filename** and has no shortcut.
+
+| Command | Shortcut |
+|---|---|
+| Arrange by Filename | *(none — run from the Node Layout menu)* |
+
+### Safe Delete
+
+Safe Delete replaces Nuke's stock Backspace/Delete so the "this will break
+hidden-input / expression links" warning only appears when a deletion would
+*actually* leave a dangling link — that is, when a deleted node still has a
+dependent that is not itself being deleted in the same operation. Nuke's default
+warns even when every dependent is part of the same delete, which trains you to
+click straight through it; Safe Delete stays silent in that safe case and only
+interrupts when it matters. Viewer nodes are always treated as harmless
+dependents and never trigger the prompt.
+
+It works on the normal Backspace/Delete keys — there is no separate menu entry —
+and is governed by the **Use Safe Delete** checkbox in the Preferences dialog
+(see the Behaviour group under Preferences, above). Uncheck it to fall back to
+Nuke's stock delete behaviour.
+
+| Action | Shortcut |
+|---|---|
+| Safe Delete | `Backspace` / `Delete` (when Use Safe Delete is enabled) |
