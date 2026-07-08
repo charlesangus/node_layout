@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M5.P2.T1
-pm_heartbeat: 2026-07-08T02:35:00+00:00
+current: M5.P2.T2
+pm_heartbeat: 2026-07-08T03:00:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -275,7 +275,7 @@ editorial/visual pass.
 
 ### Phase 5.2: Polish
 
-- [ ] M5.P2.T1 — Front matter, intro, and cross-references
+- [x] M5.P2.T1 — Front matter, intro, and cross-references
   - files: docs/user-guide.md (edit)
   - approach: add a short "What is Node Layout" intro, a coordinate-system note,
     and a features overview / table of contents; ensure Make Room leads the

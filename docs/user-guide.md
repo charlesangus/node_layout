@@ -5,11 +5,38 @@ header-includes:
   - \department{Node Layout}
 ---
 
-Node Layout is a toolset for Nuke that automatically arranges nodes in the
-DAG, saving artists from manually dragging nodes into tidy, readable
-layouts. It provides commands to lay out upstream trees, selections, and
-freeform arrangements, along with a set of preferences for tuning spacing
-and behavior.
+Node Layout is a DAG layout toolkit for [The Foundry's Nuke](https://www.foundry.com/products/nuke-family/nuke).
+It automatically arranges node graphs into clean, readable hierarchies, so
+instead of manually dragging nodes around your DAG you select a node and let
+the plugin lay out its entire upstream tree — with intelligent spacing,
+color-aware grouping, automatic Dot-node insertion, and collision avoidance
+for the surrounding graph.
+
+Beyond one-key upstream layout, the toolkit provides commands to tidy
+arbitrary selections, arrange nodes along a horizontal spine, open space in a
+crowded graph, freeze hand-placed blocks, and scale spacing in or out — plus a
+"leader key" mode that puts the whole toolset a two-keystroke chord away, and a
+Preferences dialog for tuning spacing and behaviour.
+
+**A note on the DAG coordinate system.** In Nuke's node graph, upstream
+(input) nodes sit *higher* on screen than the downstream nodes they feed, and
+"up" always means toward the inputs. Positive Y runs downward, so a node with a
+smaller Y value appears higher up. The before/after figures throughout this
+guide follow that convention: inputs toward the top, outputs toward the bottom.
+
+## Features at a glance
+
+| Feature | What it does | Section |
+|---|---|---|
+| Make Room | Shift nodes aside to open space for new ones | Make Room |
+| Layout Upstream | Tidy the whole tree feeding into one node | Layout Upstream |
+| Layout Selected | Arrange only the selected nodes | Layout Selected |
+| Layout Selected Horizontal | Lay a selection out along a left-to-right spine | Layout Selected Horizontal |
+| Freeze / Unfreeze | Lock a hand-arranged block so layout moves it as a unit | Freeze / Unfreeze |
+| Shrink / Expand | Tighten or loosen spacing without changing shape | Shrink / Expand |
+| Leader Window | Two-keystroke chords for the whole toolset | Leader Window |
+| Preferences | Tune spacing, scaling, and leader-key behaviour | Preferences |
+| Other features | Compact/Loose, Clear State, Diamonds, Sort, Safe Delete | Other Features |
 
 ## Make Room
 
@@ -28,9 +55,9 @@ Remember that in Nuke's DAG, up is toward the upstream/input side of the
 graph. So Make Room Above pushes nodes up, toward their inputs, while Make
 Room Below pushes nodes down, toward their outputs.
 
-![A tightly packed DAG with no room to insert a node between the upstream reads and the downstream Merge/Write.](docs/images/make_room_before.png)
+![Before: a tightly packed DAG with no room to insert a node between the upstream reads and the downstream Merge/Write.](docs/images/make_room_before.png)
 
-![After running Make Room Below on the Merge/Write, a clear gap opens between the upstream nodes and the pushed-down Merge/Write, ready for a new node.](docs/images/make_room_after.png)
+![After: running Make Room Below on the Merge/Write, a clear gap opens between the upstream nodes and the pushed-down Merge/Write, ready for a new node.](docs/images/make_room_after.png)
 
 The commands live in the Node Layout menu:
 
@@ -58,9 +85,9 @@ node. That node stays put as the root, and its inputs are laid out above it,
 because in Nuke's DAG upstream is up, toward the inputs. Nodes elsewhere in
 the script are left where they are.
 
-![A branch with several Reads, Grades, and a Merge feeding a Write, arranged untidily by hand.](docs/images/layout_upstream_before.png)
+![Before: a branch with several Reads, Grades, and a Merge feeding a Write, arranged untidily by hand.](docs/images/layout_upstream_before.png)
 
-![After Layout Upstream on the Write, the whole feeding tree is stacked neatly above it while the Write stays in place.](docs/images/layout_upstream_after.png)
+![After: Layout Upstream on the Write stacks the whole feeding tree neatly above it while the Write stays in place.](docs/images/layout_upstream_after.png)
 
 | Command | Shortcut |
 |---|---|
@@ -82,9 +109,9 @@ nodes, the ones no other selected node feeds into — and stacks each root's
 selected inputs above it. If the selection contains several independent roots,
 they are arranged side by side, ordered left to right.
 
-![A loose selection of nodes across two small branches, positioned by hand.](docs/images/layout_selected_before.png)
+![Before: a loose selection of nodes across two small branches, positioned by hand.](docs/images/layout_selected_before.png)
 
-![After Layout Selected, only the selected nodes are tidied into clean stacks; everything else stays put.](docs/images/layout_selected_after.png)
+![After: Layout Selected tidies only the selected nodes into clean stacks; everything else stays put.](docs/images/layout_selected_after.png)
 
 | Command | Shortcut |
 |---|---|
@@ -102,9 +129,9 @@ so the primary pipe flows left to right into that root. Each spine node's side
 inputs — its second and later inputs — stack vertically above their point on
 the spine. As with Layout Selected, unselected nodes are left alone.
 
-![A chain of nodes selected in their default vertical arrangement.](docs/images/layout_selected_horizontal_before.png)
+![Before: a chain of nodes selected in their default vertical arrangement.](docs/images/layout_selected_horizontal_before.png)
 
-![After Layout Selected Horizontal, the main chain runs left to right along a spine with side inputs stacked above it.](docs/images/layout_selected_horizontal_after.png)
+![After: Layout Selected Horizontal runs the main chain left to right along a spine with side inputs stacked above it.](docs/images/layout_selected_horizontal_after.png)
 
 | Command | Shortcut |
 |---|---|
@@ -124,9 +151,9 @@ piece. Freezing a single node on its own is a no-op, because a lone node has
 no internal offsets to preserve. Unfreeze removes the tag so the nodes flow
 with the layout again.
 
-![A Grade and Merge frozen together as a two-node block, with the Merge deliberately nudged to one side by hand.](docs/images/freeze_before.png)
+![Before: a Grade and Merge frozen together as a two-node block, with the Merge deliberately nudged to one side by hand.](docs/images/freeze_before.png)
 
-![After a layout, the unfrozen nodes tidy up while the frozen Grade+Merge block keeps its hand-set side offset intact.](docs/images/freeze_after.png)
+![After: a layout tidies the unfrozen nodes while the frozen Grade+Merge block keeps its hand-set side offset intact.](docs/images/freeze_after.png)
 
 | Command | Shortcut |
 |---|---|
@@ -147,9 +174,9 @@ tree holds its position at the bottom and contracts or grows upward. Each
 press applies one step — Shrink multiplies spacing by 0.8, Expand by 1.25 —
 so repeat the shortcut to compact or spread further.
 
-![A tidy two-branch tree: Reads into Grades into a Merge into a Write.](docs/images/shrink_before.png)
+![Before: a tidy two-branch tree of Reads into Grades into a Merge into a Write.](docs/images/shrink_before.png)
 
-![After one Shrink step, the same tree is pulled in tighter around the downstream Write, which has not moved.](docs/images/shrink_after.png)
+![After: one Shrink step pulls the same tree in tighter around the downstream Write, which has not moved.](docs/images/shrink_after.png)
 
 | Command | Shortcut |
 |---|---|
