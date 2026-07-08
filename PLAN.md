@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M4.P2.T1
-pm_heartbeat: 2026-07-08T01:20:00+00:00
+current: M5.P1.T1
+pm_heartbeat: 2026-07-08T01:45:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -245,7 +245,7 @@ add their sections.
 
 ### Phase 4.2: Guide sections
 
-- [ ] M4.P2.T1 — Write the Leader Window and Preferences sections with images
+- [x] M4.P2.T1 — Write the Leader Window and Preferences sections with images
   - files: docs/user-guide.md (edit)
   - approach: add sections for the leader window (key colour-coding, command
     table, click-to-dispatch) and the preferences dialog (each configurable
@@ -362,6 +362,11 @@ absolute paths and README pointing to it.
 
 # Open questions
 
-- None outstanding. (nuke-screenshotter is the user's own repo, installable and
+- Minor source-comment drift found while writing M4.P2.T1 (not fixed — outside
+  this docs plan's scope): `node_layout_leader.py`'s module docstring claims
+  leader mode is armed by `Shift+E`, but `menu.py` actually binds `Shift+D`
+  (`Shift+E` is Layout Upstream). The guide documents the correct `Shift+D`.
+  A one-line docstring fix could ride any future code PR.
+- None otherwise outstanding. (nuke-screenshotter is the user's own repo, installable and
   confirmed working in this environment, so the image milestones run end to end
   here — no human/UAT fallback needed for PNG rendering.)
