@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M4.P1.T1
-pm_heartbeat: 2026-07-08T00:00:00+00:00
+current: M4.P1.T2
+pm_heartbeat: 2026-07-08T00:40:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -219,7 +219,7 @@ add their sections.
 
 ### Phase 4.1: GUI scenarios
 
-- [ ] M4.P1.T1 — Leader window overlay capture scenario
+- [x] M4.P1.T1 — Leader window overlay capture scenario
   - files: docs/screenshots/gui/leader.json (new) OR docs/screenshots/gui/leader_capture.py (new)
   - approach: author a screenshotter playback scenario (or widget-capture `.py`)
     that arms leader mode (`node_layout_leader.arm()`), waits for the overlay
@@ -352,6 +352,13 @@ absolute paths and README pointing to it.
   a tidy two-branch tree and asserts both spreads shrink and the anchor is
   unmoved; guide prose (M3.P2.T1) should describe the behaviour as anchor-centred,
   not "centred on the selection".
+
+- 2026-07-08 (M4.P1.T1) — Leader HUD captured via screenshotter WIDGET mode
+  (docs/screenshots/gui/leader_capture.py), constructing `LeaderKeyOverlay`
+  directly instead of `node_layout_leader.arm()`: the overlay populates fully in
+  `__init__` and arm() needs a focused DAG panel + prefs timer that are
+  non-deterministic under xvfb; the rendered widget is identical. Playback mode
+  was unsuitable because the overlay sets no Qt objectName.
 
 # Open questions
 
