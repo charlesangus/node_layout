@@ -8,6 +8,10 @@
 to: pdf
 pdf-engine: xelatex
 
+# Emit a real table of contents after the title page. trainingDoc.cls sets
+# tocdepth to 3, so subsections (the "Other Features" entries) are listed too.
+toc: true
+
 variables:
   documentclass: trainingDoc
   # lmodern.sty is not guaranteed to be installed, and pandoc's default

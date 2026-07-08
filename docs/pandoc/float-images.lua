@@ -51,6 +51,16 @@ local function build_figure_latex(image)
     table.insert(include_options, "height=" .. image.attributes.height)
   end
 
+  -- When the Markdown gives no explicit dimensions, clamp the figure to the
+  -- text block so oversized screenshots cannot overflow the page. The
+  -- `max width`/`max height` keys come from adjustbox's [export] option (see
+  -- docs/latex/trainingDoc.cls); they only ever scale an image *down* to fit,
+  -- so images that already sit within the text block are left at natural size.
+  if not image.attributes.width and not image.attributes.height then
+    table.insert(include_options, "max width=\\linewidth")
+    table.insert(include_options, "max height=0.8\\textheight")
+  end
+
   local options_string = ""
   if #include_options > 0 then
     options_string = "[" .. table.concat(include_options, ",") .. "]"

@@ -258,6 +258,10 @@ ruff check .
 pytest tests/ -v
 ```
 
+### User guide
+
+A formatted PDF user guide lives at `docs/user-guide.pdf`, built from `docs/user-guide.md` with `make pdf`; its before/after screenshots are regenerated with `make screenshots`.
+
 ---
 
 ## File Overview

@@ -5,11 +5,40 @@ header-includes:
   - \department{Node Layout}
 ---
 
-Node Layout is a toolset for Nuke that automatically arranges nodes in the
-DAG, saving artists from manually dragging nodes into tidy, readable
-layouts. It provides commands to lay out upstream trees, selections, and
-freeform arrangements, along with a set of preferences for tuning spacing
-and behavior.
+Node Layout is a DAG layout toolkit for [The Foundry's Nuke](https://www.foundry.com/products/nuke-family/nuke).
+It automatically arranges node graphs into clean, readable hierarchies, so
+instead of manually dragging nodes around your DAG you select a node and let
+the plugin lay out its entire upstream tree — with intelligent spacing,
+color-aware grouping, automatic Dot-node insertion, and collision avoidance
+for the surrounding graph.
+
+Beyond one-key upstream layout, the toolkit provides commands to tidy
+arbitrary selections, arrange nodes along a horizontal spine, open space in a
+crowded graph, freeze hand-placed blocks, and scale spacing in or out — plus a
+"leader key" mode that puts the whole toolset a two-keystroke chord away, and a
+Preferences dialog for tuning spacing and behaviour.
+
+**A note on the DAG coordinate system.** In Nuke's node graph, upstream
+(input) nodes sit *higher* on screen than the downstream nodes they feed, and
+"up" always means toward the inputs. Positive Y runs downward, so a node with a
+smaller Y value appears higher up. The before/after figures throughout this
+guide follow that convention: inputs toward the top, outputs toward the bottom.
+
+\needspace{12\baselineskip}
+
+## Features at a glance
+
+| Feature | What it does | Section |
+|---|---|---|
+| Make Room | Shift nodes aside to open space for new ones | Make Room |
+| Layout Upstream | Tidy the whole tree feeding into one node | Layout Upstream |
+| Layout Selected | Arrange only the selected nodes | Layout Selected |
+| Layout Selected Horizontal | Lay a selection out along a left-to-right spine | Layout Selected Horizontal |
+| Freeze / Unfreeze | Lock a hand-arranged block so layout moves it as a unit | Freeze / Unfreeze |
+| Shrink / Expand | Tighten or loosen spacing without changing shape | Shrink / Expand |
+| Leader Window | Two-keystroke chords for the whole toolset | Leader Window |
+| Preferences | Tune spacing, scaling, and leader-key behaviour | Preferences |
+| Other features | Compact/Loose, Clear State, Diamonds, Sort, Safe Delete | Other Features |
 
 ## Make Room
 
@@ -28,9 +57,9 @@ Remember that in Nuke's DAG, up is toward the upstream/input side of the
 graph. So Make Room Above pushes nodes up, toward their inputs, while Make
 Room Below pushes nodes down, toward their outputs.
 
-![A tightly packed DAG with no room to insert a node between the upstream reads and the downstream Merge/Write.](docs/images/make_room_before.png)
+![Before: a tightly packed DAG with no room to insert a node between the upstream reads and the downstream Merge/Write.](docs/images/make_room_before.png)
 
-![After running Make Room Below on the Merge/Write, a clear gap opens between the upstream nodes and the pushed-down Merge/Write, ready for a new node.](docs/images/make_room_after.png)
+![After: running Make Room Below on the Merge/Write, a clear gap opens between the upstream nodes and the pushed-down Merge/Write, ready for a new node.](docs/images/make_room_after.png)
 
 The commands live in the Node Layout menu:
 
@@ -58,9 +87,9 @@ node. That node stays put as the root, and its inputs are laid out above it,
 because in Nuke's DAG upstream is up, toward the inputs. Nodes elsewhere in
 the script are left where they are.
 
-![A branch with several Reads, Grades, and a Merge feeding a Write, arranged untidily by hand.](docs/images/layout_upstream_before.png)
+![Before: a branch with several Reads, Grades, and a Merge feeding a Write, arranged untidily by hand.](docs/images/layout_upstream_before.png)
 
-![After Layout Upstream on the Write, the whole feeding tree is stacked neatly above it while the Write stays in place.](docs/images/layout_upstream_after.png)
+![After: Layout Upstream on the Write stacks the whole feeding tree neatly above it while the Write stays in place.](docs/images/layout_upstream_after.png)
 
 | Command | Shortcut |
 |---|---|
@@ -82,9 +111,9 @@ nodes, the ones no other selected node feeds into — and stacks each root's
 selected inputs above it. If the selection contains several independent roots,
 they are arranged side by side, ordered left to right.
 
-![A loose selection of nodes across two small branches, positioned by hand.](docs/images/layout_selected_before.png)
+![Before: a loose selection of nodes across two small branches, positioned by hand.](docs/images/layout_selected_before.png)
 
-![After Layout Selected, only the selected nodes are tidied into clean stacks; everything else stays put.](docs/images/layout_selected_after.png)
+![After: Layout Selected tidies only the selected nodes into clean stacks; everything else stays put.](docs/images/layout_selected_after.png)
 
 | Command | Shortcut |
 |---|---|
@@ -102,9 +131,9 @@ so the primary pipe flows left to right into that root. Each spine node's side
 inputs — its second and later inputs — stack vertically above their point on
 the spine. As with Layout Selected, unselected nodes are left alone.
 
-![A chain of nodes selected in their default vertical arrangement.](docs/images/layout_selected_horizontal_before.png)
+![Before: a chain of nodes selected in their default vertical arrangement.](docs/images/layout_selected_horizontal_before.png)
 
-![After Layout Selected Horizontal, the main chain runs left to right along a spine with side inputs stacked above it.](docs/images/layout_selected_horizontal_after.png)
+![After: Layout Selected Horizontal runs the main chain left to right along a spine with side inputs stacked above it.](docs/images/layout_selected_horizontal_after.png)
 
 | Command | Shortcut |
 |---|---|
@@ -124,9 +153,9 @@ piece. Freezing a single node on its own is a no-op, because a lone node has
 no internal offsets to preserve. Unfreeze removes the tag so the nodes flow
 with the layout again.
 
-![A Grade and Merge frozen together as a two-node block, with the Merge deliberately nudged to one side by hand.](docs/images/freeze_before.png)
+![Before: a Grade and Merge frozen together as a two-node block, with the Merge deliberately nudged to one side by hand.](docs/images/freeze_before.png)
 
-![After a layout, the unfrozen nodes tidy up while the frozen Grade+Merge block keeps its hand-set side offset intact.](docs/images/freeze_after.png)
+![After: a layout tidies the unfrozen nodes while the frozen Grade+Merge block keeps its hand-set side offset intact.](docs/images/freeze_after.png)
 
 | Command | Shortcut |
 |---|---|
@@ -147,9 +176,9 @@ tree holds its position at the bottom and contracts or grows upward. Each
 press applies one step — Shrink multiplies spacing by 0.8, Expand by 1.25 —
 so repeat the shortcut to compact or spread further.
 
-![A tidy two-branch tree: Reads into Grades into a Merge into a Write.](docs/images/shrink_before.png)
+![Before: a tidy two-branch tree of Reads into Grades into a Merge into a Write.](docs/images/shrink_before.png)
 
-![After one Shrink step, the same tree is pulled in tighter around the downstream Write, which has not moved.](docs/images/shrink_after.png)
+![After: one Shrink step pulls the same tree in tighter around the downstream Write, which has not moved.](docs/images/shrink_after.png)
 
 | Command | Shortcut |
 |---|---|
@@ -253,3 +282,116 @@ the dialog stays open. Saving also rebuilds the leader-key tables immediately, s
 a new keyboard layout takes effect without restarting Nuke.
 
 ## Other Features
+
+Beyond the headline layout commands, Node Layout ships a handful of smaller
+utilities and behaviours. Most live in the Node Layout menu; a couple run
+automatically as part of every layout.
+
+### Compact and Loose variants
+
+The Compact and Loose commands run the same Layout Upstream and Layout Selected
+algorithms described above, but tighten or open up the spacing in one step —
+handy when the default (Normal) spacing packs a tree too densely or leaves it
+too airy for the shot you are working on. They are convenience shortcuts for a
+one-off spacing scheme without changing your saved preferences: Compact applies
+the compact multiplier (0.6) and Loose applies the loose multiplier (1.5) to the
+base spacing, exactly the values documented under **Scheme Multipliers** in the
+Preferences section. Adjust those multipliers there and every Compact/Loose run
+follows suit.
+
+These are menu-only; the plain Layout Upstream (`Shift+E`) and Layout Selected
+commands cover the Normal scheme.
+
+| Command | Shortcut |
+|---|---|
+| Layout Upstream Compact | *(none — run from the Node Layout menu)* |
+| Layout Selected Compact | *(none — run from the Node Layout menu)* |
+| Layout Upstream Loose | *(none — run from the Node Layout menu)* |
+| Layout Selected Loose | *(none — run from the Node Layout menu)* |
+
+### Clear Layout State
+
+Node Layout remembers per-node settings — the scheme (Normal/Compact/Loose) and
+the accumulated Shrink/Expand scale — by storing them on the nodes themselves, so
+a later layout reuses your last choices. Clear Layout State wipes that stored
+state, resetting the affected nodes to the default scheme and a scale of 1.0 the
+next time they are laid out. Reach for it when a tree has drifted after repeated
+Shrink/Expand passes, or when you want a clean baseline before re-running a
+layout.
+
+The Selected variant clears only the selected nodes; the Upstream variant clears
+the selected node and its whole upstream tree. Both are wrapped in an undo group,
+so a single `Ctrl+Z` restores the previous state. The command is also on the
+Leader Window as the one-shot `C` key, which is context-aware like the other
+leader keys: with one node selected it runs the Upstream variant, and with two
+or more selected it runs the Selected variant.
+
+| Command | Shortcut |
+|---|---|
+| Clear Layout State Selected | *(none — Node Layout menu, or `C` in Leader mode with two or more nodes selected)* |
+| Clear Layout State Upstream | *(none — Node Layout menu, or `C` in Leader mode with one node selected)* |
+
+### Diamond resolution
+
+Diamond resolution is automatic — there is no command to run. Layout arranges
+nodes as a tree, but real graphs contain "diamonds": a single node whose output
+fans out to two or more consumers within the tree being laid out. A pure tree
+cannot draw one node in two places, so before placing nodes the engine inserts a
+hidden pass-through Dot on the second and later connections into any such shared
+node. Each consumer then gets its own leaf to stack under, while the Dot
+preserves the real DAG topology (its input still carries the shared node's
+output). The inserted Dots are tagged internally and have their input hidden, so
+they stay out of the way; you generally will not notice them beyond seeing the
+tree lay out cleanly instead of overlapping. Non-mask connections always win the
+"directly above" position over mask connections when both reach the same node.
+
+### Select Upstream Ignoring Hidden
+
+This selection helper walks up from the current node and selects its entire
+visible upstream tree, following only ordinary input connections and skipping any
+that are hidden. Use it to grab a whole branch for a follow-up operation —
+layout, freeze, delete — without having to rubber-band or shift-click each node.
+The starting node is included in the resulting selection along with everything
+that feeds it through visible inputs.
+
+Unlike the headline Layout Upstream (`Shift+E`), this command only *selects*
+nodes; it does not move anything.
+
+| Command | Shortcut |
+|---|---|
+| Select Upstream Ignoring Hidden | `E` |
+
+### Sort by filename
+
+Sort by filename lines the selected file-based nodes up in a single horizontal
+row, left to right, in alphabetical order of their file paths — a quick way to
+put a scattered set of Reads into a predictable, readable order. Only nodes that
+have a `file` knob are affected; anything else in the selection is ignored. The
+row starts at the top-left corner of the selection's current bounds and spaces
+the nodes at a fixed 300-unit horizontal interval on a single line.
+
+The command appears in the menu as **Arrange by Filename** and has no shortcut.
+
+| Command | Shortcut |
+|---|---|
+| Arrange by Filename | *(none — run from the Node Layout menu)* |
+
+### Safe Delete
+
+Safe Delete replaces Nuke's stock Backspace/Delete so the "this will break
+hidden-input / expression links" warning only appears when a deletion would
+*actually* leave a dangling link — that is, when a deleted node still has a
+dependent that is not itself being deleted in the same operation. Nuke's default
+warns even when every dependent is part of the same delete, which trains you to
+click straight through it; Safe Delete stays silent in that safe case and only
+interrupts when it matters. Viewer nodes are always treated as harmless
+dependents and never trigger the prompt.
+
+It works on the normal Backspace/Delete keys — there is no separate menu entry —
+and is governed by the **Use Safe Delete** checkbox in the Preferences dialog
+(see the Behaviour group under Preferences, above). Uncheck it to fall back to
+Nuke's stock delete behaviour.
+
+| Action | Shortcut |
+|---|---|
+| Safe Delete | `Backspace` / `Delete` (when Use Safe Delete is enabled) |
