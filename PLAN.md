@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M4.P1.T1
-pm_heartbeat: 2026-07-08T00:00:00+00:00
+current: M5.P1.T1
+pm_heartbeat: 2026-07-08T01:45:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -219,7 +219,7 @@ add their sections.
 
 ### Phase 4.1: GUI scenarios
 
-- [ ] M4.P1.T1 — Leader window overlay capture scenario
+- [x] M4.P1.T1 — Leader window overlay capture scenario
   - files: docs/screenshots/gui/leader.json (new) OR docs/screenshots/gui/leader_capture.py (new)
   - approach: author a screenshotter playback scenario (or widget-capture `.py`)
     that arms leader mode (`node_layout_leader.arm()`), waits for the overlay
@@ -227,14 +227,14 @@ add their sections.
   - verify: running the scenario under xvfb produces a leader-window.png showing
     the HUD with the key badges.
   - size: M
-- [ ] M4.P1.T2 — Preferences dialog capture scenario
+- [x] M4.P1.T2 — Preferences dialog capture scenario
   - files: docs/screenshots/gui/prefs.json (new) OR docs/screenshots/gui/prefs_capture.py (new)
   - approach: open `node_layout_prefs_dialog` and capture the dialog widget to
     docs/images/preferences-dialog.png via widget-capture mode.
   - verify: running the scenario under xvfb produces preferences-dialog.png
     showing the real dialog controls.
   - size: M
-- [ ] M4.P1.T3 — Wire GUI captures into `make screenshots`
+- [x] M4.P1.T3 — Wire GUI captures into `make screenshots`
   - files: Makefile (edit)
   - approach: add gui-shots sub-steps that invoke screenshotter playback/widget
     mode over the leader and prefs scenarios, emitting into docs/images/. Keep
@@ -245,7 +245,7 @@ add their sections.
 
 ### Phase 4.2: Guide sections
 
-- [ ] M4.P2.T1 — Write the Leader Window and Preferences sections with images
+- [x] M4.P2.T1 — Write the Leader Window and Preferences sections with images
   - files: docs/user-guide.md (edit)
   - approach: add sections for the leader window (key colour-coding, command
     table, click-to-dispatch) and the preferences dialog (each configurable
@@ -353,8 +353,20 @@ absolute paths and README pointing to it.
   unmoved; guide prose (M3.P2.T1) should describe the behaviour as anchor-centred,
   not "centred on the selection".
 
+- 2026-07-08 (M4.P1.T1) — Leader HUD captured via screenshotter WIDGET mode
+  (docs/screenshots/gui/leader_capture.py), constructing `LeaderKeyOverlay`
+  directly instead of `node_layout_leader.arm()`: the overlay populates fully in
+  `__init__` and arm() needs a focused DAG panel + prefs timer that are
+  non-deterministic under xvfb; the rendered widget is identical. Playback mode
+  was unsuitable because the overlay sets no Qt objectName.
+
 # Open questions
 
-- None outstanding. (nuke-screenshotter is the user's own repo, installable and
+- Minor source-comment drift found while writing M4.P2.T1 (not fixed — outside
+  this docs plan's scope): `node_layout_leader.py`'s module docstring claims
+  leader mode is armed by `Shift+E`, but `menu.py` actually binds `Shift+D`
+  (`Shift+E` is Layout Upstream). The guide documents the correct `Shift+D`.
+  A one-line docstring fix could ride any future code PR.
+- None otherwise outstanding. (nuke-screenshotter is the user's own repo, installable and
   confirmed working in this environment, so the image milestones run end to end
   here — no human/UAT fallback needed for PNG rendering.)
