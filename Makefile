@@ -22,6 +22,10 @@ LATEX_RESOURCE_DIR := docs/latex
 SCREENSHOT_FIXTURES_DIR := docs/screenshots/fixtures
 DOCS_IMAGES_DIR := docs/images
 
+# Directory of GUI-capture scripts (e.g. leader-window, preferences-dialog)
+# rendered by the `gui-screenshots` target, which `screenshots` depends on.
+GUI_SCREENSHOT_SCRIPTS_DIR := docs/screenshots/gui
+
 # Settings for `make screenshotter-setup`, which installs the
 # `nuke-docs-screenshotter` tool (console command `nuke_dag_capture_auto`)
 # used by a later `screenshots` target to render documentation PNGs from
@@ -40,7 +44,7 @@ PIP ?= pip3
 # Override if your pip does not need/support this flag.
 PIP_INSTALL_ARGS ?= --user --break-system-packages
 
-.PHONY: all pdf clean screenshotter-setup screenshots
+.PHONY: all pdf clean screenshotter-setup screenshots gui-screenshots
 
 all: pdf
 
@@ -74,7 +78,7 @@ screenshotter-setup:
 # `pdf` target: `make pdf` must never trigger a Nuke run, so the committed PNGs
 # are not prerequisites of `pdf`. Intended workflow: `make screenshots` (needs
 # a Nuke license) then `make pdf`. Requires `make screenshotter-setup` first.
-screenshots:
+screenshots: gui-screenshots
 	@command -v $(SCREENSHOTTER) >/dev/null 2>&1 || { \
 		echo "error: '$(SCREENSHOTTER)' not found on PATH. Run 'make screenshotter-setup' first."; \
 		exit 1; \
@@ -89,6 +93,31 @@ screenshots:
 	done; \
 	if [ "$$rendered_any_fixture" -eq 0 ]; then \
 		echo "error: no .nk fixtures found in $(SCREENSHOT_FIXTURES_DIR)"; \
+		exit 1; \
+	fi
+
+# Regenerates the GUI-widget documentation screenshots (leader-window,
+# preferences-dialog) by running each script in GUI_SCREENSHOT_SCRIPTS_DIR
+# through the screenshotter tool, which wraps the launch in xvfb-run. Unlike
+# the backdrop-mode capture above, these scripts drive live Nuke widgets, so
+# NUKE_PATH must point at the repository root for their env fallback to find
+# this project's Python package. A dependency of `screenshots`, not `pdf`
+# (see comment on `screenshots` above for why Nuke runs stay out of `pdf`).
+gui-screenshots:
+	@command -v $(SCREENSHOTTER) >/dev/null 2>&1 || { \
+		echo "error: '$(SCREENSHOTTER)' not found on PATH. Run 'make screenshotter-setup' first."; \
+		exit 1; \
+	}
+	mkdir -p $(DOCS_IMAGES_DIR)
+	@rendered_any_script=0; \
+	for script in $(GUI_SCREENSHOT_SCRIPTS_DIR)/*.py; do \
+		[ -e "$$script" ] || continue; \
+		echo "Capturing GUI screenshot from $$script"; \
+		NUKE_PATH=$(CURDIR) $(SCREENSHOTTER) --nuke-exec $(NUKE) "$$script" --output-dir $(DOCS_IMAGES_DIR) || exit 1; \
+		rendered_any_script=1; \
+	done; \
+	if [ "$$rendered_any_script" -eq 0 ]; then \
+		echo "error: no GUI capture scripts found in $(GUI_SCREENSHOT_SCRIPTS_DIR)"; \
 		exit 1; \
 	fi
 

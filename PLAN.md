@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M4.P1.T3
-pm_heartbeat: 2026-07-08T00:50:00+00:00
+current: M4.P2.T1
+pm_heartbeat: 2026-07-08T01:20:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -234,7 +234,7 @@ add their sections.
   - verify: running the scenario under xvfb produces preferences-dialog.png
     showing the real dialog controls.
   - size: M
-- [ ] M4.P1.T3 — Wire GUI captures into `make screenshots`
+- [x] M4.P1.T3 — Wire GUI captures into `make screenshots`
   - files: Makefile (edit)
   - approach: add gui-shots sub-steps that invoke screenshotter playback/widget
     mode over the leader and prefs scenarios, emitting into docs/images/. Keep
