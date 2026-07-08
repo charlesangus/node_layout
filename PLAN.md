@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
 status: running
-current: M4.P1.T2
-pm_heartbeat: 2026-07-08T00:40:00+00:00
+current: M4.P1.T3
+pm_heartbeat: 2026-07-08T00:50:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -227,7 +227,7 @@ add their sections.
   - verify: running the scenario under xvfb produces a leader-window.png showing
     the HUD with the key badges.
   - size: M
-- [ ] M4.P1.T2 — Preferences dialog capture scenario
+- [x] M4.P1.T2 — Preferences dialog capture scenario
   - files: docs/screenshots/gui/prefs.json (new) OR docs/screenshots/gui/prefs_capture.py (new)
   - approach: open `node_layout_prefs_dialog` and capture the dialog widget to
     docs/images/preferences-dialog.png via widget-capture mode.
