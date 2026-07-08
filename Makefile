@@ -100,8 +100,8 @@ screenshots: gui-screenshots
 # preferences-dialog) by running each script in GUI_SCREENSHOT_SCRIPTS_DIR
 # through the screenshotter tool, which wraps the launch in xvfb-run. Unlike
 # the backdrop-mode capture above, these scripts drive live Nuke widgets, so
-# NUKE_PATH must point at the repository root for their env fallback to find
-# this project's Python package. A dependency of `screenshots`, not `pdf`
+# NODE_LAYOUT_REPO must point at the repository root for their env fallback to
+# find this project's Python package. A dependency of `screenshots`, not `pdf`
 # (see comment on `screenshots` above for why Nuke runs stay out of `pdf`).
 gui-screenshots:
 	@command -v $(SCREENSHOTTER) >/dev/null 2>&1 || { \
@@ -113,7 +113,7 @@ gui-screenshots:
 	for script in $(GUI_SCREENSHOT_SCRIPTS_DIR)/*.py; do \
 		[ -e "$$script" ] || continue; \
 		echo "Capturing GUI screenshot from $$script"; \
-		NUKE_PATH=$(CURDIR) $(SCREENSHOTTER) --nuke-exec $(NUKE) "$$script" --output-dir $(DOCS_IMAGES_DIR) || exit 1; \
+		NODE_LAYOUT_REPO="$(CURDIR)" $(SCREENSHOTTER) --nuke-exec $(NUKE) "$$script" --output-dir $(DOCS_IMAGES_DIR) || exit 1; \
 		rendered_any_script=1; \
 	done; \
 	if [ "$$rendered_any_script" -eq 0 ]; then \

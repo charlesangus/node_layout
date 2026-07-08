@@ -6,7 +6,7 @@ extension)::
     NUKE_PATH=$PWD nuke_dag_capture_auto \
         docs/screenshots/gui/prefs_capture.py --output-dir docs/images
 
-The nuke-screenshotter runner exec's this file inside a live headless Nuke/Qt
+The nuke-screenshotter runner execs this file inside a live headless Nuke/Qt
 session with ``capture(widget, name)`` and ``nuke`` already injected into
 globals (do NOT import them). Each ``capture(widget, name)`` call renders one
 widget to ``<name>.png`` in the output directory, so ``capture(prefs_dialog,
@@ -38,7 +38,7 @@ def _candidate_package_roots():
     """
     this_file = globals().get("__file__")
     if this_file:
-        # docs/screenshots/gui/prefs_capture.py -> repository root is three up.
+        # docs/screenshots/gui/prefs_capture.py -> repository root is four up.
         repository_root = pathlib.Path(this_file).resolve().parent.parent.parent.parent
         yield str(repository_root)
 
@@ -61,7 +61,14 @@ def _ensure_node_layout_importable():
     return None
 
 
-_ensure_node_layout_importable()
+if _ensure_node_layout_importable() is None:
+    raise RuntimeError(
+        "Could not locate the node_layout repository root (looked for "
+        "node_layout_prefs_dialog.py relative to __file__, then "
+        "NODE_LAYOUT_REPO, then each NUKE_PATH entry). Set the "
+        "NODE_LAYOUT_REPO environment variable (or NUKE_PATH) to the "
+        "node_layout repository root."
+    )
 
 from node_layout_prefs_dialog import NodeLayoutPrefsDialog  # noqa: E402
 
