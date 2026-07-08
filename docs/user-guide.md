@@ -24,6 +24,8 @@ Preferences dialog for tuning spacing and behaviour.
 smaller Y value appears higher up. The before/after figures throughout this
 guide follow that convention: inputs toward the top, outputs toward the bottom.
 
+\needspace{12\baselineskip}
+
 ## Features at a glance
 
 | Feature | What it does | Section |

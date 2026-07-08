@@ -1,8 +1,8 @@
 ---
 title: Node Layout user guide PDF
-status: running
-current: M5.P2.T2
-pm_heartbeat: 2026-07-08T03:00:00+00:00
+status: done
+current: null
+pm_heartbeat: 2026-07-08T03:25:00+00:00
 ship: pr-per-milestone
 ---
 
@@ -283,7 +283,7 @@ editorial/visual pass.
     (guide is install-free like labelmaker's).
   - verify: `make pdf` produces a coherent front-to-back reading order with a ToC.
   - size: S
-- [ ] M5.P2.T2 — Final PDF review and image freshness pass
+- [x] M5.P2.T2 — Final PDF review and image freshness pass
   - files: docs/user-guide.md (edit), docs/images/ (regenerate)
   - approach: run `make screenshots && make pdf` clean; visually check every
     figure is current and legible, fix any overflow/float issues, and confirm no
@@ -359,6 +359,12 @@ absolute paths and README pointing to it.
   `__init__` and arm() needs a focused DAG panel + prefs timer that are
   non-deterministic under xvfb; the rendered widget is identical. Playback mode
   was unsuitable because the overlay sets no Qt objectName.
+
+- 2026-07-08 (M5.P2.T2) — Fixed four figures that rendered at natural pixel
+  size and overflowed the page by adding `max width=\linewidth, max
+  height=0.8\textheight` (adjustbox export keys, already loaded by
+  trainingDoc.cls) in float-images.lua for images without explicit dimensions —
+  scale-down only, so correctly-sized figures are untouched.
 
 # Open questions
 
