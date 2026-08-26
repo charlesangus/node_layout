@@ -101,6 +101,10 @@ class TestNodeLayoutPrefsDefaults(unittest.TestCase):
         """get('safe_delete_enabled') returns True when no prefs file exists."""
         self.assertIs(self.instance.get("safe_delete_enabled"), True)
 
+    def test_default_push_surrounding_nodes_enabled(self):
+        """get('push_surrounding_nodes_enabled') returns True when no prefs file exists."""
+        self.assertIs(self.instance.get("push_surrounding_nodes_enabled"), True)
+
 
 class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
     """DEFAULTS dict must contain all expected keys."""
@@ -125,6 +129,7 @@ class TestNodeLayoutPrefsDefaults_DictContents(unittest.TestCase):
             "hint_popup_delay_ms",
             "keyboard_layout",
             "safe_delete_enabled",
+            "push_surrounding_nodes_enabled",
         }
         actual_keys = set(self.prefs_module.DEFAULTS.keys())
         missing_keys = required_keys - actual_keys
@@ -266,6 +271,14 @@ class TestNewPrefsRoundTrip(unittest.TestCase):
         second_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
         self.assertIs(second_instance.get("safe_delete_enabled"), False)
 
+    def test_round_trip_push_surrounding_nodes_enabled_false(self):
+        """set('push_surrounding_nodes_enabled', False) round-trips and overrides the True default."""
+        first_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        first_instance.set("push_surrounding_nodes_enabled", False)
+        first_instance.save()
+        second_instance = self.prefs_module.NodeLayoutPrefs(prefs_file=self.temp_path)
+        self.assertIs(second_instance.get("push_surrounding_nodes_enabled"), False)
+
 
 class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
     """Missing keys in a saved file fall back to DEFAULTS values, not KeyError."""
@@ -309,6 +322,7 @@ class TestNodeLayoutPrefsPartialFileFallback(unittest.TestCase):
         self.assertEqual(instance.get("hint_popup_delay_ms"), 0)
         self.assertEqual(instance.get("keyboard_layout"), "qwerty")
         self.assertIs(instance.get("safe_delete_enabled"), True)
+        self.assertIs(instance.get("push_surrounding_nodes_enabled"), True)
 
 
 class TestNodeLayoutPrefsExports(unittest.TestCase):

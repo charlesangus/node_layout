@@ -682,6 +682,53 @@ class TestFreezeBlockPush(unittest.TestCase):
                          "member_outside should not move (block bbox overlaps before bbox)")
 
 
+class TestPushSurroundingNodesPreference(unittest.TestCase):
+    """push_nodes_to_make_room must no-op when the preference is disabled (#38)."""
+
+    def tearDown(self):
+        _node_layout_prefs_module.prefs_singleton.set(
+            "push_surrounding_nodes_enabled", True
+        )
+
+    def test_push_disabled_leaves_surrounding_node_untouched(self):
+        """With the preference disabled, a node that would otherwise be pushed stays put."""
+        _node_layout_prefs_module.prefs_singleton.set(
+            "push_surrounding_nodes_enabled", False
+        )
+
+        other_node = _StubNode(width=80, height=28, xpos=600, ypos=0)
+
+        bbox_before = (0, 0, 100, 100)
+        bbox_after = (0, 0, 200, 100)
+
+        context_stub = _StubContextManager()
+        context_stub.nodes = lambda: [other_node]
+
+        _nl.push_nodes_to_make_room(
+            set(), bbox_before, bbox_after, current_group=context_stub,
+        )
+
+        self.assertEqual(other_node.xpos(), 600,
+                         "surrounding node must not move when the preference is disabled")
+
+    def test_push_enabled_still_moves_surrounding_node(self):
+        """With the preference at its default (enabled), the existing push behaviour is unchanged."""
+        other_node = _StubNode(width=80, height=28, xpos=600, ypos=0)
+
+        bbox_before = (0, 0, 100, 100)
+        bbox_after = (0, 0, 200, 100)
+
+        context_stub = _StubContextManager()
+        context_stub.nodes = lambda: [other_node]
+
+        _nl.push_nodes_to_make_room(
+            set(), bbox_before, bbox_after, current_group=context_stub,
+        )
+
+        self.assertEqual(other_node.xpos(), 700,
+                         "surrounding node should shift right by 100 when the preference is enabled")
+
+
 # ---------------------------------------------------------------------------
 # TestGroupViewDotCreation
 # ---------------------------------------------------------------------------

@@ -468,6 +468,9 @@ def push_nodes_to_make_room(subtree_node_ids, bbox_before, bbox_after, current_g
         current_group: Nuke group context for node enumeration, or None for root context.
         freeze_blocks: list[FreezeBlock] for rigid block handling, or None.
     """
+    if not node_layout_prefs.prefs_singleton.get("push_surrounding_nodes_enabled"):
+        return
+
     before_min_x, before_min_y, before_max_x, before_max_y = bbox_before
     after_min_x, after_min_y, after_max_x, after_max_y = bbox_after
 
