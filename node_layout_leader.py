@@ -215,7 +215,7 @@ def _dispatch_move_up():
     nuke.Undo.name("Move Up")
     nuke.Undo.begin()
     try:
-        make_room.make_room()
+        make_room.make_room(amount=800)
     finally:
         nuke.Undo.end()
 
@@ -228,7 +228,7 @@ def _dispatch_move_down():
     nuke.Undo.name("Move Down")
     nuke.Undo.begin()
     try:
-        make_room.make_room(direction='down')
+        make_room.make_room(amount=800, direction='down')
     finally:
         nuke.Undo.end()
 
