@@ -105,6 +105,11 @@ class NodeLayoutPrefsDialog(QDialog):
         )
         form_layout.addRow("", self.safe_delete_enabled_checkbox)
 
+        self.push_surrounding_nodes_enabled_checkbox = QCheckBox(
+            "Push surrounding nodes out of the way during layout commands"
+        )
+        form_layout.addRow("", self.push_surrounding_nodes_enabled_checkbox)
+
         # --- Section: Advanced ---
         form_layout.addRow(QLabel(""))  # vertical breathing room
         form_layout.addRow(_make_section_header("Advanced"))
@@ -154,6 +159,9 @@ class NodeLayoutPrefsDialog(QDialog):
         self.safe_delete_enabled_checkbox.setChecked(
             bool(prefs_instance.get("safe_delete_enabled"))
         )
+        self.push_surrounding_nodes_enabled_checkbox.setChecked(
+            bool(prefs_instance.get("push_surrounding_nodes_enabled"))
+        )
 
     def _on_accept(self):
         try:
@@ -173,6 +181,9 @@ class NodeLayoutPrefsDialog(QDialog):
             return
 
         safe_delete_enabled_value = self.safe_delete_enabled_checkbox.isChecked()
+        push_surrounding_nodes_enabled_value = (
+            self.push_surrounding_nodes_enabled_checkbox.isChecked()
+        )
 
         if horizontal_subtree_gap_value <= 0:
             return
@@ -204,6 +215,9 @@ class NodeLayoutPrefsDialog(QDialog):
         prefs_instance.set("hint_popup_delay_ms", hint_popup_delay_ms_value)
         prefs_instance.set("keyboard_layout", self.keyboard_layout_combobox.currentData())
         prefs_instance.set("safe_delete_enabled", safe_delete_enabled_value)
+        prefs_instance.set(
+            "push_surrounding_nodes_enabled", push_surrounding_nodes_enabled_value
+        )
         prefs_instance.save()
         try:
             import node_layout_leader  # noqa: PLC0415

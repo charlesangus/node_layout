@@ -216,6 +216,19 @@ class TestDialogBehaviourSection(unittest.TestCase):
         self.assertIn('"safe_delete_enabled"', self.source)
         self.assertIn("safe_delete_enabled_value", self.source)
 
+    def test_build_ui_contains_push_surrounding_nodes_checkbox(self):
+        """_build_ui must create self.push_surrounding_nodes_enabled_checkbox."""
+        self.assertIn("push_surrounding_nodes_enabled_checkbox", self.source)
+
+    def test_populate_sets_push_surrounding_nodes_enabled(self):
+        """_populate_from_prefs must call setChecked for 'push_surrounding_nodes_enabled'."""
+        self.assertIn("push_surrounding_nodes_enabled", self.source)
+
+    def test_on_accept_persists_push_surrounding_nodes_enabled(self):
+        """_on_accept must write 'push_surrounding_nodes_enabled' back to the prefs singleton."""
+        self.assertIn('"push_surrounding_nodes_enabled"', self.source)
+        self.assertIn("push_surrounding_nodes_enabled_value", self.source)
+
 
 class TestDialogLeaderKeySection(unittest.TestCase):
     """Leader Key section must exist in the dialog with hint_popup_delay_ms field."""

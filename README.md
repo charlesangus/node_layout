@@ -50,6 +50,8 @@ Mask and matte inputs are detected automatically — by input label, by the pres
 
 After layout, the plugin compares the subtree's bounding box before and after. If the tree grew upward or rightward, any nodes that were sitting in that newly occupied space are automatically pushed out of the way. Nodes that were already overlapping the original footprint are left untouched.
 
+This applies to every layout command as well as Shrink/Expand. If you'd rather layout commands never move nodes outside the ones you asked to lay out, disable **Push surrounding nodes** in **Edit → Node Layout → Node Layout Preferences…**.
+
 ---
 
 ### Layout Selected
@@ -218,6 +220,7 @@ Safe Delete is enabled by default and can be toggled in **Edit → Node Layout �
 - **Leader popup delay** — delay before the overlay appears after `Shift+D`
 - **Keyboard layout** — QWERTY, AZERTY, or QWERTZ (remaps chaining keys to correct physical positions)
 - **Safe Delete** — toggle the smarter delete behaviour on or off
+- **Push surrounding nodes** — toggle whether layout and shrink/expand commands shove nodes outside the operation out of the way to make room
 
 Preferences are saved to `~/.nuke/node_layout_prefs.json`.
 
